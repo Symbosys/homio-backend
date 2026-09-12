@@ -12,5 +12,5 @@ export const ENV = {
     cloudApiSecret: process.env.CLOUD_API_SECRET,
     cloudFolder: process.env.CLOUD_FOLDER,
 
-    mode: process.env.MODE,    
+    mode: process.env.MODE as "DEVELOPMENT" | "PRODUCTION",
 }
