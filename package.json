@@ -5,24 +5,16 @@
   "private": true,
   "scripts": {
     "dev": "bun run --watch src/index.ts",
-    "dev:elysia": "bun run --watch src/index.ts --framework=elysia",
-    "dev:express": "bun run --watch src/index.ts --framework=express",
-    "start": "bun run src/index.ts",
-    "test": "bun test"
+    "start": "bun run src/index.ts"
   },
   "devDependencies": {
-    "@types/bun": "latest",
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.6"
+    "@types/bun": "latest"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
   "dependencies": {
-    "@elysiajs/cors": "^1.4.2",
-    "cors": "^2.8.6",
     "elysia": "^1.4.30",
     "express": "^5.2.1"
   }
 }
-
