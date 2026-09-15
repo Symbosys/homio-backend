@@ -59,11 +59,62 @@ export type UserPermissionSlug =
   (typeof USER_PERMISSION_SLUGS)[keyof typeof USER_PERMISSION_SLUGS];
 
 /**
- * Global union of permission names and slugs across all modules.
- * Extend this as more modules (e.g. Roles, Leads, Deals) are added.
+ * Role module permission names
  */
-export type PermissionName = UserPermissionName;
-export type PermissionSlug = UserPermissionSlug;
+export const ROLE_PERMISSIONS = {
+  CREATE_ROLE: "CREATE_ROLE",
+  READ_ROLE: "READ_ROLE",
+  UPDATE_ROLE: "UPDATE_ROLE",
+  DELETE_ROLE: "DELETE_ROLE",
+  ASSIGN_PERMISSION_ROLE: "ASSIGN_PERMISSION_ROLE",
+} as const;
+
+export type RolePermissionName =
+  (typeof ROLE_PERMISSIONS)[keyof typeof ROLE_PERMISSIONS];
+
+/**
+ * Role module permission slugs
+ */
+export const ROLE_PERMISSION_SLUGS = {
+  CREATE_ROLE: "create-role",
+  READ_ROLE: "read-role",
+  UPDATE_ROLE: "update-role",
+  DELETE_ROLE: "delete-role",
+  ASSIGN_PERMISSION_ROLE: "assign-permission-role",
+} as const;
+
+export type RolePermissionSlug =
+  (typeof ROLE_PERMISSION_SLUGS)[keyof typeof ROLE_PERMISSION_SLUGS];
+
+/**
+ * System permission management permission names
+ */
+export const SYSTEM_PERMISSIONS = {
+  READ_PERMISSION: "READ_PERMISSION",
+} as const;
+
+export type SystemPermissionName =
+  (typeof SYSTEM_PERMISSIONS)[keyof typeof SYSTEM_PERMISSIONS];
+
+export const SYSTEM_PERMISSION_SLUGS = {
+  READ_PERMISSION: "read-permission",
+} as const;
+
+export type SystemPermissionSlug =
+  (typeof SYSTEM_PERMISSION_SLUGS)[keyof typeof SYSTEM_PERMISSION_SLUGS];
+
+/**
+ * Global union of permission names and slugs across all modules.
+ */
+export type PermissionName =
+  | UserPermissionName
+  | RolePermissionName
+  | SystemPermissionName;
+
+export type PermissionSlug =
+  | UserPermissionSlug
+  | RolePermissionSlug
+  | SystemPermissionSlug;
 
 /**
  * Type contract for defining a seedable permission
@@ -75,3 +126,4 @@ export interface PermissionDefinition {
   action: PermissionAction;
   description: string;
 }
+

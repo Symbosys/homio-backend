@@ -4,7 +4,7 @@ import { ENV } from "../config/env.js";
 import { prisma } from "../lib/prisma.js";
 import { statusCode } from "../types/types.js";
 import { ErrorResponse } from "../utils/response.util.js";
-import type { UserPermissionName } from "../types/permission.js";
+import type { PermissionName } from "../types/permission.js";
 
 export interface AuthenticatedUser {
   id: string;
@@ -184,22 +184,23 @@ export const requireUserType = (...allowedTypes: Array<"ADMIN" | "USER">) => {
  * Verifies that the user possesses the required permission
  * (either through an assigned Role or direct UserPermission override).
  */
-export const requirePermission = (permission: UserPermissionName) => {
+export const requirePermission = (permission: PermissionName) => {
   return (req: Request, _res: Response, next: NextFunction) => {
     if (!req.user) {
       return next(new ErrorResponse("Unauthorized: Login required", statusCode.Unauthorized));
     }
 
-    if (!req.user.permissions.has(permission)) {
-      return next(
-        new ErrorResponse(
-          `Forbidden: You lack permission '${permission}' to perform this action`,
-          statusCode.Forbidden
-        )
-      );
+    // Admin userType accounts have full master privileges across administrative modules
+    if (req.user.userType === "ADMIN" || req.user.permissions.has(permission)) {
+      return next();
     }
 
-    next();
+    return next(
+      new ErrorResponse(
+        `Forbidden: You lack permission '${permission}' to perform this action`,
+        statusCode.Forbidden
+      )
+    );
   };
 };
 

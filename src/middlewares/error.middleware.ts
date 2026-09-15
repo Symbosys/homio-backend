@@ -18,6 +18,14 @@ export const errorMiddleware = (
   if (err.name === "CastError") err.message = "Invalid ID";
   if ("code" in err && err.code === "P2025") {
     err.message = "Item not found";
+    err.statusCode = statusCode.Not_Found;
+  }
+  if ("code" in err && err.code === "P2002") {
+    const target = Array.isArray((err as any).meta?.target)
+      ? (err as any).meta.target.join(", ")
+      : "Email or phone number";
+    err.message = `A user with this ${target} already exists`;
+    err.statusCode = statusCode.Conflict;
   }
 
    // ✅ Handle Zod error

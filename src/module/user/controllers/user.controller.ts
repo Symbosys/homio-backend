@@ -10,6 +10,12 @@ import {
   resetPasswordSchema,
   assignRolesSchema,
   assignPermissionsSchema,
+  createRoleSchema,
+  updateRoleSchema,
+  getRolesQuerySchema,
+  roleIdParamSchema,
+  assignRolePermissionsSchema,
+  getPermissionsQuerySchema,
 } from "../validators/user.validator.js";
 
 /**
@@ -87,3 +93,75 @@ export const assignPermissions = asyncHandler(async (req, res) => {
   );
   return SuccessResponse(res, "Permissions assigned successfully", result, statusCode.OK);
 });
+
+// ==========================================
+// ROLE CONTROLLERS
+// ==========================================
+
+/**
+ * Controller: Create role (CREATE_ROLE)
+ */
+export const createRole = asyncHandler(async (req, res) => {
+  const parsed = createRoleSchema.parse({ body: req.body });
+  const role = await userService.createRole(parsed.body);
+  return SuccessResponse(res, "Role created successfully", role, statusCode.Created);
+});
+
+/**
+ * Controller: Get all roles (READ_ROLE)
+ */
+export const getRoles = asyncHandler(async (req, res) => {
+  const parsed = getRolesQuerySchema.parse({ query: req.query });
+  const roles = await userService.getRoles(parsed.query);
+  return SuccessResponse(res, "Roles retrieved successfully", roles, statusCode.OK);
+});
+
+/**
+ * Controller: Get role by ID (READ_ROLE)
+ */
+export const getRoleById = asyncHandler(async (req, res) => {
+  const parsed = roleIdParamSchema.parse({ params: req.params });
+  const role = await userService.getRoleById(parsed.params.id);
+  return SuccessResponse(res, "Role details retrieved successfully", role, statusCode.OK);
+});
+
+/**
+ * Controller: Update role (UPDATE_ROLE)
+ */
+export const updateRole = asyncHandler(async (req, res) => {
+  const parsed = updateRoleSchema.parse({ params: req.params, body: req.body });
+  const role = await userService.updateRole(parsed.params.id, parsed.body);
+  return SuccessResponse(res, "Role updated successfully", role, statusCode.OK);
+});
+
+/**
+ * Controller: Delete role (DELETE_ROLE)
+ */
+export const deleteRole = asyncHandler(async (req, res) => {
+  const parsed = roleIdParamSchema.parse({ params: req.params });
+  const result = await userService.deleteRole(parsed.params.id);
+  return SuccessResponse(res, "Role deleted successfully", result, statusCode.OK);
+});
+
+/**
+ * Controller: Assign permissions to role (ASSIGN_PERMISSION_ROLE)
+ */
+export const assignRolePermissions = asyncHandler(async (req, res) => {
+  const parsed = assignRolePermissionsSchema.parse({ params: req.params, body: req.body });
+  const role = await userService.assignRolePermissions(parsed.params.id, parsed.body.permissionIds);
+  return SuccessResponse(res, "Role permissions updated successfully", role, statusCode.OK);
+});
+
+// ==========================================
+// PERMISSION CONTROLLERS
+// ==========================================
+
+/**
+ * Controller: Get system permissions (READ_PERMISSION)
+ */
+export const getPermissions = asyncHandler(async (req, res) => {
+  const parsed = getPermissionsQuerySchema.parse({ query: req.query });
+  const permissions = await userService.getPermissions(parsed.query);
+  return SuccessResponse(res, "Permissions retrieved successfully", permissions, statusCode.OK);
+});
+

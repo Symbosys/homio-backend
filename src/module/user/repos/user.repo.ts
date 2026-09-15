@@ -89,13 +89,13 @@ export class UserRepository {
   }
 
   /**
-   * Find user by unique email (active/non-deleted)
+   * Find user by unique email
    */
-  async findByEmail(email: string) {
+  async findByEmail(email: string, includeDeleted = false) {
     return prisma.user.findFirst({
       where: {
-        email: email.toLowerCase(),
-        isDeleted: false,
+        email: email.trim().toLowerCase(),
+        ...(includeDeleted ? {} : { isDeleted: false }),
       },
       include: {
         roles: {
@@ -123,11 +123,11 @@ export class UserRepository {
   /**
    * Find user by phone number
    */
-  async findByPhone(phone: string) {
+  async findByPhone(phone: string, includeDeleted = false) {
     return prisma.user.findFirst({
       where: {
-        phone,
-        isDeleted: false,
+        phone: phone.trim(),
+        ...(includeDeleted ? {} : { isDeleted: false }),
       },
     });
   }
@@ -407,6 +407,221 @@ export class UserRepository {
     return prisma.refreshToken.updateMany({
       where: { userId, isRevoked: false },
       data: { isRevoked: true },
+    });
+  }
+
+  // ==========================================
+  // ROLES MANAGEMENT
+  // ==========================================
+
+  /**
+   * Create a new role with optional initial permissions
+   */
+  async createRole(data: {
+    name: string;
+    slug: string;
+    description?: string;
+    isSystem?: boolean;
+    isActive?: boolean;
+    permissionIds?: string[];
+  }) {
+    const { permissionIds, ...roleData } = data;
+
+    return prisma.role.create({
+      data: {
+        ...roleData,
+        permissions:
+          permissionIds && permissionIds.length > 0
+            ? {
+                create: permissionIds.map((permissionId) => ({
+                  permissionId,
+                })),
+              }
+            : undefined,
+      },
+      include: {
+        permissions: {
+          include: {
+            permission: true,
+          },
+        },
+        _count: {
+          select: {
+            users: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Find roles with optional search and active status filters
+   */
+  async findRoles(params?: { search?: string; isActive?: boolean }) {
+    const where: any = {};
+
+    if (params?.isActive !== undefined) {
+      where.isActive = params.isActive;
+    }
+
+    if (params?.search) {
+      where.OR = [
+        { name: { contains: params.search, mode: "insensitive" } },
+        { slug: { contains: params.search, mode: "insensitive" } },
+        { description: { contains: params.search, mode: "insensitive" } },
+      ];
+    }
+
+    return prisma.role.findMany({
+      where,
+      orderBy: { createdAt: "asc" },
+      include: {
+        permissions: {
+          include: {
+            permission: true,
+          },
+        },
+        _count: {
+          select: {
+            users: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Find role by ID
+   */
+  async findRoleById(id: string) {
+    return prisma.role.findUnique({
+      where: { id },
+      include: {
+        permissions: {
+          include: {
+            permission: true,
+          },
+        },
+        _count: {
+          select: {
+            users: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Find role by slug
+   */
+  async findRoleBySlug(slug: string) {
+    return prisma.role.findUnique({
+      where: { slug },
+    });
+  }
+
+  /**
+   * Update role details
+   */
+  async updateRole(
+    id: string,
+    data: {
+      name?: string;
+      slug?: string;
+      description?: string | null;
+      isActive?: boolean;
+    }
+  ) {
+    return prisma.role.update({
+      where: { id },
+      data,
+      include: {
+        permissions: {
+          include: {
+            permission: true,
+          },
+        },
+        _count: {
+          select: {
+            users: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Delete custom role (system roles and roles with active assigned users cannot be deleted)
+   */
+  async deleteRole(id: string) {
+    return prisma.role.delete({
+      where: { id },
+    });
+  }
+
+  /**
+   * Atomically assign/replace permissions for a role
+   */
+  async assignRolePermissions(roleId: string, permissionIds: string[]) {
+    return prisma.$transaction(async (tx) => {
+      // Clear existing role permissions
+      await tx.rolePermission.deleteMany({
+        where: { roleId },
+      });
+
+      // Assign new permissions
+      if (permissionIds.length > 0) {
+        await tx.rolePermission.createMany({
+          data: permissionIds.map((permissionId) => ({
+            roleId,
+            permissionId,
+          })),
+        });
+      }
+
+      return tx.role.findUnique({
+        where: { id: roleId },
+        include: {
+          permissions: {
+            include: {
+              permission: true,
+            },
+          },
+          _count: {
+            select: {
+              users: true,
+            },
+          },
+        },
+      });
+    });
+  }
+
+  // ==========================================
+  // PERMISSIONS MANAGEMENT
+  // ==========================================
+
+  /**
+   * Find all permissions, optionally filtered by resource
+   */
+  async findPermissions(params?: { resource?: string; search?: string }) {
+    const where: any = {};
+
+    if (params?.resource) {
+      where.resource = params.resource;
+    }
+
+    if (params?.search) {
+      where.OR = [
+        { name: { contains: params.search, mode: "insensitive" } },
+        { slug: { contains: params.search, mode: "insensitive" } },
+        { description: { contains: params.search, mode: "insensitive" } },
+      ];
+    }
+
+    return prisma.permission.findMany({
+      where,
+      orderBy: [{ resource: "asc" }, { name: "asc" }],
     });
   }
 }

@@ -4,9 +4,9 @@ export const createUserSchema = z.object({
   body: z.object({
     email: z
       .string({ message: "Email is required" })
-      .email("Invalid email format")
       .trim()
-      .toLowerCase(),
+      .toLowerCase()
+      .email("Invalid email format"),
     password: z
       .string({ message: "Password is required" })
       .min(8, "Password must be at least 8 characters long"),
@@ -14,9 +14,14 @@ export const createUserSchema = z.object({
       .string({ message: "First name is required" })
       .trim()
       .min(1, "First name cannot be empty"),
-    lastName: z.string().trim().optional(),
-    phone: z.string().trim().optional(),
-    avatarUrl: z.string().url("Invalid avatar URL").optional(),
+    lastName: z.string().trim().nullable().optional(),
+    phone: z
+      .string()
+      .trim()
+      .transform((val) => (val === "" ? null : val))
+      .nullable()
+      .optional(),
+    avatarUrl: z.string().url("Invalid avatar URL").nullable().optional(),
     userType: z.enum(["ADMIN", "USER"]).optional().default("USER"),
     status: z
       .enum(["ACTIVE", "INACTIVE", "SUSPENDED", "PENDING_VERIFICATION"])
@@ -33,7 +38,12 @@ export const updateUserSchema = z.object({
   body: z.object({
     firstName: z.string().trim().min(1, "First name cannot be empty").optional(),
     lastName: z.string().trim().nullable().optional(),
-    phone: z.string().trim().nullable().optional(),
+    phone: z
+      .string()
+      .trim()
+      .transform((val) => (val === "" ? null : val))
+      .nullable()
+      .optional(),
     avatarUrl: z.string().url("Invalid avatar URL").nullable().optional(),
     status: z
       .enum(["ACTIVE", "INACTIVE", "SUSPENDED", "PENDING_VERIFICATION"])
@@ -109,9 +119,94 @@ export const assignPermissionsSchema = z.object({
   }),
 });
 
+// ==========================================
+// ROLE VALIDATION SCHEMAS
+// ==========================================
+
+export const createRoleSchema = z.object({
+  body: z.object({
+    name: z
+      .string({ message: "Role name is required" })
+      .trim()
+      .min(2, "Role name must be at least 2 characters long"),
+    slug: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .regex(/^[a-z0-9_-]+$/, "Slug can only contain lowercase letters, numbers, hyphens, and underscores")
+      .optional(),
+    description: z.string().trim().optional(),
+    isActive: z.boolean().optional().default(true),
+    permissionIds: z.array(z.string().uuid("Invalid permission ID format")).optional(),
+  }),
+});
+
+export const updateRoleSchema = z.object({
+  params: z.object({
+    id: z.string().uuid("Invalid role ID format"),
+  }),
+  body: z.object({
+    name: z.string().trim().min(2, "Role name must be at least 2 characters long").optional(),
+    slug: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .regex(/^[a-z0-9_-]+$/, "Slug can only contain lowercase letters, numbers, hyphens, and underscores")
+      .optional(),
+    description: z.string().trim().nullable().optional(),
+    isActive: z.boolean().optional(),
+  }),
+});
+
+export const roleIdParamSchema = z.object({
+  params: z.object({
+    id: z.string().uuid("Invalid role ID format"),
+  }),
+});
+
+export const getRolesQuerySchema = z.object({
+  query: z.object({
+    search: z.string().trim().optional(),
+    isActive: z
+      .enum(["true", "false"])
+      .transform((val) => val === "true")
+      .optional(),
+  }),
+});
+
+export const assignRolePermissionsSchema = z.object({
+  params: z.object({
+    id: z.string().uuid("Invalid role ID format"),
+  }),
+  body: z.object({
+    permissionIds: z
+      .array(z.string().uuid("Invalid permission ID format"), {
+        message: "permissionIds array is required",
+      }),
+  }),
+});
+
+// ==========================================
+// PERMISSION VALIDATION SCHEMAS
+// ==========================================
+
+export const getPermissionsQuerySchema = z.object({
+  query: z.object({
+    resource: z.string().trim().optional(),
+    search: z.string().trim().optional(),
+  }),
+});
+
 export type CreateUserInput = z.infer<typeof createUserSchema>["body"];
 export type UpdateUserInput = z.infer<typeof updateUserSchema>["body"];
 export type GetUsersQueryInput = z.infer<typeof getUsersQuerySchema>["query"];
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>["body"];
 export type AssignRolesInput = z.infer<typeof assignRolesSchema>["body"];
 export type AssignPermissionsInput = z.infer<typeof assignPermissionsSchema>["body"];
+
+export type CreateRoleInput = z.infer<typeof createRoleSchema>["body"];
+export type UpdateRoleInput = z.infer<typeof updateRoleSchema>["body"];
+export type GetRolesQueryInput = z.infer<typeof getRolesQuerySchema>["query"];
+export type AssignRolePermissionsInput = z.infer<typeof assignRolePermissionsSchema>["body"];
+export type GetPermissionsQueryInput = z.infer<typeof getPermissionsQuerySchema>["query"];
+

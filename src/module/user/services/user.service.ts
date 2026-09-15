@@ -7,6 +7,10 @@ import type {
   UpdateUserInput,
   GetUsersQueryInput,
   AssignPermissionsInput,
+  CreateRoleInput,
+  UpdateRoleInput,
+  GetRolesQueryInput,
+  GetPermissionsQueryInput,
 } from "../validators/user.validator.js";
 
 export class UserService {
@@ -14,13 +18,16 @@ export class UserService {
    * Create a new user with hashed password and optional roles
    */
   async createUser(input: CreateUserInput, actorId?: string) {
-    const existingEmail = await userRepo.findByEmail(input.email);
+    const normalizedEmail = input.email.trim().toLowerCase();
+    const normalizedPhone = input.phone ? input.phone.trim() : null;
+
+    const existingEmail = await userRepo.findByEmail(normalizedEmail, true);
     if (existingEmail) {
       throw new ErrorResponse("User with this email already exists", statusCode.Conflict);
     }
 
-    if (input.phone) {
-      const existingPhone = await userRepo.findByPhone(input.phone);
+    if (normalizedPhone) {
+      const existingPhone = await userRepo.findByPhone(normalizedPhone, true);
       if (existingPhone) {
         throw new ErrorResponse("User with this phone number already exists", statusCode.Conflict);
       }
@@ -30,12 +37,12 @@ export class UserService {
     const passwordHash = await bcrypt.hash(input.password, salt);
 
     const user = await userRepo.create({
-      email: input.email,
+      email: normalizedEmail,
       passwordHash,
-      firstName: input.firstName,
-      lastName: input.lastName,
-      phone: input.phone,
-      avatarUrl: input.avatarUrl,
+      firstName: input.firstName.trim(),
+      lastName: input.lastName ? input.lastName.trim() : null,
+      phone: normalizedPhone,
+      avatarUrl: input.avatarUrl || null,
       status: input.status,
       userType: input.userType,
       invitedById: actorId,
@@ -98,14 +105,21 @@ export class UserService {
       throw new ErrorResponse("User not found", statusCode.Not_Found);
     }
 
-    if (input.phone && input.phone !== user.phone) {
-      const existingPhone = await userRepo.findByPhone(input.phone);
+    const normalizedPhone = input.phone !== undefined ? (input.phone ? input.phone.trim() : null) : undefined;
+
+    if (normalizedPhone && normalizedPhone !== user.phone) {
+      const existingPhone = await userRepo.findByPhone(normalizedPhone, true);
       if (existingPhone && existingPhone.id !== id) {
         throw new ErrorResponse("Phone number is already associated with another account", statusCode.Conflict);
       }
     }
 
-    const updated = await userRepo.update(id, input);
+    const updated = await userRepo.update(id, {
+      ...input,
+      firstName: input.firstName ? input.firstName.trim() : undefined,
+      lastName: input.lastName !== undefined ? (input.lastName ? input.lastName.trim() : null) : undefined,
+      phone: normalizedPhone,
+    });
     const { passwordHash: _, ...safeUser } = updated as any;
     return safeUser;
   }
@@ -177,6 +191,125 @@ export class UserService {
       userId: id,
       permissions: assigned,
     };
+  }
+
+  // ==========================================
+  // ROLES MANAGEMENT SERVICES
+  // ==========================================
+
+  /**
+   * Create a new role
+   */
+  async createRole(input: CreateRoleInput) {
+    const slug =
+      input.slug ||
+      input.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "");
+
+    const existingRole = await userRepo.findRoleBySlug(slug);
+    if (existingRole) {
+      throw new ErrorResponse(`Role with slug '${slug}' already exists`, statusCode.Conflict);
+    }
+
+    return userRepo.createRole({
+      name: input.name,
+      slug,
+      description: input.description,
+      isActive: input.isActive ?? true,
+      permissionIds: input.permissionIds,
+    });
+  }
+
+  /**
+   * Get all roles
+   */
+  async getRoles(query: GetRolesQueryInput) {
+    return userRepo.findRoles({
+      search: query.search,
+      isActive: query.isActive,
+    });
+  }
+
+  /**
+   * Get single role by ID
+   */
+  async getRoleById(id: string) {
+    const role = await userRepo.findRoleById(id);
+    if (!role) {
+      throw new ErrorResponse("Role not found", statusCode.Not_Found);
+    }
+    return role;
+  }
+
+  /**
+   * Update role
+   */
+  async updateRole(id: string, input: UpdateRoleInput) {
+    const role = await userRepo.findRoleById(id);
+    if (!role) {
+      throw new ErrorResponse("Role not found", statusCode.Not_Found);
+    }
+
+    if (input.slug && input.slug !== role.slug) {
+      const existingSlug = await userRepo.findRoleBySlug(input.slug);
+      if (existingSlug && existingSlug.id !== id) {
+        throw new ErrorResponse(`Role with slug '${input.slug}' already exists`, statusCode.Conflict);
+      }
+    }
+
+    return userRepo.updateRole(id, input);
+  }
+
+  /**
+   * Delete role
+   */
+  async deleteRole(id: string) {
+    const role = await userRepo.findRoleById(id);
+    if (!role) {
+      throw new ErrorResponse("Role not found", statusCode.Not_Found);
+    }
+
+    if (role.isSystem) {
+      throw new ErrorResponse("System default roles cannot be deleted", statusCode.Bad_Request);
+    }
+
+    if (role._count?.users > 0) {
+      throw new ErrorResponse(
+        `Cannot delete role because it is currently assigned to ${role._count.users} user(s). Reassign them first.`,
+        statusCode.Bad_Request
+      );
+    }
+
+    await userRepo.deleteRole(id);
+    return { message: "Role deleted successfully" };
+  }
+
+  /**
+   * Assign permissions to role
+   */
+  async assignRolePermissions(roleId: string, permissionIds: string[]) {
+    const role = await userRepo.findRoleById(roleId);
+    if (!role) {
+      throw new ErrorResponse("Role not found", statusCode.Not_Found);
+    }
+
+    return userRepo.assignRolePermissions(roleId, permissionIds);
+  }
+
+  // ==========================================
+  // PERMISSIONS MANAGEMENT SERVICES
+  // ==========================================
+
+  /**
+   * Get all system permissions
+   */
+  async getPermissions(query: GetPermissionsQueryInput) {
+    return userRepo.findPermissions({
+      resource: query.resource,
+      search: query.search,
+    });
   }
 }
 
