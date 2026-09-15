@@ -4,7 +4,7 @@ import { ENV } from "../config/env.js";
 import { prisma } from "../lib/prisma.js";
 import { statusCode } from "../types/types.js";
 import { ErrorResponse } from "../utils/response.util.js";
-import type { PermissionName } from "../types/permission.js";
+import type { Permission } from "../types/permission.js";
 
 export interface AuthenticatedUser {
   id: string;
@@ -184,7 +184,7 @@ export const requireUserType = (...allowedTypes: Array<"ADMIN" | "USER">) => {
  * Verifies that the user possesses the required permission
  * (either through an assigned Role or direct UserPermission override).
  */
-export const requirePermission = (permission: PermissionName) => {
+export const requirePermission = (permission: Permission) => {
   return (req: Request, _res: Response, next: NextFunction) => {
     if (!req.user) {
       return next(new ErrorResponse("Unauthorized: Login required", statusCode.Unauthorized));
