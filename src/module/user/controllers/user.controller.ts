@@ -1,5 +1,5 @@
 import { asyncHandler } from "../../../middlewares/error.middleware.js";
-import { SuccessResponse } from "../../../utils/response.util.js";
+import { ErrorResponse, SuccessResponse } from "../../../utils/response.util.js";
 import { statusCode } from "../../../types/types.js";
 import { userService } from "../services/user.service.js";
 import {
@@ -22,8 +22,16 @@ import {
  * Controller: Create user (CREATE_USER)
  */
 export const createUser = asyncHandler(async (req, res) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new ErrorResponse("Organization context is required to create a user", statusCode.Forbidden);
+  }
   const parsed = createUserSchema.parse({ body: req.body });
-  const user = await userService.createUser(parsed.body, req.user?.id);
+  const user = await userService.createUser({
+    ...parsed.body,
+    organizationId,
+    userType: "ADMIN",
+  }, req.user?.id);
   return SuccessResponse(res, "User created successfully", user, statusCode.Created);
 });
 
@@ -31,8 +39,12 @@ export const createUser = asyncHandler(async (req, res) => {
  * Controller: Get paginated users list (READ_USER)
  */
 export const getUsers = asyncHandler(async (req, res) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new ErrorResponse("Organization context is required to retrieve users", statusCode.Forbidden);
+  }
   const parsed = getUsersQuerySchema.parse({ query: req.query });
-  const result = await userService.getUsers(parsed.query);
+  const result = await userService.getUsers(organizationId, parsed.query);
   return SuccessResponse(res, "Users retrieved successfully", result, statusCode.OK);
 });
 
@@ -102,8 +114,15 @@ export const assignPermissions = asyncHandler(async (req, res) => {
  * Controller: Create role (CREATE_ROLE)
  */
 export const createRole = asyncHandler(async (req, res) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new ErrorResponse("Organization context is required to create a role", statusCode.Forbidden);
+  }
   const parsed = createRoleSchema.parse({ body: req.body });
-  const role = await userService.createRole(parsed.body);
+  const role = await userService.createRole({
+    ...parsed.body,
+    organizationId,
+  });
   return SuccessResponse(res, "Role created successfully", role, statusCode.Created);
 });
 
@@ -111,8 +130,12 @@ export const createRole = asyncHandler(async (req, res) => {
  * Controller: Get all roles (READ_ROLE)
  */
 export const getRoles = asyncHandler(async (req, res) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new ErrorResponse("Organization context is required to retrieve roles", statusCode.Forbidden);
+  }
   const parsed = getRolesQuerySchema.parse({ query: req.query });
-  const roles = await userService.getRoles(parsed.query);
+  const roles = await userService.getRoles(organizationId, parsed.query);
   return SuccessResponse(res, "Roles retrieved successfully", roles, statusCode.OK);
 });
 
@@ -120,8 +143,12 @@ export const getRoles = asyncHandler(async (req, res) => {
  * Controller: Get role by ID (READ_ROLE)
  */
 export const getRoleById = asyncHandler(async (req, res) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new ErrorResponse("Organization context is required", statusCode.Forbidden);
+  }
   const parsed = roleIdParamSchema.parse({ params: req.params });
-  const role = await userService.getRoleById(parsed.params.id);
+  const role = await userService.getRoleById(parsed.params.id, organizationId);
   return SuccessResponse(res, "Role details retrieved successfully", role, statusCode.OK);
 });
 
@@ -129,8 +156,12 @@ export const getRoleById = asyncHandler(async (req, res) => {
  * Controller: Update role (UPDATE_ROLE)
  */
 export const updateRole = asyncHandler(async (req, res) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new ErrorResponse("Organization context is required", statusCode.Forbidden);
+  }
   const parsed = updateRoleSchema.parse({ params: req.params, body: req.body });
-  const role = await userService.updateRole(parsed.params.id, parsed.body);
+  const role = await userService.updateRole(parsed.params.id, organizationId, parsed.body);
   return SuccessResponse(res, "Role updated successfully", role, statusCode.OK);
 });
 
@@ -138,8 +169,12 @@ export const updateRole = asyncHandler(async (req, res) => {
  * Controller: Delete role (DELETE_ROLE)
  */
 export const deleteRole = asyncHandler(async (req, res) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new ErrorResponse("Organization context is required", statusCode.Forbidden);
+  }
   const parsed = roleIdParamSchema.parse({ params: req.params });
-  const result = await userService.deleteRole(parsed.params.id);
+  const result = await userService.deleteRole(parsed.params.id, organizationId);
   return SuccessResponse(res, "Role deleted successfully", result, statusCode.OK);
 });
 
@@ -147,8 +182,12 @@ export const deleteRole = asyncHandler(async (req, res) => {
  * Controller: Assign permissions to role (ASSIGN_PERMISSION_ROLE)
  */
 export const assignRolePermissions = asyncHandler(async (req, res) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new ErrorResponse("Organization context is required", statusCode.Forbidden);
+  }
   const parsed = assignRolePermissionsSchema.parse({ params: req.params, body: req.body });
-  const role = await userService.assignRolePermissions(parsed.params.id, parsed.body.permissionIds);
+  const role = await userService.assignRolePermissions(parsed.params.id, organizationId, parsed.body.permissionIds);
   return SuccessResponse(res, "Role permissions updated successfully", role, statusCode.OK);
 });
 

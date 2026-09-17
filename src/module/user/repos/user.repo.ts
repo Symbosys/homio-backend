@@ -1,10 +1,12 @@
 import { prisma } from "../../../lib/prisma.js";
+import type { User } from "../../../types/types.js";
 
 export class UserRepository {
   /**
    * Create a new user record with optional initial roles
    */
   async create(data: {
+    organizationId?: string | null;
     email: string;
     passwordHash: string;
     firstName: string;
@@ -132,9 +134,10 @@ export class UserRepository {
   }
 
   /**
-   * Query paginated users with filters
+   * Query paginated users with filters scoped to organization
    */
   async findMany(params: {
+    organizationId: string;
     skip: number;
     take: number;
     search?: string;
@@ -144,18 +147,16 @@ export class UserRepository {
     sortBy?: string;
     sortOrder?: "asc" | "desc";
   }) {
-    const { skip, take, search, status, userType, roleId, sortBy = "createdAt", sortOrder = "desc" } = params;
+    const { organizationId, skip, take, search, status, userType, roleId, sortBy = "createdAt", sortOrder = "desc" } = params;
 
     const where: any = {
       isDeleted: false,
+      organizationId,
+      userType: "ADMIN",
     };
 
     if (status) {
       where.status = status;
-    }
-
-    if (userType) {
-      where.userType = userType;
     }
 
     if (roleId) {
@@ -417,6 +418,7 @@ export class UserRepository {
    * Create a new role with optional initial permissions
    */
   async createRole(data: {
+    organizationId: string;
     name: string;
     slug: string;
     description?: string;
@@ -454,10 +456,10 @@ export class UserRepository {
   }
 
   /**
-   * Find roles with optional search and active status filters
+   * Find roles with optional search and active status filters scoped to organization
    */
-  async findRoles(params?: { search?: string; isActive?: boolean }) {
-    const where: any = {};
+  async findRoles(organizationId: string, params?: { search?: string; isActive?: boolean }) {
+    const where: any = { organizationId };
 
     if (params?.isActive !== undefined) {
       where.isActive = params.isActive;
@@ -490,11 +492,14 @@ export class UserRepository {
   }
 
   /**
-   * Find role by ID
+   * Find role by ID and optional organizationId
    */
-  async findRoleById(id: string) {
-    return prisma.role.findUnique({
-      where: { id },
+  async findRoleById(id: string, organizationId?: string) {
+    return prisma.role.findFirst({
+      where: {
+        id,
+        ...(organizationId ? { organizationId } : {}),
+      },
       include: {
         permissions: {
           include: {
@@ -511,11 +516,14 @@ export class UserRepository {
   }
 
   /**
-   * Find role by slug
+   * Find role by organization and slug
    */
-  async findRoleBySlug(slug: string) {
-    return prisma.role.findUnique({
-      where: { slug },
+  async findRoleBySlug(organizationId: string, slug: string) {
+    return prisma.role.findFirst({
+      where: {
+        organizationId,
+        slug,
+      },
     });
   }
 

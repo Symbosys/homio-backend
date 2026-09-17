@@ -25,7 +25,7 @@ export const createUserSchema = z.object({
     userType: z.enum(["ADMIN", "USER"]).optional().default("USER"),
     organizationId: z.string().uuid("Invalid organization ID format").nullable().optional(),
     status: z
-      .enum(["ACTIVE", "INACTIVE", "SUSPENDED", "PENDING_VERIFICATION"])
+      .enum(["ACTIVE", "INACTIVE"])
       .optional()
       .default("ACTIVE"),
     roleIds: z.array(z.string().uuid("Invalid role ID format")).optional(),

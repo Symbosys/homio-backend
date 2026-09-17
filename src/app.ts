@@ -8,6 +8,7 @@ import roleRoutes from "./module/user/routes/role.routes.js";
 import permissionRoutes from "./module/user/routes/permission.routes.js";
 import platformSubscriptionRoutes from "./module/subscription/routes/subscription.routes.js";
 import platformOrganizationRoutes from "./module/organization/routes/organization.routes.js";
+import marketplaceRouter from "./module/marketplace/routes/index.js";
 
 const app = express();
 
@@ -44,6 +45,11 @@ app.use("/api/v1/permissions", permissionRoutes);
  */
 app.use("/api/v1/platform/subscriptions", platformSubscriptionRoutes);
 app.use("/api/v1/platform/organizations", platformOrganizationRoutes);
+
+/**
+ * Marketplace Multi-Vertical Module Routes
+ */
+app.use("/api/v1/marketplace", marketplaceRouter);
 
 app.use(errorMiddleware);
 

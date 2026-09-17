@@ -58,6 +58,7 @@ export class AuthService {
         userId: user.id,
         email: user.email,
         userType: user.userType,
+        organizationId: user.organizationId,
       },
       ENV.JWT_SECRET,
       { expiresIn: "1d" }

@@ -38,8 +38,15 @@ model Organization {
     updatedAt   DateTime           @updatedAt @map("updated_at")
 
     // Relations
-    users         User[]         @relation("OrganizationUsers")
-    subscriptions Subscription[]
+    users             User[]                            @relation("OrganizationUsers")
+    roles             Role[]                            @relation("OrganizationRoles")
+    subscriptions     Subscription[]
+    digitalProducts   DigitalProduct[]                  @relation("OrganizationDigitalProducts")
+    homeDecorProducts HomeDecorProduct[]                @relation("OrganizationHomeDecorProducts")
+    propertyListings  PropertyListing[]                 @relation("OrganizationPropertyListings")
+    materialProducts  MaterialProduct[]                 @relation("OrganizationMaterialProducts")
+    sellerCategories  OrganizationMarketplaceCategory[] @relation("OrganizationMarketplaceCategories")
+    vendors           Vendor[]                          @relation("OrganizationVendors")
 
     @@index([slug])
     @@index([status])

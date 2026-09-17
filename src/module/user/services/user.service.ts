@@ -17,7 +17,7 @@ export class UserService {
   /**
    * Create a new user with hashed password and optional roles
    */
-  async createUser(input: CreateUserInput, actorId?: string) {
+  async createUser(input: CreateUserInput & { organizationId?: string | null }, actorId?: string) {
     const normalizedEmail = input.email.trim().toLowerCase();
     const normalizedPhone = input.phone ? input.phone.trim() : null;
 
@@ -37,6 +37,7 @@ export class UserService {
     const passwordHash = await bcrypt.hash(input.password, salt);
 
     const user = await userRepo.create({
+      organizationId: input.organizationId,
       email: normalizedEmail,
       passwordHash,
       firstName: input.firstName.trim(),
@@ -54,19 +55,20 @@ export class UserService {
   }
 
   /**
-   * Retrieve paginated users with filtering & search
+   * Retrieve paginated users with filtering & search scoped to organization and ADMIN userType
    */
-  async getUsers(query: GetUsersQueryInput) {
+  async getUsers(organizationId: string, query: GetUsersQueryInput) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
     const { users, total } = await userRepo.findMany({
+      organizationId,
       skip,
       take: limit,
       search: query.search,
       status: query.status,
-      userType: query.userType,
+      userType: "ADMIN",
       roleId: query.roleId,
       sortBy: query.sortBy,
       sortOrder: query.sortOrder,
@@ -198,9 +200,9 @@ export class UserService {
   // ==========================================
 
   /**
-   * Create a new role
+   * Create a new role scoped to organization
    */
-  async createRole(input: CreateRoleInput) {
+  async createRole(input: CreateRoleInput & { organizationId: string }) {
     const slug =
       input.slug ||
       input.name
@@ -208,12 +210,13 @@ export class UserService {
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/(^-|-$)/g, "");
 
-    const existingRole = await userRepo.findRoleBySlug(slug);
+    const existingRole = await userRepo.findRoleBySlug(input.organizationId, slug);
     if (existingRole) {
-      throw new ErrorResponse(`Role with slug '${slug}' already exists`, statusCode.Conflict);
+      throw new ErrorResponse(`Role with slug '${slug}' already exists in this organization`, statusCode.Conflict);
     }
 
     return userRepo.createRole({
+      organizationId: input.organizationId,
       name: input.name,
       slug,
       description: input.description,
@@ -223,20 +226,20 @@ export class UserService {
   }
 
   /**
-   * Get all roles
+   * Get all roles scoped to organization
    */
-  async getRoles(query: GetRolesQueryInput) {
-    return userRepo.findRoles({
+  async getRoles(organizationId: string, query: GetRolesQueryInput) {
+    return userRepo.findRoles(organizationId, {
       search: query.search,
       isActive: query.isActive,
     });
   }
 
   /**
-   * Get single role by ID
+   * Get single role by ID within organization
    */
-  async getRoleById(id: string) {
-    const role = await userRepo.findRoleById(id);
+  async getRoleById(id: string, organizationId: string) {
+    const role = await userRepo.findRoleById(id, organizationId);
     if (!role) {
       throw new ErrorResponse("Role not found", statusCode.Not_Found);
     }
@@ -244,18 +247,18 @@ export class UserService {
   }
 
   /**
-   * Update role
+   * Update role within organization
    */
-  async updateRole(id: string, input: UpdateRoleInput) {
-    const role = await userRepo.findRoleById(id);
+  async updateRole(id: string, organizationId: string, input: UpdateRoleInput) {
+    const role = await userRepo.findRoleById(id, organizationId);
     if (!role) {
       throw new ErrorResponse("Role not found", statusCode.Not_Found);
     }
 
     if (input.slug && input.slug !== role.slug) {
-      const existingSlug = await userRepo.findRoleBySlug(input.slug);
+      const existingSlug = await userRepo.findRoleBySlug(organizationId, input.slug);
       if (existingSlug && existingSlug.id !== id) {
-        throw new ErrorResponse(`Role with slug '${input.slug}' already exists`, statusCode.Conflict);
+        throw new ErrorResponse(`Role with slug '${input.slug}' already exists in this organization`, statusCode.Conflict);
       }
     }
 
@@ -263,10 +266,10 @@ export class UserService {
   }
 
   /**
-   * Delete role
+   * Delete role within organization
    */
-  async deleteRole(id: string) {
-    const role = await userRepo.findRoleById(id);
+  async deleteRole(id: string, organizationId: string) {
+    const role = await userRepo.findRoleById(id, organizationId);
     if (!role) {
       throw new ErrorResponse("Role not found", statusCode.Not_Found);
     }
@@ -287,10 +290,10 @@ export class UserService {
   }
 
   /**
-   * Assign permissions to role
+   * Assign permissions to role within organization
    */
-  async assignRolePermissions(roleId: string, permissionIds: string[]) {
-    const role = await userRepo.findRoleById(roleId);
+  async assignRolePermissions(roleId: string, organizationId: string, permissionIds: string[]) {
+    const role = await userRepo.findRoleById(roleId, organizationId);
     if (!role) {
       throw new ErrorResponse("Role not found", statusCode.Not_Found);
     }
