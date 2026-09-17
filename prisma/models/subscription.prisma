@@ -1,0 +1,118 @@
+/// Lifecycle states for a subscription.
+enum SubscriptionStatus {
+    TRIALING
+    ACTIVE
+    PAST_DUE
+    CANCELED
+    UNPAID
+    EXPIRED
+    PAUSED
+}
+
+/// Billing frequency for subscriptions.
+enum BillingCycle {
+    MONTHLY
+    QUARTERLY
+    YEARLY
+}
+
+/**
+ * Subscription Plan
+ *
+ * Defines the available subscription tiers that organizations can subscribe to.
+ * Plans are managed by the platform admin, not by individual organizations.
+ */
+model SubscriptionPlan {
+    id           String   @id @default(uuid()) @db.Uuid
+    name         String   @unique @map("name")
+    slug         String   @unique @map("slug")
+    description  String?  @map("description")
+
+    /* Pricing */
+    priceMonthly Decimal  @default(0) @db.Decimal(10, 2) @map("price_monthly")
+    priceYearly  Decimal  @default(0) @db.Decimal(10, 2) @map("price_yearly")
+    currency     String   @default("INR") @db.VarChar(3) @map("currency")
+
+    /**
+     * Feature Flags
+     * Flexible JSON for plan-specific feature toggles.
+     * Example: { "customBranding": true, "apiAccess": false }
+     */
+    features     Json     @default("{}") @map("features")
+
+    isActive     Boolean  @default(true) @map("is_active")
+    sortOrder    Int      @default(0) @map("sort_order")
+
+    /* Timestamps */
+    createdAt    DateTime @default(now()) @map("created_at")
+    updatedAt    DateTime @updatedAt @map("updated_at")
+
+    /* Relations */
+    planFeature   PlanFeature?
+    subscriptions Subscription[]
+
+    @@index([slug])
+    @@index([isActive])
+    @@map("subscription_plans")
+}
+
+/**
+ * Plan Feature
+ *
+ * Stores direct feature limits such as maxUser and maxEmployee per plan.
+ */
+model PlanFeature {
+    id          String   @id @default(uuid()) @db.Uuid
+    planId      String   @unique @map("plan_id") @db.Uuid
+    maxUser     Int      @default(5) @map("max_user")
+    maxEmployee Int      @default(10) @map("max_employee")
+
+    /* Timestamps */
+    createdAt   DateTime @default(now()) @map("created_at")
+    updatedAt   DateTime @updatedAt @map("updated_at")
+
+    /* Relations */
+    plan        SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+    @@map("plan_features")
+}
+
+/**
+ * Subscription
+ *
+ * Tracks an organization's subscription lifecycle.
+ * The externalId field stores payment gateway ID (Razorpay/Stripe) for webhook reconciliation.
+ */
+model Subscription {
+    id                 String             @id @default(uuid()) @db.Uuid
+    organizationId     String             @map("organization_id") @db.Uuid
+    planId             String             @map("plan_id") @db.Uuid
+
+    status             SubscriptionStatus @default(TRIALING)
+    billingCycle       BillingCycle       @default(MONTHLY) @map("billing_cycle")
+
+    /* Billing Period */
+    currentPeriodStart DateTime           @map("current_period_start")
+    currentPeriodEnd   DateTime           @map("current_period_end")
+    trialEndsAt        DateTime?          @map("trial_ends_at")
+    cancelledAt        DateTime?          @map("cancelled_at")
+
+    /**
+     * Payment Gateway
+     * Razorpay subscription ID / Stripe subscription ID
+     */
+    externalId         String?            @unique @map("external_id")
+
+    /* Timestamps */
+    createdAt          DateTime           @default(now()) @map("created_at")
+    updatedAt          DateTime           @updatedAt @map("updated_at")
+
+    /* Relations */
+    organization       Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    plan               SubscriptionPlan   @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+    @@index([organizationId])
+    @@index([status])
+    @@index([currentPeriodEnd])
+    @@map("subscriptions")
+}

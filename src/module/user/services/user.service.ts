@@ -21,7 +21,7 @@ export class UserService {
     const normalizedEmail = input.email.trim().toLowerCase();
     const normalizedPhone = input.phone ? input.phone.trim() : null;
 
-    const existingEmail = await userRepo.findByEmail(normalizedEmail, true);
+    const existingEmail = await userRepo.findByEmail(normalizedEmail);
     if (existingEmail) {
       throw new ErrorResponse("User with this email already exists", statusCode.Conflict);
     }

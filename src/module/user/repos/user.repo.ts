@@ -91,11 +91,10 @@ export class UserRepository {
   /**
    * Find user by unique email
    */
-  async findByEmail(email: string, includeDeleted = false) {
+  async findByEmail(email: string) {
     return prisma.user.findFirst({
       where: {
         email: email.trim().toLowerCase(),
-        ...(includeDeleted ? {} : { isDeleted: false }),
       },
       include: {
         roles: {

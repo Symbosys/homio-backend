@@ -1,0 +1,48 @@
+enum OrganizationStatus {
+    ACTIVE
+    INACTIVE
+    SUSPENDED
+    PENDING_VERIFICATION
+}
+
+model Organization {
+    id          String             @id @default(uuid()) @db.Uuid
+    name        String             @map("name")
+    slug        String             @unique @map("slug")
+    legalName   String?            @map("legal_name")
+    email       String?            @map("email")
+    phone       String?            @map("phone")
+    website     String?            @map("website")
+    logoUrl     Json?            @map("logo_url")
+    taxId       String?            @map("tax_id") // GSTIN / Tax ID
+
+    // Address & Localization
+    address     String?            @map("address")
+    city        String?            @map("city")
+    state       String?            @map("state")
+    country     String             @default("IN") @map("country")
+    pincode     String?            @map("pincode")
+    currency    String             @default("INR") @map("currency")
+    timezone    String             @default("Asia/Kolkata") @map("timezone")
+
+    // Status & Configuration
+    status      OrganizationStatus @default(PENDING_VERIFICATION)
+    settings    Json?              @map("settings")
+
+    // Soft Delete
+    isDeleted   Boolean            @default(false) @map("is_deleted")
+    deletedAt   DateTime?          @map("deleted_at")
+
+    // Timestamps
+    createdAt   DateTime           @default(now()) @map("created_at")
+    updatedAt   DateTime           @updatedAt @map("updated_at")
+
+    // Relations
+    users         User[]         @relation("OrganizationUsers")
+    subscriptions Subscription[]
+
+    @@index([slug])
+    @@index([status])
+    @@index([isDeleted, deletedAt])
+    @@map("organizations")
+}

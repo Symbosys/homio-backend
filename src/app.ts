@@ -6,6 +6,8 @@ import authRoutes from "./module/user/routes/auth.routes.js";
 import userRoutes from "./module/user/routes/user.routes.js";
 import roleRoutes from "./module/user/routes/role.routes.js";
 import permissionRoutes from "./module/user/routes/permission.routes.js";
+import platformSubscriptionRoutes from "./module/subscription/routes/subscription.routes.js";
+import platformOrganizationRoutes from "./module/organization/routes/organization.routes.js";
 
 const app = express();
 
@@ -36,6 +38,12 @@ app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/roles", roleRoutes);
 app.use("/api/v1/permissions", permissionRoutes);
+
+/**
+ * Platform Owner (SaaS Admin) Routes
+ */
+app.use("/api/v1/platform/subscriptions", platformSubscriptionRoutes);
+app.use("/api/v1/platform/organizations", platformOrganizationRoutes);
 
 app.use(errorMiddleware);
 

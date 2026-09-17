@@ -1,3 +1,8 @@
+import type { StorageProviderType } from "../lib/storage/storage.interface.js";
+
+// export { Prisma } from "../generated/prisma/client.js";
+export * from "../../generated/prisma/client.js";
+
 export enum statusCode {
     // status code start with 200
     OK = 200,
@@ -21,7 +26,9 @@ export enum statusCode {
 
 
 export interface ImageType {
-    url:string
-    key:string
-    provider: "CLOUDINARY"|"S3"|"GCP"|"AZURE"|"LOCAL"
+    id: string
+    url: string
+    bytes: number
+    format: string
+    provider: StorageProviderType
 }

@@ -12,7 +12,8 @@ export interface AuthenticatedUser {
   firstName: string;
   lastName: string | null;
   phone: string | null;
-  userType: "ADMIN" | "USER";
+  userType: "PLATFORM_ADMIN" | "ADMIN" | "USER";
+  organizationId?: string | null;
   status: string;
   roles: Array<{
     id: string;
@@ -34,7 +35,8 @@ declare global {
 export interface JwtUserPayload {
   userId: string;
   email: string;
-  userType: "ADMIN" | "USER";
+  userType: "PLATFORM_ADMIN" | "ADMIN" | "USER";
+  organizationId?: string | null;
 }
 
 /**
@@ -139,7 +141,8 @@ export const authenticate = async (
       firstName: user.firstName,
       lastName: user.lastName,
       phone: user.phone,
-      userType: user.userType as "ADMIN" | "USER",
+      userType: user.userType as "PLATFORM_ADMIN" | "ADMIN" | "USER",
+      organizationId: user.organizationId,
       status: user.status,
       roles: user.roles.map((ur) => ({
         id: ur.role.id,
@@ -158,9 +161,9 @@ export const authenticate = async (
 /**
  * Portal/Audience Guard Middleware:
  * Ensures the authenticated user belongs to the required userType
- * (e.g. 'ADMIN' for CRM Admin Panel vs 'USER' for Customer App).
+ * (e.g. 'PLATFORM_ADMIN', 'ADMIN' for CRM Admin Panel vs 'USER' for Customer App).
  */
-export const requireUserType = (...allowedTypes: Array<"ADMIN" | "USER">) => {
+export const authorize = (...allowedTypes: Array<"PLATFORM_ADMIN" | "ADMIN" | "USER">) => {
   return (req: Request, _res: Response, next: NextFunction) => {
     if (!req.user) {
       return next(new ErrorResponse("Unauthorized: Login required", statusCode.Unauthorized));
@@ -191,7 +194,7 @@ export const requirePermission = (permission: Permission) => {
     }
 
     // Admin userType accounts have full master privileges across administrative modules
-    if (req.user.userType === "ADMIN" || req.user.permissions.has(permission)) {
+    if (req.user.userType === "ADMIN" || req.user.userType === "PLATFORM_ADMIN" || req.user.permissions.has(permission)) {
       return next();
     }
 

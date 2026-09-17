@@ -11,20 +11,25 @@
     "@types/bun": "latest",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^2.2.0",
     "@types/pg": "^8.23.1"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1134.0",
+    "@azure/storage-blob": "^12.33.0",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "7.10.0",
     "@types/cors": "^2.8.19",
     "bcryptjs": "^3.0.3",
+    "cloudinary": "^2.11.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
+    "multer": "^2.4.0",
     "nodemailer": "^10.0.10",
     "pg": "^8.23.0",
     "prisma": "7.10.0",

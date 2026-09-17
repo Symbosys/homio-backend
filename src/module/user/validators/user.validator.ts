@@ -23,6 +23,7 @@ export const createUserSchema = z.object({
       .optional(),
     avatarUrl: z.string().url("Invalid avatar URL").nullable().optional(),
     userType: z.enum(["ADMIN", "USER"]).optional().default("USER"),
+    organizationId: z.string().uuid("Invalid organization ID format").nullable().optional(),
     status: z
       .enum(["ACTIVE", "INACTIVE", "SUSPENDED", "PENDING_VERIFICATION"])
       .optional()
@@ -49,6 +50,7 @@ export const updateUserSchema = z.object({
       .enum(["ACTIVE", "INACTIVE", "SUSPENDED", "PENDING_VERIFICATION"])
       .optional(),
     userType: z.enum(["ADMIN", "USER"]).optional(),
+    organizationId: z.string().uuid("Invalid organization ID format").nullable().optional(),
   }),
 });
 
