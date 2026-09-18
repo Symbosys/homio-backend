@@ -47,6 +47,10 @@ export class CloudinaryStorageProvider implements IStorageProvider {
       );
     }
 
+    if (!file.buffer || file.buffer.length === 0) {
+      throw new Error("Cannot upload empty file buffer to storage.");
+    }
+
     const folder = options?.folder || this.defaultFolder;
     const resourceType = options?.resourceType || "auto";
 

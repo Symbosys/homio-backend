@@ -47,6 +47,11 @@ model Organization {
     materialProducts  MaterialProduct[]                 @relation("OrganizationMaterialProducts")
     sellerCategories  OrganizationMarketplaceCategory[] @relation("OrganizationMarketplaceCategories")
     vendors           Vendor[]                          @relation("OrganizationVendors")
+    employees         Employee[]                        @relation("OrganizationEmployees")
+    employeeSalaries  EmployeeSalary[]                  @relation("OrganizationEmployeeSalaries")
+    departments       Department[]                      @relation("OrganizationDepartments")
+    teams             Team[]                            @relation("OrganizationTeams")
+    employeeDepartmentTeams EmployeeDepartmentTeam[]    @relation("OrganizationEmployeeDepartmentTeams")
 
     @@index([slug])
     @@index([status])

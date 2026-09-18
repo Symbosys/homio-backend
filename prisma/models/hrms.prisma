@@ -1,0 +1,405 @@
+// ==========================================
+// HRMS ENUMS
+// ==========================================
+
+enum Gender {
+  MALE
+  FEMALE
+  NON_BINARY
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum MaritalStatus {
+  SINGLE
+  MARRIED
+  DIVORCED
+  WIDOWED
+}
+
+enum BloodGroup {
+  A_POSITIVE
+  A_NEGATIVE
+  B_POSITIVE
+  B_NEGATIVE
+  AB_POSITIVE
+  AB_NEGATIVE
+  O_POSITIVE
+  O_NEGATIVE
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERN
+  PROBATIONARY
+  FREELANCE
+  TEMPORARY
+}
+
+enum EmploymentStatus {
+  PROBATION
+  ACTIVE
+  NOTICE_PERIOD
+  RESIGNED
+  TERMINATED
+  RETIRED
+  SUSPENDED
+  ON_LEAVE
+}
+
+enum TaxRegime {
+  OLD
+  NEW
+}
+
+enum PayFrequency {
+  MONTHLY
+  BIWEEKLY
+  WEEKLY
+  ANNUAL
+  HOURLY
+}
+
+enum SalaryRevisionReason {
+  NEW_HIRE
+  ANNUAL_INCREMENT
+  PROMOTION
+  CONFIRMATION
+  MARKET_CORRECTION
+  SPECIAL_ALLOWANCE_REVISION
+  DEMOTION
+  TRANSFER
+  OTHER
+}
+
+enum DepartmentStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum TeamStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum DepartmentMemberRole {
+  MEMBER
+  TEAM_LEAD
+  HEAD_OF_DEPARTMENT
+  DEPUTY_LEAD
+  COORDINATOR
+  CONSULTANT
+  INTERN
+}
+
+// ==========================================
+// EMPLOYEE MODEL
+// ==========================================
+
+model Employee {
+  id                 String           @id @default(uuid()) @db.Uuid
+  organizationId     String           @map("organization_id") @db.Uuid
+  organization       Organization     @relation("OrganizationEmployees", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Optional 1-to-1 linkage to SaaS User (for login / RBAC)
+  userId             String?          @unique @map("user_id") @db.Uuid
+  user               User?            @relation("UserEmployee", fields: [userId], references: [id], onDelete: SetNull)
+
+  // Unique Employee ID per organization (e.g., "EMP-1001")
+  employeeCode       String           @map("employee_code")
+
+  // Personal & Identity
+  firstName          String           @map("first_name")
+  middleName         String?          @map("middle_name")
+  lastName           String?          @map("last_name")
+  displayName        String?          @map("display_name")
+  avatarUrl          Json?            @map("avatar_url") // ImageType JSON
+  gender             Gender?          @map("gender")
+  dateOfBirth        DateTime?        @map("date_of_birth") @db.Date
+  maritalStatus      MaritalStatus?   @map("marital_status")
+  bloodGroup         BloodGroup?      @map("blood_group")
+
+  // Contact Information
+  workEmail          String?          @map("work_email")
+  personalEmail      String?          @map("personal_email")
+  workPhone          String?          @map("work_phone")
+  personalPhone      String?          @map("personal_phone")
+
+  // Emergency Contact
+  emergencyContactName         String? @map("emergency_contact_name")
+  emergencyContactRelationship String? @map("emergency_contact_relationship")
+  emergencyContactPhone        String? @map("emergency_contact_phone")
+
+  // Residential Addresses
+  currentAddress     String?          @map("current_address")
+  currentCity        String?          @map("current_city")
+  currentState       String?          @map("current_state")
+  currentCountry     String           @default("IN") @map("current_country")
+  currentPincode     String?          @map("current_pincode")
+
+  permanentAddress   String?          @map("permanent_address")
+  permanentCity      String?          @map("permanent_city")
+  permanentState     String?          @map("permanent_state")
+  permanentCountry   String           @default("IN") @map("permanent_country")
+  permanentPincode   String?          @map("permanent_pincode")
+
+  // Employment & Hierarchy
+  employmentType     EmploymentType   @default(FULL_TIME) @map("employment_type")
+  employmentStatus   EmploymentStatus @default(ACTIVE) @map("employment_status")
+  designation        String           @map("designation")
+  workLocation       String?          @map("work_location")
+
+  // Self-referencing Organizational Chart (Reporting Hierarchy)
+  reportingManagerId String?          @map("reporting_manager_id") @db.Uuid
+  reportingManager   Employee?        @relation("EmployeeHierarchy", fields: [reportingManagerId], references: [id], onDelete: SetNull)
+  subordinates       Employee[]       @relation("EmployeeHierarchy")
+
+  // Employment Timeline Dates
+  joiningDate          DateTime       @map("joining_date") @db.Date
+  probationEndDate     DateTime?      @map("probation_end_date") @db.Date
+  confirmationDate     DateTime?      @map("confirmation_date") @db.Date
+  noticePeriodDays     Int            @default(30) @map("notice_period_days")
+  resignationDate      DateTime?      @map("resignation_date") @db.Date
+  noticePeriodEndDate  DateTime?      @map("notice_period_end_date") @db.Date
+  relievingDate        DateTime?      @map("relieving_date") @db.Date
+  terminationDate      DateTime?      @map("termination_date") @db.Date
+  terminationReason    String?        @map("termination_reason")
+
+  // Statutory & Compliance (India / Global ready)
+  panNumber          String?          @map("pan_number")
+  aadhaarNumber      String?          @map("aadhaar_number")
+  uanNumber          String?          @map("uan_number") // Universal Account Number (EPFO)
+  pfNumber           String?          @map("pf_number")
+  esiNumber          String?          @map("esi_number")
+  passportNumber     String?          @map("passport_number")
+  taxRegime          TaxRegime?       @default(NEW) @map("tax_regime")
+
+  // Bank & Payout Details
+  bankAccountHolderName String?       @map("bank_account_holder_name")
+  bankAccountNumber     String?       @map("bank_account_number")
+  bankName              String?       @map("bank_name")
+  bankIfscCode          String?       @map("bank_ifsc_code")
+  bankBranchName        String?       @map("bank_branch_name")
+
+  // Uploaded Documents & KYC Attachments (ImageType Array)
+  documents          Json?            @map("documents")
+
+  // Soft Delete & Auditing
+  isDeleted          Boolean          @default(false) @map("is_deleted")
+  deletedAt          DateTime?        @map("deleted_at")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+  createdById        String?          @map("created_by_id") @db.Uuid
+  updatedById        String?          @map("updated_by_id") @db.Uuid
+
+  // Relations
+  salaries              EmployeeSalary[]         @relation("EmployeeSalaries")
+  headedDepartments     Department[]             @relation("DepartmentHead")
+  ledTeams              Team[]                   @relation("TeamLead")
+  departmentAssignments EmployeeDepartmentTeam[] @relation("EmployeeDepartmentAssignments")
+
+  @@unique([organizationId, employeeCode])
+  @@index([organizationId])
+  @@index([userId])
+  @@index([employmentStatus])
+  @@index([reportingManagerId])
+  @@index([isDeleted, deletedAt])
+  @@map("employees")
+}
+
+// ==========================================
+// EMPLOYEE SALARY (PERIOD-TO-PERIOD TRACKING)
+// ==========================================
+
+model EmployeeSalary {
+  id                   String               @id @default(uuid()) @db.Uuid
+  organizationId       String               @map("organization_id") @db.Uuid
+  organization         Organization         @relation("OrganizationEmployeeSalaries", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  employeeId           String               @map("employee_id") @db.Uuid
+  employee             Employee             @relation("EmployeeSalaries", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  // Temporal Validity / Effective Dating (SCD Type 2)
+  effectiveFrom        DateTime             @map("effective_from") @db.Date
+  effectiveTo          DateTime?            @map("effective_to") @db.Date // NULL = currently active salary
+  isCurrent            Boolean              @default(true) @map("is_current")
+
+  // Revision Metadata
+  revisionReason       SalaryRevisionReason @default(NEW_HIRE) @map("revision_reason")
+  revisionDate         DateTime             @default(now()) @map("revision_date") @db.Date
+  percentageHike       Decimal?             @map("percentage_hike") @db.Decimal(5, 2)
+  approvedById         String?              @map("approved_by_id") @db.Uuid
+  remarks              String?              @map("remarks")
+  incrementLetterUrl   Json?                @map("increment_letter_url") // ImageType JSON
+
+  // Currency & Cadence
+  currency             String               @default("INR") @map("currency")
+  payFrequency         PayFrequency         @default(MONTHLY) @map("pay_frequency")
+
+  // Top-level Aggregates
+  annualCtc            Decimal              @map("annual_ctc") @db.Decimal(14, 2)
+  monthlyGross         Decimal              @map("monthly_gross") @db.Decimal(14, 2)
+  monthlyNet           Decimal?             @map("monthly_net") @db.Decimal(14, 2)
+
+  // Standard Earnings Components (Monthly)
+  basicSalary          Decimal              @map("basic_salary") @db.Decimal(14, 2)
+  hra                  Decimal              @default(0) @map("hra") @db.Decimal(14, 2)
+  dearnessAllowance    Decimal              @default(0) @map("dearness_allowance") @db.Decimal(14, 2)
+  conveyanceAllowance  Decimal              @default(0) @map("conveyance_allowance") @db.Decimal(14, 2)
+  specialAllowance     Decimal              @default(0) @map("special_allowance") @db.Decimal(14, 2)
+  medicalAllowance     Decimal              @default(0) @map("medical_allowance") @db.Decimal(14, 2)
+  otherAllowances      Decimal              @default(0) @map("other_allowances") @db.Decimal(14, 2)
+
+  // Standard Employee Deductions (Monthly)
+  pfEmployee           Decimal              @default(0) @map("pf_employee") @db.Decimal(14, 2)
+  esiEmployee          Decimal              @default(0) @map("esi_employee") @db.Decimal(14, 2)
+  professionalTax      Decimal              @default(0) @map("professional_tax") @db.Decimal(14, 2)
+  tdsMonthly           Decimal              @default(0) @map("tds_monthly") @db.Decimal(14, 2)
+
+  // Standard Employer Contributions (Part of CTC)
+  pfEmployer           Decimal              @default(0) @map("pf_employer") @db.Decimal(14, 2)
+  esiEmployer          Decimal              @default(0) @map("esi_employer") @db.Decimal(14, 2)
+  gratuityMonthly      Decimal              @default(0) @map("gratuity_monthly") @db.Decimal(14, 2)
+  insuranceMonthly     Decimal              @default(0) @map("insurance_monthly") @db.Decimal(14, 2)
+
+  // Dynamic / Custom Components (JSON Array of allowances/deductions)
+  customComponents     Json?                @map("custom_components")
+
+  // Soft Delete & Auditing
+  isDeleted            Boolean              @default(false) @map("is_deleted")
+  deletedAt            DateTime?            @map("deleted_at")
+  createdAt            DateTime             @default(now()) @map("created_at")
+  updatedAt            DateTime             @updatedAt @map("updated_at")
+  createdById          String?              @map("created_by_id") @db.Uuid
+
+  @@index([organizationId])
+  @@index([employeeId])
+  @@index([employeeId, isCurrent])
+  @@index([employeeId, effectiveFrom, effectiveTo])
+  @@index([isDeleted, deletedAt])
+  @@map("employee_salaries")
+}
+
+// ==========================================
+// DEPARTMENT MODEL
+// ==========================================
+
+model Department {
+  id                  String                   @id @default(uuid()) @db.Uuid
+  organizationId      String                   @map("organization_id") @db.Uuid
+  organization        Organization             @relation("OrganizationDepartments", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Department Identity
+  name                String                   @map("name")
+  code                String                   @map("code") // e.g. "ENG", "SALES", "HR", "FIN"
+  description         String?                  @map("description")
+  status              DepartmentStatus         @default(ACTIVE) @map("status")
+
+  // Leadership
+  headOfDepartmentId  String?                  @map("head_of_department_id") @db.Uuid
+  headOfDepartment    Employee?                @relation("DepartmentHead", fields: [headOfDepartmentId], references: [id], onDelete: SetNull)
+
+  // Cost Center & Budgeting
+  costCenterCode      String?                  @map("cost_center_code")
+  budget              Decimal?                 @map("budget") @db.Decimal(15, 2)
+
+  // Soft Delete & Auditing
+  isDeleted           Boolean                  @default(false) @map("is_deleted")
+  deletedAt           DateTime?                @map("deleted_at")
+  createdAt           DateTime                 @default(now()) @map("created_at")
+  updatedAt           DateTime                 @updatedAt @map("updated_at")
+  createdById         String?                  @map("created_by_id") @db.Uuid
+  updatedById         String?                  @map("updated_by_id") @db.Uuid
+
+  // Relations
+  teams               Team[]                   @relation("DepartmentTeams")
+  employeeAssignments EmployeeDepartmentTeam[] @relation("DepartmentEmployeeAssignments")
+
+  @@unique([organizationId, code])
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@index([headOfDepartmentId])
+  @@index([status])
+  @@index([isDeleted, deletedAt])
+  @@map("departments")
+}
+
+// ==========================================
+// TEAM MODEL (Sub-division within Department)
+// ==========================================
+
+model Team {
+  id                  String                   @id @default(uuid()) @db.Uuid
+  organizationId      String                   @map("organization_id") @db.Uuid
+  organization        Organization             @relation("OrganizationTeams", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  departmentId        String                   @map("department_id") @db.Uuid
+  department          Department               @relation("DepartmentTeams", fields: [departmentId], references: [id], onDelete: Cascade)
+
+  // Team Identity
+  name                String                   @map("name") // e.g. "Frontend Core", "Backend Infra"
+  code                String                   @map("code") // e.g. "FE-CORE", "BE-INFRA"
+  description         String?                  @map("description")
+  status              TeamStatus               @default(ACTIVE) @map("status")
+
+  // Team Lead
+  teamLeadId          String?                  @map("team_lead_id") @db.Uuid
+  teamLead            Employee?                @relation("TeamLead", fields: [teamLeadId], references: [id], onDelete: SetNull)
+
+  // Soft Delete & Auditing
+  isDeleted           Boolean                  @default(false) @map("is_deleted")
+  deletedAt           DateTime?                @map("deleted_at")
+  createdAt           DateTime                 @default(now()) @map("created_at")
+  updatedAt           DateTime                 @updatedAt @map("updated_at")
+  createdById         String?                  @map("created_by_id") @db.Uuid
+  updatedById         String?                  @map("updated_by_id") @db.Uuid
+
+  // Relations
+  employeeAssignments EmployeeDepartmentTeam[] @relation("TeamEmployeeAssignments")
+
+  @@unique([departmentId, code])
+  @@unique([departmentId, name])
+  @@index([organizationId])
+  @@index([departmentId])
+  @@index([teamLeadId])
+  @@index([status])
+  @@index([isDeleted, deletedAt])
+  @@map("teams")
+}
+
+// ==========================================
+// EMPLOYEE DEPARTMENT & TEAM MAPPING TABLE
+// ==========================================
+
+model EmployeeDepartmentTeam {
+  id             String               @id @default(uuid()) @db.Uuid
+  organizationId String               @map("organization_id") @db.Uuid
+  organization   Organization         @relation("OrganizationEmployeeDepartmentTeams", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  employeeId     String               @map("employee_id") @db.Uuid
+  employee       Employee             @relation("EmployeeDepartmentAssignments", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  departmentId   String               @map("department_id") @db.Uuid
+  department     Department           @relation("DepartmentEmployeeAssignments", fields: [departmentId], references: [id], onDelete: Cascade)
+
+  teamId         String?              @map("team_id") @db.Uuid
+  team           Team?                @relation("TeamEmployeeAssignments", fields: [teamId], references: [id], onDelete: SetNull)
+
+  role           DepartmentMemberRole @default(MEMBER) @map("role")
+
+  // Timestamps & Audit
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
+  createdById    String?              @map("created_by_id") @db.Uuid
+  updatedById    String?              @map("updated_by_id") @db.Uuid
+
+  @@index([organizationId])
+  @@index([employeeId])
+  @@index([departmentId])
+  @@index([teamId])
+  @@map("employee_department_teams")
+}
