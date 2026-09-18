@@ -72,6 +72,7 @@ export class PropertyService {
 
   async getProperties(params: {
     organizationId?: string;
+    categoryId?: string;
     city?: string;
     locality?: string;
     propertyType?: any;

@@ -77,6 +77,7 @@ export class PropertyRepository {
 
   async findMany(params: {
     organizationId?: string;
+    categoryId?: string;
     city?: string;
     locality?: string;
     propertyType?: PropertyType;
@@ -92,6 +93,7 @@ export class PropertyRepository {
   }) {
     const {
       organizationId,
+      categoryId,
       city,
       locality,
       propertyType,
@@ -108,6 +110,7 @@ export class PropertyRepository {
 
     const where: any = { isDeleted: false };
     if (organizationId) where.organizationId = organizationId;
+    if (categoryId) where.categoryId = categoryId;
     if (city) where.city = { contains: city, mode: "insensitive" };
     if (locality) where.locality = { contains: locality, mode: "insensitive" };
     if (propertyType) where.propertyType = propertyType;

@@ -41,7 +41,13 @@ enum DigitalFileFormat {
     EPUB
     ZIP
     DWG
+    DXF
+    RVT
+    SKP
+    OBJ
     FBX
+    DOCX
+    XLSX
     OTHER
 }
 

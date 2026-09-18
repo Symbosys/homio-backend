@@ -5,11 +5,43 @@ export const digitalFileFormatEnum = z.enum([
   "EPUB",
   "ZIP",
   "DWG",
+  "DXF",
+  "RVT",
+  "SKP",
+  "OBJ",
   "FBX",
+  "DOCX",
+  "XLSX",
   "OTHER",
 ]);
 
 export const productStatusEnum = z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]);
+
+const stringToNumber = (defaultVal = 0) =>
+  z.preprocess((val) => {
+    if (val === undefined || val === null || val === "") return defaultVal;
+    const num = Number(val);
+    return isNaN(num) ? val : num;
+  }, z.number().optional().default(defaultVal));
+
+const stringToBoolean = (defaultVal = false) =>
+  z.preprocess((val) => {
+    if (val === "true" || val === true) return true;
+    if (val === "false" || val === false) return false;
+    return val;
+  }, z.boolean().optional().default(defaultVal));
+
+const stringToArray = z.preprocess((val) => {
+  if (typeof val === "string") {
+    try {
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      return val.split(",").map((s) => s.trim()).filter(Boolean);
+    }
+  }
+  return val;
+}, z.array(z.string()).optional().default([]));
 
 const imageTypeSchema = z.object({
   id: z.string(),
@@ -26,20 +58,23 @@ export const createDigitalProductSchema = z.object({
     sku: z.string().trim().min(1, "SKU is required"),
     urlSlug: z.string().trim().optional(),
     description: z.string().trim().nullable().optional(),
-    tags: z.array(z.string().trim()).optional().default([]),
+    tags: stringToArray,
     authorName: z.string().trim().nullable().optional(),
-    fileUrl: z.string().trim().url("Invalid digital asset file URL").optional().default("https://homio.app/sample.pdf"),
+    fileUrl: z.string().trim().optional().default("https://homio.app/sample.pdf"),
     fileFormat: digitalFileFormatEnum.optional().default("PDF"),
     fileSize: z.string().trim().nullable().optional(),
-    coverImageUrl: z.union([z.string().trim(), imageTypeSchema]).nullable().optional(),
-    previewImages: z.array(z.union([z.string().trim(), imageTypeSchema])).optional().default([]),
-    downloadLinkExpiryHours: z.number().int().positive().optional().default(48),
-    maxDownloads: z.number().int().positive().optional().default(5),
-    mrp: z.number().min(0).optional().default(0),
-    sellingPrice: z.number().min(0).optional().default(0),
-    taxRate: z.number().min(0).max(100).optional().default(18.0),
+    coverImageUrl: z.union([z.string().trim(), imageTypeSchema, z.any()]).nullable().optional(),
+    previewImages: z.any().nullable().optional(),
+    downloadLinkExpiryHours: stringToNumber(48),
+    maxDownloads: stringToNumber(5),
+    mrp: stringToNumber(0),
+    sellingPrice: stringToNumber(0),
+    taxRate: stringToNumber(18.0),
     status: productStatusEnum.optional().default("DRAFT"),
-    isFeatured: z.boolean().optional().default(false),
+    isFeatured: stringToBoolean(false),
+    rating: stringToNumber(0.0),
+    reviewsCount: stringToNumber(0),
+    totalPurchases: stringToNumber(0),
   }),
 });
 
@@ -53,20 +88,23 @@ export const updateDigitalProductSchema = z.object({
     sku: z.string().trim().min(1).optional(),
     urlSlug: z.string().trim().optional(),
     description: z.string().trim().nullable().optional(),
-    tags: z.array(z.string().trim()).optional(),
+    tags: stringToArray.optional(),
     authorName: z.string().trim().nullable().optional(),
-    fileUrl: z.string().trim().url().optional(),
+    fileUrl: z.string().trim().optional(),
     fileFormat: digitalFileFormatEnum.optional(),
     fileSize: z.string().trim().nullable().optional(),
-    coverImageUrl: z.union([z.string().trim(), imageTypeSchema]).nullable().optional(),
-    previewImages: z.array(z.union([z.string().trim(), imageTypeSchema])).optional(),
-    downloadLinkExpiryHours: z.number().int().positive().optional(),
-    maxDownloads: z.number().int().positive().optional(),
-    mrp: z.number().min(0).optional(),
-    sellingPrice: z.number().min(0).optional(),
-    taxRate: z.number().min(0).max(100).optional(),
+    coverImageUrl: z.union([z.string().trim(), imageTypeSchema, z.any()]).nullable().optional(),
+    previewImages: z.any().nullable().optional(),
+    downloadLinkExpiryHours: z.preprocess((val) => (val !== undefined && val !== "" ? Number(val) : undefined), z.number().int().positive().optional()),
+    maxDownloads: z.preprocess((val) => (val !== undefined && val !== "" ? Number(val) : undefined), z.number().int().positive().optional()),
+    mrp: z.preprocess((val) => (val !== undefined && val !== "" ? Number(val) : undefined), z.number().min(0).optional()),
+    sellingPrice: z.preprocess((val) => (val !== undefined && val !== "" ? Number(val) : undefined), z.number().min(0).optional()),
+    taxRate: z.preprocess((val) => (val !== undefined && val !== "" ? Number(val) : undefined), z.number().min(0).max(100).optional()),
     status: productStatusEnum.optional(),
-    isFeatured: z.boolean().optional(),
+    isFeatured: z.preprocess((val) => (val === "true" || val === true ? true : val === "false" || val === false ? false : undefined), z.boolean().optional()),
+    rating: z.preprocess((val) => (val !== undefined && val !== "" ? Number(val) : undefined), z.number().min(0).max(5).optional()),
+    reviewsCount: z.preprocess((val) => (val !== undefined && val !== "" ? Number(val) : undefined), z.number().int().min(0).optional()),
+    totalPurchases: z.preprocess((val) => (val !== undefined && val !== "" ? Number(val) : undefined), z.number().int().min(0).optional()),
   }),
 });
 
@@ -96,5 +134,3 @@ export const digitalProductIdParamSchema = z.object({
     id: z.string().uuid("Invalid product ID format"),
   }),
 });
-
-

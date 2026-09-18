@@ -26,6 +26,38 @@ export const materialUnitEnum = z.enum([
   "BUNDLE",
 ]);
 
+const stringToNumber = (defaultVal = 0) =>
+  z.preprocess((val) => {
+    if (val === undefined || val === null || val === "") return defaultVal;
+    const num = Number(val);
+    return isNaN(num) ? val : num;
+  }, z.number().optional().default(defaultVal));
+
+const stringToNullableNumber = z.preprocess((val) => {
+  if (val === undefined || val === null || val === "" || val === "null") return null;
+  const num = Number(val);
+  return isNaN(num) ? null : num;
+}, z.number().nullable().optional());
+
+const stringToBoolean = (defaultVal = true) =>
+  z.preprocess((val) => {
+    if (val === "true" || val === true) return true;
+    if (val === "false" || val === false) return false;
+    return val;
+  }, z.boolean().optional().default(defaultVal));
+
+const stringToArray = z.preprocess((val) => {
+  if (typeof val === "string") {
+    try {
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      return val.split(",").map((s) => s.trim()).filter(Boolean);
+    }
+  }
+  return val;
+}, z.array(z.string()).optional().default([]));
+
 const imageTypeSchema = z.object({
   id: z.string(),
   url: z.string(),
@@ -39,13 +71,13 @@ export const createMaterialSchema = z.object({
     categoryId: z.string().uuid("Invalid category ID format"),
     ownershipType: productOwnershipTypeEnum.optional().default("SELF_OWNED"),
     vendorId: z.string().uuid("Invalid vendor ID format").nullable().optional(),
-    ownerCommissionRate: z.number().min(0).max(100).nullable().optional(),
+    ownerCommissionRate: stringToNullableNumber,
 
     name: z.string().trim().min(1, "Material product name is required"),
     sku: z.string().trim().min(1, "SKU is required"),
     brandName: z.string().trim().nullable().optional(),
     description: z.string().trim().nullable().optional(),
-    tags: z.array(z.string().trim()).optional().default([]),
+    tags: stringToArray,
 
     // Specifications
     materialType: z.string().trim().nullable().optional(),
@@ -55,20 +87,22 @@ export const createMaterialSchema = z.object({
     application: z.string().trim().nullable().optional(),
 
     // Media
-    coverImageUrl: z.union([z.string().trim(), imageTypeSchema]).nullable().optional(),
-    images: z.array(z.union([z.string().trim(), imageTypeSchema])).optional().default([]),
+    coverImageUrl: z.union([z.string().trim(), imageTypeSchema, z.any()]).nullable().optional(),
+    images: z.any().optional().default([]),
 
     // Pricing & Inventory
     unitOfMeasure: materialUnitEnum.optional().default("PIECE"),
-    wholesalePrice: z.number().min(0).optional().default(0),
-    retailPrice: z.number().min(0).optional().default(0),
-    taxRate: z.number().min(0).max(100).optional().default(18.0),
-    minOrderQuantity: z.number().int().positive().optional().default(1),
-    stockAvailableUnits: z.number().int().min(0).optional().default(0),
+    wholesalePrice: stringToNumber(0),
+    retailPrice: stringToNumber(0),
+    taxRate: stringToNumber(18.0),
+    minOrderQuantity: stringToNumber(1),
+    stockAvailableUnits: stringToNumber(0),
 
-    // Status
+    // Status & Metrics
     status: productStatusEnum.optional().default("DRAFT"),
-    isFeatured: z.boolean().optional().default(false),
+    isFeatured: stringToBoolean(false),
+    rating: stringToNumber(0.0),
+    ordersCount: stringToNumber(0),
   }),
 });
 
@@ -80,13 +114,13 @@ export const updateMaterialSchema = z.object({
     categoryId: z.string().uuid("Invalid category ID format").optional(),
     ownershipType: productOwnershipTypeEnum.optional(),
     vendorId: z.string().uuid("Invalid vendor ID format").nullable().optional(),
-    ownerCommissionRate: z.number().min(0).max(100).nullable().optional(),
+    ownerCommissionRate: stringToNullableNumber,
 
     name: z.string().trim().min(1).optional(),
     sku: z.string().trim().min(1).optional(),
     brandName: z.string().trim().nullable().optional(),
     description: z.string().trim().nullable().optional(),
-    tags: z.array(z.string().trim()).optional(),
+    tags: stringToArray.optional(),
 
     materialType: z.string().trim().nullable().optional(),
     grade: z.string().trim().nullable().optional(),
@@ -94,18 +128,20 @@ export const updateMaterialSchema = z.object({
     thickness: z.string().trim().nullable().optional(),
     application: z.string().trim().nullable().optional(),
 
-    coverImageUrl: z.union([z.string().trim(), imageTypeSchema]).nullable().optional(),
-    images: z.array(z.union([z.string().trim(), imageTypeSchema])).optional(),
+    coverImageUrl: z.union([z.string().trim(), imageTypeSchema, z.any()]).nullable().optional(),
+    images: z.any().optional(),
 
     unitOfMeasure: materialUnitEnum.optional(),
-    wholesalePrice: z.number().min(0).optional(),
-    retailPrice: z.number().min(0).optional(),
-    taxRate: z.number().min(0).max(100).optional(),
-    minOrderQuantity: z.number().int().positive().optional(),
-    stockAvailableUnits: z.number().int().min(0).optional(),
+    wholesalePrice: z.preprocess((val) => (val !== undefined && val !== "" ? Number(val) : undefined), z.number().min(0).optional()),
+    retailPrice: z.preprocess((val) => (val !== undefined && val !== "" ? Number(val) : undefined), z.number().min(0).optional()),
+    taxRate: z.preprocess((val) => (val !== undefined && val !== "" ? Number(val) : undefined), z.number().min(0).max(100).optional()),
+    minOrderQuantity: z.preprocess((val) => (val !== undefined && val !== "" ? Number(val) : undefined), z.number().int().positive().optional()),
+    stockAvailableUnits: z.preprocess((val) => (val !== undefined && val !== "" ? Number(val) : undefined), z.number().int().min(0).optional()),
 
     status: productStatusEnum.optional(),
-    isFeatured: z.boolean().optional(),
+    isFeatured: z.preprocess((val) => (val === "true" || val === true ? true : val === "false" || val === false ? false : undefined), z.boolean().optional()),
+    rating: z.preprocess((val) => (val !== undefined && val !== "" ? Number(val) : undefined), z.number().min(0).max(5).optional()),
+    ordersCount: z.preprocess((val) => (val !== undefined && val !== "" ? Number(val) : undefined), z.number().int().min(0).optional()),
   }),
 });
 
@@ -113,12 +149,14 @@ export const getMaterialsQuerySchema = z.object({
   query: z.object({
     organizationId: z.string().uuid().optional(),
     categoryId: z.string().uuid().optional(),
-    vendorId: z.string().uuid().optional(),
-    ownershipType: productOwnershipTypeEnum.optional(),
-    unitOfMeasure: materialUnitEnum.optional(),
     materialType: z.string().trim().optional(),
+    unitOfMeasure: materialUnitEnum.optional(),
     status: productStatusEnum.optional(),
     search: z.string().trim().optional(),
+    isFeatured: z
+      .string()
+      .transform((val) => val === "true")
+      .optional(),
     page: z
       .string()
       .optional()

@@ -13,8 +13,8 @@ export class MaterialService {
     if (!category) {
       throw new ErrorResponse("Marketplace category not found", statusCode.Not_Found);
     }
-    if (category.marketplaceType !== "MATERIALS") {
-      throw new ErrorResponse("Category must belong to the MATERIALS vertical", statusCode.Bad_Request);
+    if (category.marketplaceType !== "MATERIALS" && category.marketplaceType !== "OTHER") {
+      throw new ErrorResponse("Category must belong to the MATERIALS or OTHER vertical", statusCode.Bad_Request);
     }
 
     // Check SKU Uniqueness per organization
