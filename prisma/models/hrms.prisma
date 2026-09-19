@@ -96,6 +96,112 @@ enum DepartmentMemberRole {
   INTERN
 }
 
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  HALF_DAY
+  ON_LEAVE
+  HOLIDAY
+  WEEK_OFF
+}
+
+enum GeofenceStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ShiftStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum TravelStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum LeaveTypeStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum HalfDaySession {
+  FIRST_HALF
+  SECOND_HALF
+}
+
+
+enum ReviewType {
+  QUARTERLY
+  ANNUAL
+  PROBATION
+  SPECIAL
+}
+
+enum PerformanceReviewStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+enum PayrollStatus {
+  DRAFT
+  PROCESSED
+  DISBURSED
+  CANCELLED
+}
+
+enum PaymentMode {
+  BANK_TRANSFER
+  CHEQUE
+  CASH
+  UPI
+}
+
+enum PayslipPaymentStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+enum IncentiveType {
+  CREDIT
+  DEBIT
+}
+
+enum IncentiveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PROCESSED_IN_PAYROLL
+  CANCELLED
+}
+
+enum NoticePeriodStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  WITHDRAWN
+  COMPLETED
+}
+
+enum HandoverStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
 // ==========================================
 // EMPLOYEE MODEL
 // ==========================================
@@ -196,6 +302,31 @@ model Employee {
   createdById        String?          @map("created_by_id") @db.Uuid
   updatedById        String?          @map("updated_by_id") @db.Uuid
 
+  // Attendance & Shift Policy
+  allowAttendanceFromAnywhere Boolean                  @default(false) @map("allow_attendance_from_anywhere")
+
+  // Shift & Geofence Relations
+  shiftId               String?                  @map("shift_id") @db.Uuid
+  shift                 Shift?                   @relation("EmployeeShift", fields: [shiftId], references: [id], onDelete: SetNull)
+  geofences             GeofenceArea[]           @relation("EmployeeGeofences")
+  attendances           Attendance[]             @relation("EmployeeAttendances")
+
+  // Travel & Leave Relations
+  travels               FieldTravel[]            @relation("EmployeeFieldTravels")
+  leaveRequests         LeaveRequest[]           @relation("EmployeeLeaveRequests")
+  approvedLeaves        LeaveRequest[]           @relation("LeaveApprovals")
+
+  // Performance & Payroll Relations
+  performanceReviews    PerformanceReview[]      @relation("EmployeePerformanceReviews")
+  conductedReviews      PerformanceReview[]      @relation("ReviewerPerformanceReviews")
+  payrollRecords        PayrollRecord[]          @relation("EmployeePayrollRecords")
+
+  // Incentive & Notice Period Relations
+  incentives            EmployeeIncentive[]      @relation("EmployeeIncentives")
+  approvedIncentives    EmployeeIncentive[]      @relation("IncentiveApprovals")
+  noticePeriods         NoticePeriod[]           @relation("EmployeeNoticePeriods")
+  approvedNoticePeriods NoticePeriod[]           @relation("NoticePeriodApprovals")
+
   // Relations
   salaries              EmployeeSalary[]         @relation("EmployeeSalaries")
   headedDepartments     Department[]             @relation("DepartmentHead")
@@ -207,6 +338,7 @@ model Employee {
   @@index([userId])
   @@index([employmentStatus])
   @@index([reportingManagerId])
+  @@index([shiftId])
   @@index([isDeleted, deletedAt])
   @@map("employees")
 }
@@ -268,6 +400,9 @@ model EmployeeSalary {
 
   // Dynamic / Custom Components (JSON Array of allowances/deductions)
   customComponents     Json?                @map("custom_components")
+
+  // Relations
+  payrollRecords       PayrollRecord[]      @relation("SalaryStructurePayrollRecords")
 
   // Soft Delete & Auditing
   isDeleted            Boolean              @default(false) @map("is_deleted")
@@ -403,3 +538,519 @@ model EmployeeDepartmentTeam {
   @@index([teamId])
   @@map("employee_department_teams")
 }
+
+// ==========================================
+// GEOFENCE AREA MODEL (MULTI-GEOFENCING)
+// ==========================================
+
+model GeofenceArea {
+  id             String         @id @default(uuid()) @db.Uuid
+  organizationId String         @map("organization_id") @db.Uuid
+  organization   Organization   @relation("OrganizationGeofences", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name           String         @map("name") // e.g. "Headquarters Office", "Warehouse Site"
+  code           String?        @map("code") // e.g. "GF-01"
+  address        String?        @map("address")
+
+  latitude       Decimal        @map("latitude") @db.Decimal(10, 8)
+  longitude      Decimal        @map("longitude") @db.Decimal(11, 8)
+  radiusMeters   Int            @default(100) @map("radius_meters") // Allowed radius in meters
+
+  status         GeofenceStatus @default(ACTIVE) @map("status")
+  isDeleted      Boolean        @default(false) @map("is_deleted")
+  deletedAt      DateTime?      @map("deleted_at")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  createdById    String?        @map("created_by_id") @db.Uuid
+  updatedById    String?        @map("updated_by_id") @db.Uuid
+
+  // Many-to-Many with Employees (one employee can have multiple geofences)
+  employees            Employee[]   @relation("EmployeeGeofences")
+  punchInAttendances   Attendance[] @relation("AttendancePunchInGeofence")
+  punchOutAttendances  Attendance[] @relation("AttendancePunchOutGeofence")
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@index([status])
+  @@index([isDeleted, deletedAt])
+  @@map("geofence_areas")
+}
+
+// ==========================================
+// SHIFT MODEL
+// ==========================================
+
+model Shift {
+  id                      String       @id @default(uuid()) @db.Uuid
+  organizationId          String       @map("organization_id") @db.Uuid
+  organization            Organization @relation("OrganizationShifts", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name                    String       @map("name") // e.g. "General Day Shift", "Night Shift"
+  code                    String?      @map("code") // e.g. "GEN-01"
+  description             String?      @map("description")
+
+  // Timing (24-hour HH:mm)
+  startTime               String       @map("start_time") // e.g. "09:00"
+  endTime                 String       @map("end_time") // e.g. "18:00"
+
+  // Grace & Policy Thresholds
+  lateGraceMinutes        Int          @default(15) @map("late_grace_minutes") // Allowed late arrival before marked late
+  earlyExitGraceMinutes   Int          @default(0) @map("early_exit_grace_minutes") // Allowed early departure before marked early exit
+  halfDayThresholdMinutes Int          @default(240) @map("half_day_threshold_minutes") // Min working minutes for half day (e.g. 4 hours)
+  fullDayThresholdMinutes Int          @default(480) @map("full_day_threshold_minutes") // Min working minutes for full day (e.g. 8 hours)
+  isNightShift            Boolean      @default(false) @map("is_night_shift") // Spans across midnight
+  workDays                Int[]        @default([1, 2, 3, 4, 5]) @map("work_days") // 1=Monday to 7=Sunday
+
+  status                  ShiftStatus  @default(ACTIVE) @map("status")
+  isDeleted               Boolean      @default(false) @map("is_deleted")
+  deletedAt               DateTime?    @map("deleted_at")
+  createdAt               DateTime     @default(now()) @map("created_at")
+  updatedAt               DateTime     @updatedAt @map("updated_at")
+  createdById             String?      @map("created_by_id") @db.Uuid
+  updatedById             String?      @map("updated_by_id") @db.Uuid
+
+  // Relations
+  employees               Employee[]   @relation("EmployeeShift")
+  attendances             Attendance[] @relation("AttendanceShift")
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@index([status])
+  @@index([isDeleted, deletedAt])
+  @@map("shifts")
+}
+
+// ==========================================
+// ATTENDANCE MODEL (DAILY ROLLUP)
+// ==========================================
+
+model Attendance {
+  id                     String           @id @default(uuid()) @db.Uuid
+  organizationId         String           @map("organization_id") @db.Uuid
+  organization           Organization     @relation("OrganizationAttendances", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  employeeId             String           @map("employee_id") @db.Uuid
+  employee               Employee         @relation("EmployeeAttendances", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  attendanceDate         DateTime         @map("attendance_date") @db.Date // 1 record per employee per day
+  status                 AttendanceStatus @default(PRESENT) @map("status")
+
+  // Shift snapshot
+  shiftId                String?          @map("shift_id") @db.Uuid
+  shift                  Shift?           @relation("AttendanceShift", fields: [shiftId], references: [id], onDelete: SetNull)
+
+  // Punch In Data (Time, Live Camera Photo, GPS, Geofence, Distance)
+  punchInTime            DateTime?        @map("punch_in_time")
+  punchInPhoto           Json?            @map("punch_in_photo") // ImageType JSON { id, url, bytes, format, provider }
+  punchInLatitude        Decimal?         @map("punch_in_latitude") @db.Decimal(10, 8)
+  punchInLongitude       Decimal?         @map("punch_in_longitude") @db.Decimal(11, 8)
+  punchInAddress         String?          @map("punch_in_address")
+  punchInGeofenceId      String?          @map("punch_in_geofence_id") @db.Uuid
+  punchInGeofence        GeofenceArea?    @relation("AttendancePunchInGeofence", fields: [punchInGeofenceId], references: [id], onDelete: SetNull)
+  punchInDistanceMeters  Int?             @map("punch_in_distance_meters")
+
+  // Punch Out Data (Time, Live Camera Photo, GPS, Geofence, Distance)
+  punchOutTime           DateTime?        @map("punch_out_time")
+  punchOutPhoto          Json?            @map("punch_out_photo") // ImageType JSON { id, url, bytes, format, provider }
+  punchOutLatitude       Decimal?         @map("punch_out_latitude") @db.Decimal(10, 8)
+  punchOutLongitude      Decimal?         @map("punch_out_longitude") @db.Decimal(11, 8)
+  punchOutAddress        String?          @map("punch_out_address")
+  punchOutGeofenceId     String?          @map("punch_out_geofence_id") @db.Uuid
+  punchOutGeofence       GeofenceArea?    @relation("AttendancePunchOutGeofence", fields: [punchOutGeofenceId], references: [id], onDelete: SetNull)
+  punchOutDistanceMeters Int?             @map("punch_out_distance_meters")
+
+  remarks                String?          @map("remarks")
+
+  createdAt              DateTime         @default(now()) @map("created_at")
+  updatedAt              DateTime         @updatedAt @map("updated_at")
+
+  @@unique([organizationId, employeeId, attendanceDate])
+  @@index([organizationId, attendanceDate])
+  @@index([employeeId, attendanceDate])
+  @@index([status])
+  @@map("attendances")
+}
+
+// ==========================================
+// FIELD TRAVEL MODEL (BUSINESS TRIPS)
+// ==========================================
+
+model FieldTravel {
+  id                String       @id @default(uuid()) @db.Uuid
+  organizationId    String       @map("organization_id") @db.Uuid
+  organization      Organization @relation("OrganizationFieldTravels", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  title             String       @map("title") // e.g. "Delhi Client On-site Consultation"
+  code              String?      @map("code") // e.g. "TRV-001"
+  purpose           String?      @map("purpose")
+  destination       String       @map("destination") // e.g. "Mumbai Tech Park, Site 4"
+  origin            String?      @map("origin")
+
+  startDate         DateTime     @map("start_date") @db.Date
+  endDate           DateTime     @map("end_date") @db.Date
+
+  estimatedBudget   Decimal?     @map("estimated_budget") @db.Decimal(12, 2)
+  actualExpenses    Decimal?     @map("actual_expenses") @db.Decimal(12, 2)
+  currency          String       @default("INR") @map("currency")
+
+  documents         Json?        @map("documents") // Tickets, hotel bookings, approvals (ImageType array)
+  remarks           String?      @map("remarks")
+  status            TravelStatus @default(PLANNED) @map("status")
+
+  isDeleted         Boolean      @default(false) @map("is_deleted")
+  deletedAt         DateTime?    @map("deleted_at")
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+  createdById       String?      @map("created_by_id") @db.Uuid
+  updatedById       String?      @map("updated_by_id") @db.Uuid
+
+  // Many-to-Many relation with Employees (Multiple employees assigned to this trip)
+  employees         Employee[]   @relation("EmployeeFieldTravels")
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@index([status])
+  @@index([startDate, endDate])
+  @@index([isDeleted, deletedAt])
+  @@map("field_travels")
+}
+
+// ==========================================
+// LEAVE TYPE MODEL (CONFIGURABLE CATEGORIES)
+// ==========================================
+
+model LeaveType {
+  id                  String          @id @default(uuid()) @db.Uuid
+  organizationId      String          @map("organization_id") @db.Uuid
+  organization        Organization    @relation("OrganizationLeaveTypes", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name                String          @map("name") // e.g. "Casual Leave", "Sick Leave", "Paid Leave"
+  code                String          @map("code") // e.g. "CL", "SL", "PL"
+  description         String?         @map("description")
+
+  daysAllowedPerYear  Decimal         @default(12) @map("days_allowed_per_year") @db.Decimal(4, 1)
+  isPaid              Boolean         @default(true) @map("is_paid")
+  carryForward        Boolean         @default(false) @map("carry_forward")
+  maxCarryForwardDays Decimal?        @map("max_carry_forward_days") @db.Decimal(4, 1)
+
+  status              LeaveTypeStatus @default(ACTIVE) @map("status")
+  isDeleted           Boolean         @default(false) @map("is_deleted")
+  deletedAt           DateTime?       @map("deleted_at")
+  createdAt           DateTime        @default(now()) @map("created_at")
+  updatedAt           DateTime        @updatedAt @map("updated_at")
+  createdById         String?         @map("created_by_id") @db.Uuid
+  updatedById         String?         @map("updated_by_id") @db.Uuid
+
+  // Relations
+  leaveRequests       LeaveRequest[]  @relation("LeaveTypeRequests")
+
+  @@unique([organizationId, code])
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@index([status])
+  @@index([isDeleted, deletedAt])
+  @@map("leave_types")
+}
+
+// ==========================================
+// LEAVE REQUEST MODEL (APPLICATIONS & APPROVALS)
+// ==========================================
+
+model LeaveRequest {
+  id             String          @id @default(uuid()) @db.Uuid
+  organizationId String          @map("organization_id") @db.Uuid
+  organization   Organization    @relation("OrganizationLeaveRequests", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  employeeId     String          @map("employee_id") @db.Uuid
+  employee       Employee        @relation("EmployeeLeaveRequests", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  leaveTypeId    String          @map("leave_type_id") @db.Uuid
+  leaveType      LeaveType       @relation("LeaveTypeRequests", fields: [leaveTypeId], references: [id], onDelete: Restrict)
+
+  startDate      DateTime        @map("start_date") @db.Date
+  endDate        DateTime        @map("end_date") @db.Date
+  totalDays      Decimal         @map("total_days") @db.Decimal(4, 1) // e.g. 0.5, 1.0, 3.0
+
+  isHalfDay      Boolean         @default(false) @map("is_half_day")
+  halfDaySession HalfDaySession? @map("half_day_session")
+
+  reason         String          @map("reason")
+  documents      Json?           @map("documents") // Proof/medical certificate (ImageType array)
+
+  status         LeaveStatus     @default(PENDING) @map("status")
+
+  // Approval / Rejection Workflow
+  approvedById   String?         @map("approved_by_id") @db.Uuid
+  approvedBy     Employee?       @relation("LeaveApprovals", fields: [approvedById], references: [id], onDelete: SetNull)
+  actionDate     DateTime?       @map("action_date")
+  adminRemarks   String?         @map("admin_remarks")
+
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+
+  @@index([organizationId])
+  @@index([employeeId])
+  @@index([leaveTypeId])
+  @@index([status])
+  @@index([startDate, endDate])
+  @@map("leave_requests")
+}
+
+
+// ==========================================
+// PERFORMANCE REVIEW (SCORECARDS & RUBRICS)
+// ==========================================
+
+model PerformanceReview {
+  id                 String                  @id @default(uuid()) @db.Uuid
+  employeeId         String                  @map("employee_id") @db.Uuid
+  employee           Employee                @relation("EmployeePerformanceReviews", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  reviewerId         String?                 @map("reviewer_id") @db.Uuid
+  reviewer           Employee?               @relation("ReviewerPerformanceReviews", fields: [reviewerId], references: [id], onDelete: SetNull)
+
+  reviewPeriod       String                  @map("review_period") // e.g. "Q3 2026", "Annual 2025-26"
+  reviewType         ReviewType              @default(QUARTERLY) @map("review_type")
+  reviewDate         DateTime                @default(now()) @map("review_date") @db.Date
+
+  // Overall Score (1.0 to 5.0 scale)
+  overallScore       Decimal                 @map("overall_score") @db.Decimal(3, 2) // e.g. 4.60
+
+  // Sub-performance KPI Ratings Rubrics
+  // Stored as JSON: { "Delivery Speed": 4.5, "Quality": 4.2, "Teamwork": 4.8, "Client CSAT": 4.9 }
+  kpiScores          Json                    @default("{}") @map("kpi_scores")
+
+  // Comments
+  selfReviewComments String?                 @map("self_review_comments")
+  reviewerComments   String?                 @map("reviewer_comments")
+
+  // Recommendation & Promotion
+  recommendation     String                  @default("Maintain") @map("recommendation") // 'Promote', 'Incentive Increment', 'PIP', 'Maintain'
+  recommendedHike    Decimal?                @map("recommended_hike") @db.Decimal(5, 2) // Percentage hike e.g. 15.00%
+  status             PerformanceReviewStatus @default(APPROVED) @map("status")
+
+  createdAt          DateTime                @default(now()) @map("created_at")
+  updatedAt          DateTime                @updatedAt @map("updated_at")
+
+  @@index([employeeId])
+  @@index([reviewerId])
+  @@index([reviewPeriod])
+  @@index([status])
+  @@map("performance_reviews")
+}
+
+// ==========================================
+// PAYROLL PERIOD (CORPORATE RUNS & CMS BATCHES)
+// ==========================================
+
+model PayrollPeriod {
+  id             String          @id @default(uuid()) @db.Uuid
+  organizationId String          @map("organization_id") @db.Uuid
+  organization   Organization    @relation("OrganizationPayrollPeriods", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name           String          @map("name") // e.g. "August 2026", "September 2026"
+  month          Int             @map("month") // 1 to 12
+  year           Int             @map("year") // e.g. 2026
+
+  startDate      DateTime        @map("start_date") @db.Date
+  endDate        DateTime        @map("end_date") @db.Date
+
+  totalEmployees Int             @default(0) @map("total_employees")
+  totalGross     Decimal         @default(0) @map("total_gross") @db.Decimal(15, 2)
+  totalDeductions Decimal        @default(0) @map("total_deductions") @db.Decimal(15, 2)
+  totalNet       Decimal         @default(0) @map("total_net") @db.Decimal(15, 2)
+  currency       String          @default("INR") @map("currency")
+
+  status         PayrollStatus   @default(DRAFT) @map("status")
+  processedAt    DateTime?       @map("processed_at")
+  disbursedAt    DateTime?       @map("disbursed_at")
+  bankBatchRef   String?         @map("bank_batch_ref") // CMS batch reference e.g. "CMS-TXN-882910"
+
+  isDeleted      Boolean         @default(false) @map("is_deleted")
+  deletedAt      DateTime?       @map("deleted_at")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  createdById    String?         @map("created_by_id") @db.Uuid
+  updatedById    String?         @map("updated_by_id") @db.Uuid
+
+  records        PayrollRecord[] @relation("PeriodPayrollRecords")
+
+  @@unique([organizationId, month, year])
+  @@index([organizationId])
+  @@index([status])
+  @@index([month, year])
+  @@index([isDeleted, deletedAt])
+  @@map("payroll_periods")
+}
+
+// ==========================================
+// PAYROLL RECORD (INDIVIDUAL EMPLOYEE PAYSLIP)
+// ==========================================
+
+model PayrollRecord {
+  id                     String               @id @default(uuid()) @db.Uuid
+  payrollPeriodId        String               @map("payroll_period_id") @db.Uuid
+  payrollPeriod          PayrollPeriod        @relation("PeriodPayrollRecords", fields: [payrollPeriodId], references: [id], onDelete: Cascade)
+
+  employeeId             String               @map("employee_id") @db.Uuid
+  employee               Employee             @relation("EmployeePayrollRecords", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  salaryStructureId      String?              @map("salary_structure_id") @db.Uuid
+  salaryStructure        EmployeeSalary?      @relation("SalaryStructurePayrollRecords", fields: [salaryStructureId], references: [id], onDelete: SetNull)
+
+  // Working & Attendance Days
+  workingDays            Int                  @default(30) @map("working_days")
+  presentDays            Decimal              @default(0) @map("present_days") @db.Decimal(4, 1)
+  paidLeaveDays          Decimal              @default(0) @map("paid_leave_days") @db.Decimal(4, 1)
+  unpaidLeaveDays        Decimal              @default(0) @map("unpaid_leave_days") @db.Decimal(4, 1)
+  penaltyDeductionDays   Decimal              @default(0) @map("penalty_deduction_days") @db.Decimal(4, 1) // Double penalty for unapproved absence
+
+  // Gross Earnings Breakdown
+  basicSalary            Decimal              @default(0) @map("basic_salary") @db.Decimal(14, 2)
+  hra                    Decimal              @default(0) @map("hra") @db.Decimal(14, 2)
+  conveyanceAllowance    Decimal              @default(0) @map("conveyance_allowance") @db.Decimal(14, 2)
+  specialAllowance       Decimal              @default(0) @map("special_allowance") @db.Decimal(14, 2)
+  medicalAllowance       Decimal              @default(0) @map("medical_allowance") @db.Decimal(14, 2)
+  otherAllowances        Decimal              @default(0) @map("other_allowances") @db.Decimal(14, 2)
+  incentivesTotal        Decimal              @default(0) @map("incentives_total") @db.Decimal(14, 2)
+  travelReimbursement    Decimal              @default(0) @map("travel_reimbursement") @db.Decimal(14, 2) // Mileage / travel credit
+  grossEarnings          Decimal              @default(0) @map("gross_earnings") @db.Decimal(14, 2)
+
+  // Deductions Breakdown
+  pfEmployee             Decimal              @default(0) @map("pf_employee") @db.Decimal(14, 2)
+  esiEmployee            Decimal              @default(0) @map("esi_employee") @db.Decimal(14, 2)
+  professionalTax        Decimal              @default(0) @map("professional_tax") @db.Decimal(14, 2)
+  tds                    Decimal              @default(0) @map("tds") @db.Decimal(14, 2)
+  policyPenaltyDeduction Decimal              @default(0) @map("policy_penalty_deduction") @db.Decimal(14, 2)
+  otherDeductions        Decimal              @default(0) @map("other_deductions") @db.Decimal(14, 2)
+  totalDeductions        Decimal              @default(0) @map("total_deductions") @db.Decimal(14, 2)
+
+  // Final Net Disbursed Payout
+  netPay                 Decimal              @default(0) @map("net_pay") @db.Decimal(14, 2)
+  currency               String               @default("INR") @map("currency")
+
+  // Payment Execution & PDF Slip
+  paymentMode            PaymentMode          @default(BANK_TRANSFER) @map("payment_mode")
+  paymentStatus          PayslipPaymentStatus @default(PENDING) @map("payment_status")
+  paymentReference       String?              @map("payment_reference") // Bank UTR / CMS Ref
+  paidDate               DateTime?            @map("paid_date")
+  payslipPdf             Json?                @map("payslip_pdf") // ImageType JSON for PDF slip
+
+  remarks                String?              @map("remarks")
+  createdAt              DateTime             @default(now()) @map("created_at")
+  updatedAt              DateTime             @updatedAt @map("updated_at")
+
+  // Incentives integrated into this paystub
+  incentives             EmployeeIncentive[]  @relation("IncentivePayrollRecord")
+
+  @@unique([payrollPeriodId, employeeId])
+  @@index([employeeId])
+  @@index([payrollPeriodId])
+  @@index([paymentStatus])
+  @@map("payroll_records")
+}
+
+// ==========================================
+// EMPLOYEE INCENTIVE (CREDIT & DEBIT TRANSACTIONS)
+// ==========================================
+
+model EmployeeIncentive {
+  id               String            @id @default(uuid()) @db.Uuid
+  employeeId       String            @map("employee_id") @db.Uuid
+  employee         Employee          @relation("EmployeeIncentives", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  // Transaction Classification
+  type             IncentiveType     @default(CREDIT) @map("type") // CREDIT (Bonus/Reward) or DEBIT (Penalty/Recovery)
+  amount           Decimal           @map("amount") @db.Decimal(12, 2)
+  currency         String            @default("INR") @map("currency")
+
+  // Context & Metadata
+  reason           String            @map("reason") // e.g. "Q3 Sales Milestone Achieved", "Late Login Policy Deduction"
+  description      String?           @map("description")
+  remarks          String?           @map("remarks")
+
+  effectiveDate    DateTime          @default(now()) @map("effective_date") @db.Date
+  status           IncentiveStatus   @default(PENDING) @map("status")
+
+  // Approval & Processing Workflow
+  approvedById     String?           @map("approved_by_id") @db.Uuid
+  approvedBy       Employee?         @relation("IncentiveApprovals", fields: [approvedById], references: [id], onDelete: SetNull)
+  actionDate       DateTime?         @map("action_date")
+
+  // Payroll Batch Integration (Optional link when processed into a paystub)
+  payrollRecordId  String?           @map("payroll_record_id") @db.Uuid
+  payrollRecord    PayrollRecord?    @relation("IncentivePayrollRecord", fields: [payrollRecordId], references: [id], onDelete: SetNull)
+
+  // Documents (Receipts, Proof, Approval certificates conforming to ImageType JSON)
+  documents        Json?             @map("documents")
+
+  // Soft Delete & Auditing
+  isDeleted        Boolean           @default(false) @map("is_deleted")
+  deletedAt        DateTime?         @map("deleted_at")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+  createdById      String?           @map("created_by_id") @db.Uuid
+  updatedById      String?           @map("updated_by_id") @db.Uuid
+
+  @@index([employeeId])
+  @@index([type])
+  @@index([status])
+  @@index([effectiveDate])
+  @@index([payrollRecordId])
+  @@index([isDeleted, deletedAt])
+  @@map("employee_incentives")
+}
+
+// ==========================================
+// NOTICE PERIOD (RESIGNATIONS & OFFBOARDING)
+// ==========================================
+
+model NoticePeriod {
+  id                     String             @id @default(uuid()) @db.Uuid
+  employeeId             String             @map("employee_id") @db.Uuid
+  employee               Employee           @relation("EmployeeNoticePeriods", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  // Notice Timeline & Duration
+  noticeStartDate        DateTime           @map("notice_start_date") @db.Date
+  noticeDays             Int                @default(30) @map("notice_days") // e.g. 30, 60, 90 days
+  expectedLastWorkingDay DateTime           @map("expected_last_working_day") @db.Date
+  actualLastWorkingDay   DateTime?          @map("actual_last_working_day") @db.Date
+
+  // Reason & Explanations
+  reason                 String             @map("reason") // e.g. "Better Career Opportunity", "Relocation", "Personal Reasons"
+  description            String?            @map("description") // Resignation letter content
+
+  // Status & Approval Workflow
+  status                 NoticePeriodStatus @default(SUBMITTED) @map("status")
+  approvedById           String?            @map("approved_by_id") @db.Uuid
+  approvedBy             Employee?          @relation("NoticePeriodApprovals", fields: [approvedById], references: [id], onDelete: SetNull)
+  actionDate             DateTime?          @map("action_date")
+  adminRemarks           String?            @map("admin_remarks")
+
+  // Notice Buyout Option (Early exit settlement)
+  buyoutOption           Boolean            @default(false) @map("buyout_option")
+  buyoutDays             Int                @default(0) @map("buyout_days")
+  buyoutAmount           Decimal?           @map("buyout_amount") @db.Decimal(12, 2)
+
+  // Clearance & Handover Tracking
+  handoverStatus         HandoverStatus     @default(PENDING) @map("handover_status")
+  isSettled              Boolean            @default(false) @map("is_settled") // Full & Final settlement flag
+  exitInterviewNotes     String?            @map("exit_interview_notes")
+
+  // Documents (Resignation Letter, Clearance No-Dues form, Handover checklist - ImageType JSON)
+  documents              Json?              @map("documents")
+
+  // Timestamps & Auditing
+  createdAt              DateTime           @default(now()) @map("created_at")
+  updatedAt              DateTime           @updatedAt @map("updated_at")
+  createdById            String?            @map("created_by_id") @db.Uuid
+  updatedById            String?            @map("updated_by_id") @db.Uuid
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([noticeStartDate, expectedLastWorkingDay])
+  @@map("notice_periods")
+}
+
+
+

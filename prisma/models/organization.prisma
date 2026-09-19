@@ -52,6 +52,13 @@ model Organization {
     departments       Department[]                      @relation("OrganizationDepartments")
     teams             Team[]                            @relation("OrganizationTeams")
     employeeDepartmentTeams EmployeeDepartmentTeam[]    @relation("OrganizationEmployeeDepartmentTeams")
+    geofenceAreas     GeofenceArea[]                    @relation("OrganizationGeofences")
+    shifts            Shift[]                           @relation("OrganizationShifts")
+    attendances       Attendance[]                      @relation("OrganizationAttendances")
+    fieldTravels      FieldTravel[]                     @relation("OrganizationFieldTravels")
+    leaveTypes        LeaveType[]                       @relation("OrganizationLeaveTypes")
+    leaveRequests     LeaveRequest[]                    @relation("OrganizationLeaveRequests")
+    payrollPeriods    PayrollPeriod[]                   @relation("OrganizationPayrollPeriods")
 
     @@index([slug])
     @@index([status])
