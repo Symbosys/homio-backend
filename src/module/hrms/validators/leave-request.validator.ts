@@ -3,13 +3,22 @@ import { z } from "zod";
 export const leaveStatusEnum = z.enum(["PENDING", "APPROVED", "REJECTED", "CANCELLED"]);
 export const halfDaySessionEnum = z.enum(["FIRST_HALF", "SECOND_HALF"]);
 
-const dateStringRegex = /^\d{4}-\d{2}-\d{2}$/;
+const dateStringSchema = z
+  .string({ message: "Date is required" })
+  .transform((val) => (val && typeof val === "string" && val.includes("T") ? val.split("T")[0] : val))
+  .pipe(z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"));
+
+const optionalDateStringSchema = z
+  .string()
+  .optional()
+  .transform((val) => (val && typeof val === "string" && val.includes("T") ? val.split("T")[0] : val))
+  .pipe(z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format").optional());
 
 export const applyLeaveSchema = z.object({
   body: z.object({
     leaveTypeId: z.string().uuid("Invalid leave type ID"),
-    startDate: z.string({ message: "Start date is required" }).regex(dateStringRegex, "Start date must be in YYYY-MM-DD format"),
-    endDate: z.string({ message: "End date is required" }).regex(dateStringRegex, "End date must be in YYYY-MM-DD format"),
+    startDate: dateStringSchema,
+    endDate: dateStringSchema,
     isHalfDay: z.coerce.boolean().default(false).optional(),
     halfDaySession: halfDaySessionEnum.nullable().optional(),
     reason: z.string({ message: "Reason is required" }).trim().min(3, "Reason must be at least 3 characters").max(500),
@@ -24,8 +33,8 @@ export const getLeaveRequestsQuerySchema = z.object({
     leaveTypeId: z.string().uuid("Invalid leave type ID").optional(),
     departmentId: z.string().uuid("Invalid department ID").optional(),
     employeeId: z.string().uuid("Invalid employee ID").optional(),
-    startDate: z.string().regex(dateStringRegex, "Start date must be in YYYY-MM-DD format").optional(),
-    endDate: z.string().regex(dateStringRegex, "End date must be in YYYY-MM-DD format").optional(),
+    startDate: optionalDateStringSchema,
+    endDate: optionalDateStringSchema,
     search: z.string().trim().optional(),
     sortBy: z.enum(["startDate", "endDate", "createdAt", "status"]).default("createdAt"),
     sortOrder: z.enum(["asc", "desc"]).default("desc"),
@@ -37,8 +46,8 @@ export const getMyLeavesQuerySchema = z.object({
     page: z.coerce.number().int().min(1).default(1),
     limit: z.coerce.number().int().min(1).max(100).default(20),
     status: leaveStatusEnum.optional(),
-    startDate: z.string().regex(dateStringRegex, "Start date must be in YYYY-MM-DD format").optional(),
-    endDate: z.string().regex(dateStringRegex, "End date must be in YYYY-MM-DD format").optional(),
+    startDate: optionalDateStringSchema,
+    endDate: optionalDateStringSchema,
   }),
 });
 

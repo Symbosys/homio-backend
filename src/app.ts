@@ -10,6 +10,7 @@ import platformSubscriptionRoutes from "./module/subscription/routes/subscriptio
 import platformOrganizationRoutes from "./module/organization/routes/organization.routes.js";
 import marketplaceRouter from "./module/marketplace/routes/index.js";
 import hrmsRouter from "./module/hrms/routes/index.js";
+import crmRouter from "./module/leads-crm/routes/index.js";
 
 const app = express();
 
@@ -56,6 +57,11 @@ app.use("/api/v1/marketplace", marketplaceRouter);
  * HRMS Module Routes (Employees & Salary Period Tracking)
  */
 app.use("/api/v1/hrms", hrmsRouter);
+
+/**
+ * CRM & Lead Management Module Routes
+ */
+app.use("/api/v1/crm", crmRouter);
 
 app.use(errorMiddleware);
 

@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+const optionalDateStringSchema = z
+  .string()
+  .optional()
+  .transform((val) => (val && typeof val === "string" && val.includes("T") ? val.split("T")[0] : val))
+  .pipe(z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format").optional());
+
 export const createIncentiveSchema = z.object({
   body: z.object({
     employeeId: z.string().uuid("Invalid employee ID"),
@@ -9,10 +15,7 @@ export const createIncentiveSchema = z.object({
     reason: z.string().min(2, "Reason must be at least 2 characters").max(200),
     description: z.string().max(1000).optional().nullable(),
     remarks: z.string().max(500).optional().nullable(),
-    effectiveDate: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/, "Effective date must be in YYYY-MM-DD format")
-      .optional(),
+    effectiveDate: optionalDateStringSchema,
   }),
 });
 
@@ -26,10 +29,7 @@ export const updateIncentiveSchema = z.object({
     reason: z.string().min(2).max(200).optional(),
     description: z.string().max(1000).optional().nullable(),
     remarks: z.string().max(500).optional().nullable(),
-    effectiveDate: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/)
-      .optional(),
+    effectiveDate: optionalDateStringSchema,
   }),
 });
 
@@ -40,8 +40,8 @@ export const getIncentivesQuerySchema = z.object({
     type: z.enum(["CREDIT", "DEBIT"]).optional(),
     status: z.enum(["PENDING", "APPROVED", "REJECTED", "PROCESSED_IN_PAYROLL", "CANCELLED"]).optional(),
     employeeId: z.string().uuid().optional(),
-    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    startDate: optionalDateStringSchema,
+    endDate: optionalDateStringSchema,
     search: z.string().trim().optional(),
     sortBy: z.enum(["createdAt", "effectiveDate", "amount"]).default("createdAt"),
     sortOrder: z.enum(["asc", "desc"]).default("desc"),

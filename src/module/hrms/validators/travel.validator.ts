@@ -2,7 +2,16 @@ import { z } from "zod";
 
 export const travelStatusEnum = z.enum(["PLANNED", "IN_PROGRESS", "COMPLETED", "CANCELLED"]);
 
-const dateStringRegex = /^\d{4}-\d{2}-\d{2}$/;
+const dateStringSchema = z
+  .string({ message: "Date is required" })
+  .transform((val) => (val && typeof val === "string" && val.includes("T") ? val.split("T")[0] : val))
+  .pipe(z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"));
+
+const optionalDateStringSchema = z
+  .string()
+  .optional()
+  .transform((val) => (val && typeof val === "string" && val.includes("T") ? val.split("T")[0] : val))
+  .pipe(z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format").optional());
 
 export const createTravelSchema = z.object({
   body: z.object({
@@ -11,8 +20,8 @@ export const createTravelSchema = z.object({
     purpose: z.string().trim().nullable().optional(),
     destination: z.string({ message: "Destination is required" }).trim().min(1, "Destination cannot be empty").max(150),
     origin: z.string().trim().nullable().optional(),
-    startDate: z.string({ message: "Start date is required" }).regex(dateStringRegex, "Start date must be in YYYY-MM-DD format"),
-    endDate: z.string({ message: "End date is required" }).regex(dateStringRegex, "End date must be in YYYY-MM-DD format"),
+    startDate: dateStringSchema,
+    endDate: dateStringSchema,
     estimatedBudget: z.coerce.number().min(0, "Budget cannot be negative").nullable().optional(),
     currency: z.string().trim().default("INR").optional(),
     remarks: z.string().trim().max(500).nullable().optional(),
@@ -43,8 +52,8 @@ export const updateTravelSchema = z.object({
     purpose: z.string().trim().nullable().optional(),
     destination: z.string().trim().min(1).max(150).optional(),
     origin: z.string().trim().nullable().optional(),
-    startDate: z.string().regex(dateStringRegex, "Start date must be in YYYY-MM-DD format").optional(),
-    endDate: z.string().regex(dateStringRegex, "End date must be in YYYY-MM-DD format").optional(),
+    startDate: optionalDateStringSchema,
+    endDate: optionalDateStringSchema,
     estimatedBudget: z.coerce.number().min(0).nullable().optional(),
     actualExpenses: z.coerce.number().min(0).nullable().optional(),
     currency: z.string().trim().optional(),
@@ -66,8 +75,8 @@ export const getTravelsQuerySchema = z.object({
     search: z.string().trim().optional(),
     status: travelStatusEnum.optional(),
     destination: z.string().trim().optional(),
-    startDate: z.string().regex(dateStringRegex, "Start date must be in YYYY-MM-DD format").optional(),
-    endDate: z.string().regex(dateStringRegex, "End date must be in YYYY-MM-DD format").optional(),
+    startDate: optionalDateStringSchema,
+    endDate: optionalDateStringSchema,
     employeeId: z.string().uuid("Invalid employee ID").optional(),
     sortBy: z.enum(["startDate", "endDate", "createdAt", "title"]).default("startDate"),
     sortOrder: z.enum(["asc", "desc"]).default("desc"),

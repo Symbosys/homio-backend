@@ -1,12 +1,17 @@
 import { z } from "zod";
 
+const dateStringSchema = z
+  .string({ message: "Date is required" })
+  .transform((val) => (val && typeof val === "string" && val.includes("T") ? val.split("T")[0] : val))
+  .pipe(z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"));
+
 export const createPayrollPeriodSchema = z.object({
   body: z.object({
     name: z.string().min(2, "Name must be at least 2 characters").max(100), // e.g. "September 2026"
     month: z.number().int().min(1).max(12, "Month must be between 1 and 12"),
     year: z.number().int().min(2020).max(2100),
-    startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Start date must be in YYYY-MM-DD format"),
-    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "End date must be in YYYY-MM-DD format"),
+    startDate: dateStringSchema,
+    endDate: dateStringSchema,
     currency: z.string().default("INR"),
   }),
 });

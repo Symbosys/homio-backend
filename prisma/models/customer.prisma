@@ -1,1 +1,160 @@
+// ==========================================
+// CUSTOMER & CLIENT ENUMS
+// ==========================================
 
+enum CustomerType {
+  LEAD_CUSTOMER // Prospective client captured from inquiries/leads
+  CLIENT // Converted paying client with active projects & portal access
+}
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+  BLACKLISTED
+  ARCHIVED
+}
+
+enum CustomerSalutation {
+  MR
+  MRS
+  MS
+  DR
+  AR
+  OTHER
+}
+
+// ==========================================
+// CUSTOMER MODEL (Tenant-Scoped with Platform User Link)
+// ==========================================
+
+model Customer {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationCustomers", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Linkage to platform-wide User account (for Client-Side Portal Login)
+  userId String? @map("user_id") @db.Uuid
+  user   User?   @relation("UserCustomers", fields: [userId], references: [id], onDelete: SetNull)
+
+  // Lifecycle Type & Tenant Code
+  customerType CustomerType        @default(LEAD_CUSTOMER) @map("customer_type")
+  customerCode String              @map("customer_code") // e.g. "CUST-1001"
+  salutation   CustomerSalutation? @map("salutation")
+  firstName    String              @map("first_name")
+  lastName     String?             @map("last_name")
+  displayName  String?             @map("display_name")
+
+  // Contact Information
+  email          String? @map("email")
+  phone          String  @map("phone")
+  alternatePhone String? @map("alternate_phone")
+  companyName    String? @map("company_name")
+  gstin          String? @map("gstin")
+  panNumber      String? @map("pan_number")
+  avatarUrl      Json?   @map("avatar_url") // ImageType JSON
+
+  // Status & Classification
+  status       CustomerStatus @default(ACTIVE) @map("status")
+  tags         String[]       @default([]) @map("tags")
+  notes        String?        @map("notes")
+  customFields Json?          @map("custom_fields")
+
+  // Inquiry Statistics for this Organization
+  totalInquiriesCount Int       @default(1) @map("total_inquiries_count")
+  lastInquiryDate     DateTime? @default(now()) @map("last_inquiry_date")
+
+  // Billing & Shipping Addresses
+  billingAddress String? @map("billing_address")
+  billingCity    String? @map("billing_city")
+  billingState   String? @map("billing_state")
+  billingCountry String  @default("IN") @map("billing_country")
+  billingPincode String? @map("billing_pincode")
+
+  shippingAddress String? @map("shipping_address")
+  shippingCity    String? @map("shipping_city")
+  shippingState   String? @map("shipping_state")
+  shippingCountry String  @default("IN") @map("shipping_country")
+  shippingPincode String? @map("shipping_pincode")
+
+  // Conversion & Audit
+  convertedAt   DateTime? @map("converted_at")
+  convertedById String?   @map("converted_by_id") @db.Uuid
+  convertedBy   Employee? @relation("CustomerConvertedBy", fields: [convertedById], references: [id], onDelete: SetNull)
+  initialLeadId String?   @map("initial_lead_id") @db.Uuid
+
+  // Client Portal Settings
+  portalAccessEnabled    Boolean   @default(false) @map("portal_access_enabled")
+  portalActivatedAt      DateTime? @map("portal_activated_at")
+  preferredContactMethod String?   @default("PHONE") @map("preferred_contact_method")
+
+  // Soft Delete & Timestamps
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  leads      Lead[]             @relation("CustomerLeads")
+  activities CustomerActivity[] @relation("CustomerActivities")
+  documents  CustomerDocument[] @relation("CustomerDocuments")
+  meetings   Meeting[]          @relation("CustomerMeetings")
+  tasks      Task[]             @relation("CustomerTasks")
+
+  @@unique([organizationId, customerCode])
+  @@unique([organizationId, phone])
+  @@index([organizationId])
+  @@index([userId])
+  @@index([phone])
+  @@index([email])
+  @@index([customerType])
+  @@index([status])
+  @@index([isDeleted, deletedAt])
+  @@map("customers")
+}
+
+// ==========================================
+// CUSTOMER ACTIVITIES LOG
+// ==========================================
+
+model CustomerActivity {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationCustomerActivities", fields: [organizationId], references: [id], onDelete: Cascade)
+  customerId     String       @map("customer_id") @db.Uuid
+  customer       Customer     @relation("CustomerActivities", fields: [customerId], references: [id], onDelete: Cascade)
+
+  type          String    @map("type") // CALL, MEETING, EMAIL, WHATSAPP, SITE_VISIT, NOTE, CONVERSION
+  title         String    @map("title")
+  description   String?   @map("description")
+  performedById String?   @map("performed_by_id") @db.Uuid
+  performedBy   Employee? @relation("CustomerActivityPerformedBy", fields: [performedById], references: [id], onDelete: SetNull)
+  metadata      Json?     @map("metadata")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  @@index([organizationId])
+  @@index([customerId])
+  @@index([performedById])
+  @@map("customer_activities")
+}
+
+// ==========================================
+// CUSTOMER DOCUMENTS & KYC
+// ==========================================
+
+model CustomerDocument {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  customerId     String   @map("customer_id") @db.Uuid
+  customer       Customer @relation("CustomerDocuments", fields: [customerId], references: [id], onDelete: Cascade)
+
+  name         String   @map("name")
+  category     String   @map("category") // KYC_ID, AGREEMENT, SITE_DEED, OTHER
+  fileUrl      Json     @map("file_url") // ImageType structured JSON
+  uploadedById String?  @map("uploaded_by_id") @db.Uuid
+  uploadedBy   User?    @relation("CustomerDocumentUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([organizationId])
+  @@index([customerId])
+  @@map("customer_documents")
+}

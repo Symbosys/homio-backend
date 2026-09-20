@@ -1,11 +1,17 @@
 import { z } from "zod";
 
+const optionalDateStringSchema = z
+  .string()
+  .optional()
+  .transform((val) => (val && typeof val === "string" && val.includes("T") ? val.split("T")[0] : val))
+  .pipe(z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Review date must be in YYYY-MM-DD format").optional());
+
 export const createPerformanceReviewSchema = z.object({
   body: z.object({
     employeeId: z.string().uuid("Invalid employee ID"),
     reviewPeriod: z.string().min(1, "Review period is required"), // e.g. 'Q3 2026', 'Annual 2025-26'
     reviewType: z.enum(["QUARTERLY", "ANNUAL", "PROBATION", "SPECIAL"]).default("QUARTERLY"),
-    reviewDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Review date must be in YYYY-MM-DD format").optional(),
+    reviewDate: optionalDateStringSchema,
     overallScore: z.number().min(1.0, "Overall score must be at least 1.0").max(5.0, "Overall score cannot exceed 5.0"),
     kpiScores: z.record(z.string(), z.number().min(1.0).max(5.0)).default({}), // Dynamic rubrics e.g. { "Delivery Speed": 4.5, "Quality": 4.2 }
     selfReviewComments: z.string().max(2000).optional().nullable(),
@@ -23,7 +29,7 @@ export const updatePerformanceReviewSchema = z.object({
   body: z.object({
     reviewPeriod: z.string().min(1).optional(),
     reviewType: z.enum(["QUARTERLY", "ANNUAL", "PROBATION", "SPECIAL"]).optional(),
-    reviewDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    reviewDate: optionalDateStringSchema,
     overallScore: z.number().min(1.0).max(5.0).optional(),
     kpiScores: z.record(z.string(), z.number().min(1.0).max(5.0)).optional(),
     selfReviewComments: z.string().max(2000).optional().nullable(),

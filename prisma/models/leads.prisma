@@ -1,1 +1,248 @@
+// ==========================================
+// LEAD ENUMS
+// ==========================================
 
+enum LeadStatus {
+  NEW // Newly captured inquiry, pending assignment
+  CONTACTED // First touchpoint attempted/done
+  QUALIFIED // Requirements and budget validated
+  SITE_VISIT_SCHEDULED // Site measurement scheduled
+  SITE_VISIT_COMPLETED // Site visit completed
+  PROPOSAL_SENT // Quotation / design estimate sent
+  NEGOTIATION // Commercials or scope discussion
+  WON // Converted to Client & active Project
+  LOST // Lost / dropped
+  JUNK // Spam / invalid inquiry
+}
+
+enum LeadSource {
+  WEBSITE
+  META_ADS
+  GOOGLE_ADS
+  INSTAGRAM
+  REFERRAL
+  WALK_IN
+  PHONE_INQUIRY
+  PROPERTY_PORTAL
+  CHANNEL_PARTNER
+  EXHIBITION
+  OFFLINE_CAMPAIGN
+  OTHER
+}
+
+enum LeadPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum FollowUpStatus {
+  PENDING
+  COMPLETED
+  RESCHEDULED
+  CANCELLED
+  MISSED
+}
+
+enum FollowUpType {
+  CALL
+  ONLINE_MEETING
+  IN_PERSON_MEETING
+  SITE_VISIT
+  WHATSAPP_MESSAGE
+  EMAIL
+  PROPOSAL_REVIEW
+  OTHER
+}
+
+// ==========================================
+// LEAD MODEL
+// ==========================================
+
+model Lead {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationLeads", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Parent Customer in this Organization
+  customerId String   @map("customer_id") @db.Uuid
+  customer   Customer @relation("CustomerLeads", fields: [customerId], references: [id], onDelete: Restrict)
+
+  // Unique Lead Tracking Code & Inquiry Count
+  leadCode      String @map("lead_code") // e.g. "LEAD-2026-0001"
+  inquiryNumber Int    @default(1) @map("inquiry_number") // Tracks 1st, 2nd, 3rd inquiry by this customer
+  title         String @map("title") // e.g. "3BHK Full Interior - Prestige Lakeside"
+
+  // Free-form Scope of Work (passed directly from frontend)
+  scopeOfWork String? @map("scope_of_work")
+
+  // Classification & Pipeline
+  status   LeadStatus   @default(NEW) @map("status")
+  source   LeadSource   @default(WEBSITE) @map("source")
+  priority LeadPriority @default(MEDIUM) @map("priority")
+
+  // Property Details
+  propertyType     String?   @map("property_type") // e.g. "Apartment", "Villa", "Commercial Office"
+  propertySizeSqft Float?    @map("property_size_sqft")
+  propertyAddress  String?   @map("property_address")
+  propertyCity     String?   @map("property_city")
+  propertyPincode  String?   @map("property_pincode")
+  possessionStatus String?   @map("possession_status") // "READY_TO_MOVE", "UNDER_CONSTRUCTION", "RENOVATION"
+  possessionDate   DateTime? @map("possession_date") @db.Date
+
+  // Commercials & Scoring
+  estimatedBudget    Decimal? @map("estimated_budget") @db.Decimal(14, 2)
+  currency           String   @default("INR") @map("currency")
+  qualificationScore Int      @default(0) @map("qualification_score") // 0 to 100
+
+  // Ownership & Assignment
+  assignedToId String?   @map("assigned_to_id") @db.Uuid
+  assignedTo   Employee? @relation("LeadAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedAt   DateTime? @map("assigned_at")
+  assignedById String?   @map("assigned_by_id") @db.Uuid
+  assignedBy   User?     @relation("LeadAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  // Conversion & Outcome Details
+  convertedAt        DateTime? @map("converted_at")
+  convertedById      String?   @map("converted_by_id") @db.Uuid
+  convertedBy        User?     @relation("LeadConvertedBy", fields: [convertedById], references: [id], onDelete: SetNull)
+  convertedProjectId String?   @map("converted_project_id") @db.Uuid
+
+  lostReason  String?   @map("lost_reason")
+  lostRemarks String?   @map("lost_remarks")
+  lostAt      DateTime? @map("lost_at")
+
+  // Metadata & Custom Attributes
+  tags         String[] @default([]) @map("tags")
+  notes        String?  @map("notes")
+  customFields Json?    @map("custom_fields")
+
+  // Soft Delete & Timestamps
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  activities     LeadActivity[]     @relation("LeadActivities")
+  followUps      LeadFollowUp[]     @relation("LeadFollowUps")
+  stageHistories LeadStageHistory[] @relation("LeadStageHistories")
+  documents      LeadDocument[]     @relation("LeadDocuments")
+  meetings       Meeting[]          @relation("LeadMeetings")
+  tasks          Task[]             @relation("LeadTasks")
+
+  @@unique([organizationId, leadCode])
+  @@index([organizationId])
+  @@index([customerId])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([source])
+  @@index([priority])
+  @@index([isDeleted, deletedAt])
+  @@map("leads")
+}
+
+// ==========================================
+// LEAD ACTIVITIES LOG
+// ==========================================
+
+model LeadActivity {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationLeadActivities", fields: [organizationId], references: [id], onDelete: Cascade)
+  leadId         String       @map("lead_id") @db.Uuid
+  lead           Lead         @relation("LeadActivities", fields: [leadId], references: [id], onDelete: Cascade)
+
+  type          String    @map("type") // CALL, MEETING, SITE_VISIT, NOTE, WHATSAPP, EMAIL
+  title         String    @map("title")
+  description   String?   @map("description")
+  performedById String?   @map("performed_by_id") @db.Uuid
+  performedBy   Employee? @relation("LeadActivityPerformedBy", fields: [performedById], references: [id], onDelete: SetNull)
+  performedAt   DateTime  @default(now()) @map("performed_at")
+  metadata      Json?     @map("metadata")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  @@index([organizationId])
+  @@index([leadId])
+  @@index([performedById])
+  @@map("lead_activities")
+}
+
+// ==========================================
+// LEAD FOLLOW-UPS & SCHEDULED TASKS
+// ==========================================
+
+model LeadFollowUp {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationLeadFollowUps", fields: [organizationId], references: [id], onDelete: Cascade)
+  leadId         String       @map("lead_id") @db.Uuid
+  lead           Lead         @relation("LeadFollowUps", fields: [leadId], references: [id], onDelete: Cascade)
+
+  type         FollowUpType   @default(CALL) @map("type")
+  status       FollowUpStatus @default(PENDING) @map("status")
+  scheduledAt  DateTime       @map("scheduled_at")
+  remindAt     DateTime?      @map("remind_at")
+  agenda       String         @map("agenda")
+  outcomeNotes String?        @map("outcome_notes")
+  completedAt  DateTime?      @map("completed_at")
+
+  assignedToId String?   @map("assigned_to_id") @db.Uuid
+  assignedTo   Employee? @relation("LeadFollowUpAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([organizationId])
+  @@index([leadId])
+  @@index([assignedToId])
+  @@index([scheduledAt, status])
+  @@map("lead_follow_ups")
+}
+
+// ==========================================
+// LEAD STAGE TRANSITION HISTORY
+// ==========================================
+
+model LeadStageHistory {
+  id             String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  leadId         String @map("lead_id") @db.Uuid
+  lead           Lead   @relation("LeadStageHistories", fields: [leadId], references: [id], onDelete: Cascade)
+
+  fromStage       LeadStatus? @map("from_stage")
+  toStage         LeadStatus  @map("to_stage")
+  changedById     String?     @map("changed_by_id") @db.Uuid
+  changedBy       User?       @relation("LeadStageChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
+  remarks         String?     @map("remarks")
+  durationMinutes Int?        @map("duration_minutes")
+  createdAt       DateTime    @default(now()) @map("created_at")
+
+  @@index([organizationId])
+  @@index([leadId])
+  @@index([toStage])
+  @@map("lead_stage_histories")
+}
+
+// ==========================================
+// LEAD DOCUMENTS
+// ==========================================
+
+model LeadDocument {
+  id             String @id @default(uuid()) @db.Uuid
+  organizationId String @map("organization_id") @db.Uuid
+  leadId         String @map("lead_id") @db.Uuid
+  lead           Lead   @relation("LeadDocuments", fields: [leadId], references: [id], onDelete: Cascade)
+
+  name         String   @map("name")
+  category     String   @map("category") // FLOOR_PLAN, SITE_PHOTO, MOODBOARD, ESTIMATE, OTHER
+  fileUrl      Json     @map("file_url") // ImageType structured JSON
+  uploadedById String?  @map("uploaded_by_id") @db.Uuid
+  uploadedBy   User?    @relation("LeadDocumentUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([organizationId])
+  @@index([leadId])
+  @@map("lead_documents")
+}

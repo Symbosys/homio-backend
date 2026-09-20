@@ -1,67 +1,80 @@
 enum OrganizationStatus {
-    ACTIVE
-    INACTIVE
-    SUSPENDED
-    PENDING_VERIFICATION
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
 }
 
 model Organization {
-    id          String             @id @default(uuid()) @db.Uuid
-    name        String             @map("name")
-    slug        String             @unique @map("slug")
-    legalName   String?            @map("legal_name")
-    email       String?            @map("email")
-    phone       String?            @map("phone")
-    website     String?            @map("website")
-    logoUrl     Json?            @map("logo_url")
-    taxId       String?            @map("tax_id") // GSTIN / Tax ID
+  id        String  @id @default(uuid()) @db.Uuid
+  name      String  @map("name")
+  slug      String  @unique @map("slug")
+  legalName String? @map("legal_name")
+  email     String? @map("email")
+  phone     String? @map("phone")
+  website   String? @map("website")
+  logoUrl   Json?   @map("logo_url")
+  taxId     String? @map("tax_id") // GSTIN / Tax ID
 
-    // Address & Localization
-    address     String?            @map("address")
-    city        String?            @map("city")
-    state       String?            @map("state")
-    country     String             @default("IN") @map("country")
-    pincode     String?            @map("pincode")
-    currency    String             @default("INR") @map("currency")
-    timezone    String             @default("Asia/Kolkata") @map("timezone")
+  // Address & Localization
+  address  String? @map("address")
+  city     String? @map("city")
+  state    String? @map("state")
+  country  String  @default("IN") @map("country")
+  pincode  String? @map("pincode")
+  currency String  @default("INR") @map("currency")
+  timezone String  @default("Asia/Kolkata") @map("timezone")
 
-    // Status & Configuration
-    status      OrganizationStatus @default(PENDING_VERIFICATION)
-    settings    Json?              @map("settings")
+  // Status & Configuration
+  status   OrganizationStatus @default(PENDING_VERIFICATION)
+  settings Json?              @map("settings")
 
-    // Soft Delete
-    isDeleted   Boolean            @default(false) @map("is_deleted")
-    deletedAt   DateTime?          @map("deleted_at")
+  // Soft Delete
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
 
-    // Timestamps
-    createdAt   DateTime           @default(now()) @map("created_at")
-    updatedAt   DateTime           @updatedAt @map("updated_at")
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-    // Relations
-    users             User[]                            @relation("OrganizationUsers")
-    roles             Role[]                            @relation("OrganizationRoles")
-    subscriptions     Subscription[]
-    digitalProducts   DigitalProduct[]                  @relation("OrganizationDigitalProducts")
-    homeDecorProducts HomeDecorProduct[]                @relation("OrganizationHomeDecorProducts")
-    propertyListings  PropertyListing[]                 @relation("OrganizationPropertyListings")
-    materialProducts  MaterialProduct[]                 @relation("OrganizationMaterialProducts")
-    sellerCategories  OrganizationMarketplaceCategory[] @relation("OrganizationMarketplaceCategories")
-    vendors           Vendor[]                          @relation("OrganizationVendors")
-    employees         Employee[]                        @relation("OrganizationEmployees")
-    employeeSalaries  EmployeeSalary[]                  @relation("OrganizationEmployeeSalaries")
-    departments       Department[]                      @relation("OrganizationDepartments")
-    teams             Team[]                            @relation("OrganizationTeams")
-    employeeDepartmentTeams EmployeeDepartmentTeam[]    @relation("OrganizationEmployeeDepartmentTeams")
-    geofenceAreas     GeofenceArea[]                    @relation("OrganizationGeofences")
-    shifts            Shift[]                           @relation("OrganizationShifts")
-    attendances       Attendance[]                      @relation("OrganizationAttendances")
-    fieldTravels      FieldTravel[]                     @relation("OrganizationFieldTravels")
-    leaveTypes        LeaveType[]                       @relation("OrganizationLeaveTypes")
-    leaveRequests     LeaveRequest[]                    @relation("OrganizationLeaveRequests")
-    payrollPeriods    PayrollPeriod[]                   @relation("OrganizationPayrollPeriods")
+  // Relations
+  users                   User[]                            @relation("OrganizationUsers")
+  roles                   Role[]                            @relation("OrganizationRoles")
+  subscriptions           Subscription[]
+  digitalProducts         DigitalProduct[]                  @relation("OrganizationDigitalProducts")
+  homeDecorProducts       HomeDecorProduct[]                @relation("OrganizationHomeDecorProducts")
+  propertyListings        PropertyListing[]                 @relation("OrganizationPropertyListings")
+  materialProducts        MaterialProduct[]                 @relation("OrganizationMaterialProducts")
+  sellerCategories        OrganizationMarketplaceCategory[] @relation("OrganizationMarketplaceCategories")
+  vendors                 Vendor[]                          @relation("OrganizationVendors")
+  employees               Employee[]                        @relation("OrganizationEmployees")
+  employeeSalaries        EmployeeSalary[]                  @relation("OrganizationEmployeeSalaries")
+  departments             Department[]                      @relation("OrganizationDepartments")
+  teams                   Team[]                            @relation("OrganizationTeams")
+  employeeDepartmentTeams EmployeeDepartmentTeam[]          @relation("OrganizationEmployeeDepartmentTeams")
+  geofenceAreas           GeofenceArea[]                    @relation("OrganizationGeofences")
+  shifts                  Shift[]                           @relation("OrganizationShifts")
+  attendances             Attendance[]                      @relation("OrganizationAttendances")
+  fieldTravels            FieldTravel[]                     @relation("OrganizationFieldTravels")
+  leaveTypes              LeaveType[]                       @relation("OrganizationLeaveTypes")
+  leaveRequests           LeaveRequest[]                    @relation("OrganizationLeaveRequests")
+  payrollPeriods          PayrollPeriod[]                   @relation("OrganizationPayrollPeriods")
+  customers               Customer[]                        @relation("OrganizationCustomers")
+  customerActivities      CustomerActivity[]                @relation("OrganizationCustomerActivities")
+  leads                   Lead[]                            @relation("OrganizationLeads")
+  leadActivities          LeadActivity[]                    @relation("OrganizationLeadActivities")
+  leadFollowUps           LeadFollowUp[]                    @relation("OrganizationLeadFollowUps")
+  meetings                Meeting[]                         @relation("OrganizationMeetings")
+  meetingAttendees        MeetingAttendee[]                 @relation("OrganizationMeetingAttendees")
+  meetingDocuments        MeetingDocument[]                 @relation("OrganizationMeetingDocuments")
+  tasks                   Task[]                            @relation("OrganizationTasks")
+  taskAssignees           TaskAssignee[]                    @relation("OrganizationTaskAssignees")
+  taskChecklists          TaskChecklistItem[]               @relation("OrganizationTaskChecklists")
+  taskActivities          TaskActivity[]                    @relation("OrganizationTaskActivities")
+  taskDocuments           TaskDocument[]                    @relation("OrganizationTaskDocuments")
 
-    @@index([slug])
-    @@index([status])
-    @@index([isDeleted, deletedAt])
-    @@map("organizations")
+  @@index([slug])
+  @@index([status])
+  @@index([isDeleted, deletedAt])
+  @@map("organizations")
 }

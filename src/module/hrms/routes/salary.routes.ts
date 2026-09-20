@@ -22,30 +22,48 @@ const ALLOWED_SALARY_DOCUMENT_MIMES = [
   "image/gif",
 ];
 
-// Record initial salary or create a new salary revision (closes previous active period automatically)
+/**
+ * @route   POST /api/v1/hrms/salaries/employee/:employeeId
+ * @desc    Record initial compensation or create a salary revision (automatically closes previous active structure)
+ */
 router.post(
   "/employee/:employeeId",
   upload.single("document", { allowedMimeTypes: ALLOWED_SALARY_DOCUMENT_MIMES }),
   salaryController.createSalaryRevision
 );
 
-// Get complete chronological salary history for an employee
+/**
+ * @route   GET /api/v1/hrms/salaries/employee/:employeeId/history
+ * @desc    Fetch complete chronological compensation revision history for an employee
+ */
 router.get("/employee/:employeeId/history", salaryController.getEmployeeSalaryHistory);
 
-// Get the active salary structure for an employee
+/**
+ * @route   GET /api/v1/hrms/salaries/employee/:employeeId/current
+ * @desc    Get currently active salary structure (CTC, basic, allowances, deductions) for an employee
+ */
 router.get("/employee/:employeeId/current", salaryController.getCurrentSalary);
 
-// Get single salary record by ID
+/**
+ * @route   GET /api/v1/hrms/salaries/:id
+ * @desc    Get single salary structure record by ID
+ */
 router.get("/:id", salaryController.getSalaryById);
 
-// Update a specific salary record
+/**
+ * @route   PATCH /api/v1/hrms/salaries/employee/:employeeId/:salaryId
+ * @desc    Update specific salary revision record with optional proof document upload
+ */
 router.patch(
   "/employee/:employeeId/:salaryId",
   upload.single("document", { allowedMimeTypes: ALLOWED_SALARY_DOCUMENT_MIMES }),
   salaryController.updateSalary
 );
 
-// Delete / archive salary record
+/**
+ * @route   DELETE /api/v1/hrms/salaries/:id
+ * @desc    Soft-delete / remove compensation record
+ */
 router.delete("/:id", salaryController.deleteSalary);
 
 export default router;

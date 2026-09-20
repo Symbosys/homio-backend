@@ -1,179 +1,191 @@
 enum UserStatus {
-    ACTIVE
-    INACTIVE
-    SUSPENDED
-    PENDING_VERIFICATION
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
 }
 
 enum PermissionEffect {
-    ALLOW
-    DENY
+  ALLOW
+  DENY
 }
 
 enum UserType {
-    PLATFORM_ADMIN
-    ADMIN
-    USER
+  PLATFORM_ADMIN
+  ADMIN
+  USER
 }
 
 model User {
-    id           String     @id @default(uuid()) @db.Uuid
-    email        String     @unique
-    passwordHash String?    @map("password_hash")
-    firstName    String     @map("first_name")
-    lastName     String?    @map("last_name")
-    phone        String?    @unique
-    avatarUrl    String?    @map("avatar_url")
-    status       UserStatus @default(PENDING_VERIFICATION)
-    userType     UserType   @default(USER)
+  id           String     @id @default(uuid()) @db.Uuid
+  email        String     @unique
+  passwordHash String?    @map("password_hash")
+  firstName    String     @map("first_name")
+  lastName     String?    @map("last_name")
+  phone        String?    @unique
+  avatarUrl    String?    @map("avatar_url")
+  status       UserStatus @default(PENDING_VERIFICATION)
+  userType     UserType   @default(USER)
 
-    // Tenant / Organization Context
-    organizationId String?       @map("organization_id") @db.Uuid
-    organization   Organization? @relation("OrganizationUsers", fields: [organizationId], references: [id], onDelete: SetNull)
+  // Tenant / Organization Context
+  organizationId String?       @map("organization_id") @db.Uuid
+  organization   Organization? @relation("OrganizationUsers", fields: [organizationId], references: [id], onDelete: SetNull)
 
-    // Verification
-    emailVerifiedAt DateTime? @map("email_verified_at")
-    phoneVerifiedAt DateTime? @map("phone_verified_at")
+  // Verification
+  emailVerifiedAt DateTime? @map("email_verified_at")
+  phoneVerifiedAt DateTime? @map("phone_verified_at")
 
-    // Security & Auditing
-    lastLoginAt         DateTime? @map("last_login_at")
-    lastLoginIp         String?   @map("last_login_ip")
-    failedLoginAttempts Int       @default(0) @map("failed_login_attempts")
-    lockedUntil         DateTime? @map("locked_until")
-    passwordChangedAt   DateTime? @map("password_changed_at")
+  // Security & Auditing
+  lastLoginAt         DateTime? @map("last_login_at")
+  lastLoginIp         String?   @map("last_login_ip")
+  failedLoginAttempts Int       @default(0) @map("failed_login_attempts")
+  lockedUntil         DateTime? @map("locked_until")
+  passwordChangedAt   DateTime? @map("password_changed_at")
 
-    // Soft Delete
-    isDeleted Boolean   @default(false) @map("is_deleted")
-    deletedAt DateTime? @map("deleted_at")
+  // Soft Delete
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
 
-    // Timestamps
-    createdAt DateTime @default(now()) @map("created_at")
-    updatedAt DateTime @updatedAt @map("updated_at")
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-    // Self-Relations (User invitation & audit)
-    invitedById  String? @map("invited_by_id") @db.Uuid
-    invitedBy    User?   @relation("UserInvites", fields: [invitedById], references: [id], onDelete: SetNull)
-    invitedUsers User[]  @relation("UserInvites")
+  // Self-Relations (User invitation & audit)
+  invitedById  String? @map("invited_by_id") @db.Uuid
+  invitedBy    User?   @relation("UserInvites", fields: [invitedById], references: [id], onDelete: SetNull)
+  invitedUsers User[]  @relation("UserInvites")
 
-    // Relations
-    roles              UserRole[]       @relation("UserRoles")
-    permissions        UserPermission[] @relation("UserPermissions")
-    refreshTokens      RefreshToken[]
-    assignedRoles      UserRole[]       @relation("RoleAssignedBy")
-    grantedPermissions UserPermission[] @relation("PermissionGrantedBy")
-    employee           Employee?        @relation("UserEmployee")
+  // Relations
+  roles                     UserRole[]         @relation("UserRoles")
+  permissions               UserPermission[]   @relation("UserPermissions")
+  refreshTokens             RefreshToken[]
+  assignedRoles             UserRole[]         @relation("RoleAssignedBy")
+  grantedPermissions        UserPermission[]   @relation("PermissionGrantedBy")
+  employee                  Employee?          @relation("UserEmployee")
+  customers                 Customer[]         @relation("UserCustomers")
+  assignedLeads             Lead[]             @relation("LeadAssignedBy")
+  convertedLeads            Lead[]             @relation("LeadConvertedBy")
+  leadStageChanges          LeadStageHistory[] @relation("LeadStageChangedBy")
+  uploadedLeadDocuments     LeadDocument[]     @relation("LeadDocumentUploadedBy")
+  uploadedCustomerDocuments CustomerDocument[] @relation("CustomerDocumentUploadedBy")
+  createdMeetings           Meeting[]          @relation("MeetingCreatedBy")
+  meetingAttendances        MeetingAttendee[]  @relation("UserMeetingAttendees")
+  uploadedMeetingDocuments  MeetingDocument[]  @relation("MeetingDocumentUploadedBy")
+  createdTasks              Task[]             @relation("TaskCreatedBy")
+  assignedTaskAssignees     TaskAssignee[]     @relation("TaskAssigneeAssignedBy")
+  uploadedTaskDocuments     TaskDocument[]     @relation("TaskDocumentUploadedBy")
 
-    @@index([organizationId])
-    @@index([email])
-    @@index([status])
-    @@index([isDeleted, deletedAt])
-    @@map("users")
+  @@index([organizationId])
+  @@index([email])
+  @@index([status])
+  @@index([isDeleted, deletedAt])
+  @@map("users")
 }
 
 model Role {
-    id             String        @id @default(uuid()) @db.Uuid
-    organizationId String       @map("organization_id") @db.Uuid
-    organization   Organization @relation("OrganizationRoles", fields: [organizationId], references: [id], onDelete: Cascade)
-    name           String        @map("name")
-    slug           String        @map("slug")
-    description    String?       @map("description")
-    isSystem       Boolean       @default(false) @map("is_system")
-    isActive       Boolean       @default(true) @map("is_active")
-    createdAt      DateTime      @default(now()) @map("created_at")
-    updatedAt      DateTime      @updatedAt @map("updated_at")
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationRoles", fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String       @map("name")
+  slug           String       @map("slug")
+  description    String?      @map("description")
+  isSystem       Boolean      @default(false) @map("is_system")
+  isActive       Boolean      @default(true) @map("is_active")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
 
-    // Relations
-    users       UserRole[]
-    permissions RolePermission[]
+  // Relations
+  users       UserRole[]
+  permissions RolePermission[]
 
-    @@unique([organizationId, slug])
-    @@index([organizationId])
-    @@index([slug])
-    @@index([isActive])
-    @@map("roles")
+  @@unique([organizationId, slug])
+  @@index([organizationId])
+  @@index([slug])
+  @@index([isActive])
+  @@map("roles")
 }
 
 model Permission {
-    id          String   @id @default(uuid()) @db.Uuid
-    name        String   @map("name")               // CREATE_USER, READ_USER, UPDATE_USER, DELETE_USER
-    slug        String   @unique @map("slug")       // create-user, read-user, update-user, delete-user
-    resource    String   @map("resource")           // USER, ROLE, PERMISSION
-    action      String   @map("action")             // CREATE, READ, UPDATE, DELETE
-    description String?  @map("description")
-    createdAt   DateTime @default(now()) @map("created_at")
-    updatedAt   DateTime @updatedAt @map("updated_at")
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @map("name") // CREATE_USER, READ_USER, UPDATE_USER, DELETE_USER
+  slug        String   @unique @map("slug") // create-user, read-user, update-user, delete-user
+  resource    String   @map("resource") // USER, ROLE, PERMISSION
+  action      String   @map("action") // CREATE, READ, UPDATE, DELETE
+  description String?  @map("description")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
-    // Relations
-    roles RolePermission[]
-    users UserPermission[]
+  // Relations
+  roles RolePermission[]
+  users UserPermission[]
 
-    @@index([slug])
-    @@index([resource])
-    @@map("permissions")
+  @@index([slug])
+  @@index([resource])
+  @@map("permissions")
 }
 
 model UserRole {
-    userId       String   @map("user_id") @db.Uuid
-    roleId       String   @map("role_id") @db.Uuid
-    assignedAt   DateTime @default(now()) @map("assigned_at")
-    assignedById String?  @map("assigned_by_id") @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  roleId       String   @map("role_id") @db.Uuid
+  assignedAt   DateTime @default(now()) @map("assigned_at")
+  assignedById String?  @map("assigned_by_id") @db.Uuid
 
-    user       User  @relation("UserRoles", fields: [userId], references: [id], onDelete: Cascade)
-    role       Role  @relation(fields: [roleId], references: [id], onDelete: Cascade)
-    assignedBy User? @relation("RoleAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+  user       User  @relation("UserRoles", fields: [userId], references: [id], onDelete: Cascade)
+  role       Role  @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  assignedBy User? @relation("RoleAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
 
-    @@id([userId, roleId])
-    @@index([userId])
-    @@index([roleId])
-    @@map("user_roles")
+  @@id([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+  @@map("user_roles")
 }
 
 model RolePermission {
-    roleId       String   @map("role_id") @db.Uuid
-    permissionId String   @map("permission_id") @db.Uuid
-    assignedAt   DateTime @default(now()) @map("assigned_at")
+  roleId       String   @map("role_id") @db.Uuid
+  permissionId String   @map("permission_id") @db.Uuid
+  assignedAt   DateTime @default(now()) @map("assigned_at")
 
-    role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
-    permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
-    @@id([roleId, permissionId])
-    @@index([roleId])
-    @@index([permissionId])
-    @@map("role_permissions")
+  @@id([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+  @@map("role_permissions")
 }
 
 model UserPermission {
-    userId       String           @map("user_id") @db.Uuid
-    permissionId String           @map("permission_id") @db.Uuid
-    effect       PermissionEffect @default(ALLOW)
-    grantedAt    DateTime         @default(now()) @map("granted_at")
-    grantedById  String?          @map("granted_by_id") @db.Uuid
+  userId       String           @map("user_id") @db.Uuid
+  permissionId String           @map("permission_id") @db.Uuid
+  effect       PermissionEffect @default(ALLOW)
+  grantedAt    DateTime         @default(now()) @map("granted_at")
+  grantedById  String?          @map("granted_by_id") @db.Uuid
 
-    user       User       @relation("UserPermissions", fields: [userId], references: [id], onDelete: Cascade)
-    permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
-    grantedBy  User?      @relation("PermissionGrantedBy", fields: [grantedById], references: [id], onDelete: SetNull)
+  user       User       @relation("UserPermissions", fields: [userId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  grantedBy  User?      @relation("PermissionGrantedBy", fields: [grantedById], references: [id], onDelete: SetNull)
 
-    @@id([userId, permissionId])
-    @@index([userId])
-    @@index([permissionId])
-    @@map("user_permissions")
+  @@id([userId, permissionId])
+  @@index([userId])
+  @@index([permissionId])
+  @@map("user_permissions")
 }
 
 model RefreshToken {
-    id         String   @id @default(uuid()) @db.Uuid
-    userId     String   @map("user_id") @db.Uuid
-    tokenHash  String   @unique @map("token_hash")
-    deviceInfo String?  @map("device_info")
-    ipAddress  String?  @map("ip_address")
-    isRevoked  Boolean  @default(false) @map("is_revoked")
-    expiresAt  DateTime @map("expires_at")
-    createdAt  DateTime @default(now()) @map("created_at")
-    updatedAt  DateTime @updatedAt @map("updated_at")
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  tokenHash  String   @unique @map("token_hash")
+  deviceInfo String?  @map("device_info")
+  ipAddress  String?  @map("ip_address")
+  isRevoked  Boolean  @default(false) @map("is_revoked")
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
-    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@index([userId])
-    @@index([tokenHash])
-    @@index([expiresAt, isRevoked])
-    @@map("refresh_tokens")
+  @@index([userId])
+  @@index([tokenHash])
+  @@index([expiresAt, isRevoked])
+  @@map("refresh_tokens")
 }

@@ -9,7 +9,16 @@ export const attendanceStatusEnum = z.enum([
   "WEEK_OFF",
 ]);
 
-const dateStringRegex = /^\d{4}-\d{2}-\d{2}$/;
+const dateStringSchema = z
+  .string({ message: "Date is required" })
+  .transform((val) => (val && typeof val === "string" && val.includes("T") ? val.split("T")[0] : val))
+  .pipe(z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"));
+
+const optionalDateStringSchema = z
+  .string()
+  .optional()
+  .transform((val) => (val && typeof val === "string" && val.includes("T") ? val.split("T")[0] : val))
+  .pipe(z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format").optional());
 
 export const punchInSchema = z.object({
   body: z.object({
@@ -33,9 +42,9 @@ export const getAttendancesQuerySchema = z.object({
   query: z.object({
     page: z.coerce.number().int().min(1).default(1),
     limit: z.coerce.number().int().min(1).max(100).default(20),
-    date: z.string().regex(dateStringRegex, "Date must be in YYYY-MM-DD format").optional(),
-    startDate: z.string().regex(dateStringRegex, "Start date must be in YYYY-MM-DD format").optional(),
-    endDate: z.string().regex(dateStringRegex, "End date must be in YYYY-MM-DD format").optional(),
+    date: optionalDateStringSchema,
+    startDate: optionalDateStringSchema,
+    endDate: optionalDateStringSchema,
     employeeId: z.string().uuid("Invalid employee ID").optional(),
     departmentId: z.string().uuid("Invalid department ID").optional(),
     shiftId: z.string().uuid("Invalid shift ID").optional(),
@@ -50,8 +59,8 @@ export const getMyAttendanceQuerySchema = z.object({
   query: z.object({
     page: z.coerce.number().int().min(1).default(1),
     limit: z.coerce.number().int().min(1).max(100).default(20),
-    startDate: z.string().regex(dateStringRegex, "Start date must be in YYYY-MM-DD format").optional(),
-    endDate: z.string().regex(dateStringRegex, "End date must be in YYYY-MM-DD format").optional(),
+    startDate: optionalDateStringSchema,
+    endDate: optionalDateStringSchema,
     status: attendanceStatusEnum.optional(),
   }),
 });
@@ -64,7 +73,7 @@ export const attendanceIdParamSchema = z.object({
 
 export const dailySummaryQuerySchema = z.object({
   query: z.object({
-    date: z.string().regex(dateStringRegex, "Date must be in YYYY-MM-DD format").optional(),
+    date: optionalDateStringSchema,
   }),
 });
 

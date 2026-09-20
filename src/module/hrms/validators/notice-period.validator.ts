@@ -1,14 +1,21 @@
 import { z } from "zod";
 
+const dateStringSchema = z
+  .string({ message: "Date is required" })
+  .transform((val) => (val && typeof val === "string" && val.includes("T") ? val.split("T")[0] : val))
+  .pipe(z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"));
+
+const optionalDateStringSchema = z
+  .string()
+  .optional()
+  .transform((val) => (val && typeof val === "string" && val.includes("T") ? val.split("T")[0] : val))
+  .pipe(z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format").optional());
+
 export const applyNoticePeriodSchema = z.object({
   body: z.object({
-    noticeStartDate: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/, "Notice start date must be in YYYY-MM-DD format"),
+    noticeStartDate: dateStringSchema,
     noticeDays: z.coerce.number().int().min(0).max(180).default(30),
-    expectedLastWorkingDay: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/, "Expected last working day must be in YYYY-MM-DD format"),
+    expectedLastWorkingDay: dateStringSchema,
     reason: z.string().min(2, "Reason must be at least 2 characters").max(200),
     description: z.string().max(2000).optional().nullable(),
   }),
@@ -43,10 +50,7 @@ export const approveNoticePeriodSchema = z.object({
     id: z.string().uuid("Invalid notice period ID"),
   }),
   body: z.object({
-    expectedLastWorkingDay: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/)
-      .optional(),
+    expectedLastWorkingDay: optionalDateStringSchema,
     adminRemarks: z.string().max(1000).optional().nullable(),
   }),
 });
@@ -68,10 +72,7 @@ export const updateNoticeBuyoutSchema = z.object({
     buyoutOption: z.boolean().default(true),
     buyoutDays: z.coerce.number().int().min(1).max(180),
     buyoutAmount: z.coerce.number().min(0),
-    actualLastWorkingDay: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/, "Actual last working day must be in YYYY-MM-DD format")
-      .optional(),
+    actualLastWorkingDay: optionalDateStringSchema,
     adminRemarks: z.string().max(1000).optional().nullable(),
   }),
 });
@@ -91,9 +92,7 @@ export const completeSettlementSchema = z.object({
     id: z.string().uuid("Invalid notice period ID"),
   }),
   body: z.object({
-    actualLastWorkingDay: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/, "Actual last working day must be in YYYY-MM-DD format"),
+    actualLastWorkingDay: dateStringSchema,
     isSettled: z.boolean().default(true),
     adminRemarks: z.string().max(1000).optional().nullable(),
   }),

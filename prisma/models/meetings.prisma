@@ -1,0 +1,193 @@
+// ==========================================
+// MEETING ENUMS
+// ==========================================
+
+enum MeetingType {
+  ONLINE // Google Meet, Zoom, Microsoft Teams
+  SITE_VISIT // On-site meeting at customer/lead property
+  OFFLINE // In-person office meeting
+  PHONE_CALL // Direct phone conference
+  OTHER
+}
+
+enum MeetingStatus {
+  SCHEDULED
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  RESCHEDULED
+  NO_SHOW
+}
+
+enum AttendeeRole {
+  ORGANIZER
+  HOST
+  CO_HOST
+  ATTENDEE
+  OPTIONAL
+}
+
+enum AttendeeStatus {
+  INVITED
+  ACCEPTED
+  TENTATIVE
+  DECLINED
+}
+
+// ==========================================
+// MEETING MODEL (Polymorphic: Customer, Lead, Client, Project)
+// ==========================================
+
+model Meeting {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationMeetings", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Polymorphic Associations
+  // 1. Lead Association (Optional - specifically for a lead inquiry)
+  leadId String? @map("lead_id") @db.Uuid
+  lead   Lead?   @relation("LeadMeetings", fields: [leadId], references: [id], onDelete: SetNull)
+
+  // 2. Customer / Client Association (Optional - specifically for a customer or converted client)
+  customerId String?   @map("customer_id") @db.Uuid
+  customer   Customer? @relation("CustomerMeetings", fields: [customerId], references: [id], onDelete: SetNull)
+
+  // 3. Project Association (Future-proof for Project management module)
+  projectId String? @map("project_id") @db.Uuid
+
+  // Meeting Details
+  meetingCode String        @map("meeting_code") // e.g. "MTG-2026-0001"
+  title       String        @map("title") // e.g. "3BHK Concept Design Review & Material Selection"
+  description String?       @map("description")
+  agenda      String?       @map("agenda")
+  type        MeetingType   @default(ONLINE) @map("type")
+  status      MeetingStatus @default(SCHEDULED) @map("status")
+
+  // Date, Timings & Duration
+  meetingDate     DateTime @map("meeting_date") @db.Date
+  startTime       DateTime @map("start_time")
+  endTime         DateTime @map("end_time")
+  durationMinutes Int      @default(30) @map("duration_minutes")
+  timezone        String   @default("Asia/Kolkata") @map("timezone")
+
+  // Online Meeting Specific Fields
+  meetingUrl      String? @map("meeting_url") // Google Meet / Zoom URL (e.g. "https://meet.google.com/xyz-abcd-efg")
+  meetingProvider String? @map("meeting_provider") // "GOOGLE_MEET", "ZOOM", "MICROSOFT_TEAMS", "OTHER"
+  meetingId       String? @map("meeting_id") // External Meeting ID
+  meetingPasscode String? @map("meeting_passcode") // Meeting password / PIN
+
+  // Physical / Site Visit Specific Fields
+  locationName        String? @map("location_name") // e.g. "Homio Design Studio" or "Prestige Lakeside Site"
+  locationAddress     String? @map("location_address")
+  locationCity        String? @map("location_city")
+  locationPincode     String? @map("location_pincode")
+  locationMapUrl      String? @map("location_map_url") // Google Maps share URL
+  locationCoordinates Json?   @map("location_coordinates") // { "lat": 12.9716, "lng": 77.5946 }
+
+  // Organizer & Host
+  organizerId String?   @map("organizer_id") @db.Uuid
+  organizer   Employee? @relation("MeetingOrganizer", fields: [organizerId], references: [id], onDelete: SetNull)
+
+  createdById String? @map("created_by_id") @db.Uuid
+  createdBy   User?   @relation("MeetingCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  // Minutes of Meeting (MOM), Outcomes & Recordings
+  minutesOfMeeting   String? @map("minutes_of_meeting")
+  outcomeNotes       String? @map("outcome_notes")
+  cancellationReason String? @map("cancellation_reason")
+  rescheduledFromId  String? @map("rescheduled_from_id") @db.Uuid
+  recordingUrl       String? @map("recording_url")
+
+  // Reminders & Notifications
+  remindAt       DateTime? @map("remind_at")
+  isReminderSent Boolean   @default(false) @map("is_reminder_sent")
+
+  // Metadata & Custom Attributes
+  tags         String[] @default([]) @map("tags")
+  customFields Json?    @map("custom_fields")
+
+  // Soft Delete & Timestamps
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  attendees MeetingAttendee[] @relation("MeetingAttendees")
+  documents MeetingDocument[] @relation("MeetingDocuments")
+
+  @@unique([organizationId, meetingCode])
+  @@index([organizationId])
+  @@index([leadId])
+  @@index([customerId])
+  @@index([projectId])
+  @@index([organizerId])
+  @@index([meetingDate, startTime])
+  @@index([status])
+  @@index([type])
+  @@index([isDeleted, deletedAt])
+  @@map("meetings")
+}
+
+// ==========================================
+// MEETING ATTENDEE MODEL
+// ==========================================
+
+model MeetingAttendee {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationMeetingAttendees", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  meetingId String  @map("meeting_id") @db.Uuid
+  meeting   Meeting @relation("MeetingAttendees", fields: [meetingId], references: [id], onDelete: Cascade)
+
+  // Internal Employee or User (Optional link)
+  employeeId String?   @map("employee_id") @db.Uuid
+  employee   Employee? @relation("EmployeeMeetingAttendees", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  userId String? @map("user_id") @db.Uuid
+  user   User?   @relation("UserMeetingAttendees", fields: [userId], references: [id], onDelete: SetNull)
+
+  // Attendee Info (works for internal staff, lead customers, and external stakeholders)
+  name       String         @map("name")
+  email      String?        @map("email")
+  phone      String?        @map("phone")
+  role       AttendeeRole   @default(ATTENDEE) @map("role")
+  status     AttendeeStatus @default(INVITED) @map("status")
+  isCustomer Boolean        @default(false) @map("is_customer")
+  notes      String?        @map("notes")
+  joinedAt   DateTime?      @map("joined_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([organizationId])
+  @@index([meetingId])
+  @@index([employeeId])
+  @@index([userId])
+  @@map("meeting_attendees")
+}
+
+// ==========================================
+// MEETING DOCUMENTS & ATTACHMENTS
+// ==========================================
+
+model MeetingDocument {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationMeetingDocuments", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  meetingId String  @map("meeting_id") @db.Uuid
+  meeting   Meeting @relation("MeetingDocuments", fields: [meetingId], references: [id], onDelete: Cascade)
+
+  name         String   @map("name")
+  fileUrl      Json     @map("file_url") // ImageType structured JSON
+  uploadedById String?  @map("uploaded_by_id") @db.Uuid
+  uploadedBy   User?    @relation("MeetingDocumentUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([organizationId])
+  @@index([meetingId])
+  @@map("meeting_documents")
+}
