@@ -1,0 +1,399 @@
+// ============================================================================
+// DESIGN MODULE ENUMS
+// ============================================================================
+
+enum DesignType {
+  RENDER_3D
+  DRAWING_2D
+  MOODBOARD
+  ELEVATION
+  FLOOR_PLAN
+  SECTION_DETAIL
+  MEP_LAYOUT
+  VR_PANORAMA
+  THREED_WALKTHROUGH
+  BOQ_SPEC
+  OTHER
+}
+
+enum DesignStage {
+  CONCEPT_MOODBOARD
+  SCHEMATIC_DESIGN
+  DESIGN_DEVELOPMENT
+  RENDER_3D
+  WORKING_DRAWINGS_2D
+  MEP_DRAWINGS
+  GOOD_FOR_CONSTRUCTION_GFC
+  AS_BUILT
+}
+
+enum DesignStatus {
+  DRAFT
+  SUBMITTED
+  IN_REVIEW
+  CHANGES_REQUESTED
+  APPROVED
+  REJECTED
+  ARCHIVED
+}
+
+enum DesignVersionStatus {
+  DRAFT
+  SUBMITTED
+  IN_REVIEW
+  APPROVED
+  CHANGES_REQUESTED
+  REJECTED
+  SUPERSEDED
+}
+
+enum DesignAttachmentType {
+  RENDER_IMAGE
+  TECHNICAL_DRAWING_PDF
+  SPECIFICATION_SHEET
+  CAD_DWG_FILE
+  THREED_MODEL_FILE      // .glb, .gltf, .obj, .fbx
+  THREED_PREVIEW_URL     // Matterport, Sketchfab, Spline, Kuula 360, Polycam
+  YOUTUBE_VIDEO          // Walkthrough video embeds
+  VIMEO_VIDEO
+  VIDEO_FILE             // Uploaded MP4 / WebM video
+  AUDIO_WALKTHROUGH      // Designer verbal commentary / walkthrough
+  EXTERNAL_DRIVE_LINK    // Google Drive / Dropbox / OneDrive
+  OTHER
+}
+
+enum DesignApprovalDecision {
+  APPROVED
+  APPROVED_WITH_CONDITIONS
+  CHANGES_REQUESTED
+  REJECTED
+}
+
+enum DesignChangeCategory {
+  LAYOUT_MODIFICATION
+  MATERIAL_AND_FINISH
+  COLOR_AND_TEXTURE
+  LIGHTING_AND_ELECTRICAL
+  DIMENSIONS_AND_SIZING
+  FIXTURES_AND_FITTINGS
+  COST_AND_BUDGET_REDUCTION
+  STRUCTURAL_ALIGNMENT
+  OTHER
+}
+
+enum DesignChangeRequestStatus {
+  PENDING
+  IN_REVIEW
+  ACCEPTED
+  REJECTED
+  IMPLEMENTED
+}
+
+// ============================================================================
+// 1. PROJECT DESIGN FOLDERS (Hierarchical Room & Stage Folders)
+// ============================================================================
+
+model ProjectDesignFolder {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationDesignFolders", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  projectId String  @map("project_id") @db.Uuid
+  project   Project @relation("ProjectDesignFolders", fields: [projectId], references: [id], onDelete: Cascade)
+
+  // Hierarchical Folder Structure (Self-relation for Nested Sub-folders)
+  parentId String?               @map("parent_id") @db.Uuid
+  parent   ProjectDesignFolder?  @relation("DesignFolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children ProjectDesignFolder[] @relation("DesignFolderHierarchy")
+
+  // Identification & Classification
+  folderCode  String?     @map("folder_code") // e.g. "FLD-01", "FLD-LIV"
+  name        String      @map("name") // e.g. "Living Room 3D Renders", "Kitchen Working Drawings"
+  description String?     @map("description") @db.Text
+  roomType    String?     @map("room_type") // e.g. "LIVING_ROOM", "KITCHEN", "MASTER_BEDROOM", "BALCONY"
+  stage       DesignStage @default(RENDER_3D) @map("stage")
+
+  // Theming & Presentation
+  coverImageUrl Json?   @map("cover_image_url") // ImageType JSON { id, url, bytes, format, provider }
+  color         String? @map("color") // Hex color (e.g. "#6366F1")
+  icon          String? @map("icon") // Lucide icon identifier (e.g. "Folder", "LayoutGrid", "Box")
+  orderIndex    Int     @default(0) @map("order_index")
+
+  // Commercial & Visibility
+  estimatedBudget       Decimal? @map("estimated_budget") @db.Decimal(14, 2)
+  isClientPortalVisible Boolean  @default(true) @map("is_client_portal_visible")
+  tags                  String[] @default([]) @map("tags")
+  metadata              Json?    @map("metadata")
+
+  // Associated Designs
+  designs ProjectDesign[] @relation("FolderDesigns")
+
+  // Soft Delete & Timestamps
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@unique([projectId, parentId, name])
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([parentId])
+  @@index([stage])
+  @@index([isDeleted, deletedAt])
+  @@map("project_design_folders")
+}
+
+// ============================================================================
+// 2. PROJECT DESIGNS (Master Design Assets)
+// ============================================================================
+
+model ProjectDesign {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationDesigns", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  projectId String  @map("project_id") @db.Uuid
+  project   Project @relation("ProjectDesigns", fields: [projectId], references: [id], onDelete: Cascade)
+
+  folderId String?              @map("folder_id") @db.Uuid
+  folder   ProjectDesignFolder? @relation("FolderDesigns", fields: [folderId], references: [id], onDelete: SetNull)
+
+  milestoneId String?           @map("milestone_id") @db.Uuid
+  milestone   ProjectMilestone? @relation("MilestoneDesigns", fields: [milestoneId], references: [id], onDelete: SetNull)
+
+  // Classification & Metadata
+  designCode  String?     @map("design_code") // e.g. "DSG-001"
+  title       String      @map("title") // e.g. "False Ceiling & Cove Lighting Layout"
+  designType  DesignType  @default(RENDER_3D) @map("design_type")
+  designStyle String?     @map("design_style") // e.g. "MODERN_MINIMALIST", "JAPANDI", "SCANDINAVIAN", "CONTEMPORARY"
+  description String?     @map("description") @db.Text
+  roomArea    String?     @map("room_area") // e.g. "Master Bedroom", "Balcony Lounge"
+
+  // Engineering & Architectural Specifications
+  specifications Json?    @map("specifications") // Dimensions, finishes, materials, wall heights, carpet area
+  softwareUsed   String[] @default([]) @map("software_used") // e.g. ["3ds Max", "V-Ray", "AutoCAD", "SketchUp"]
+
+  // Commercial & Priority
+  priority      ProjectPriority @default(MEDIUM) @map("priority")
+  estimatedCost Decimal?        @map("estimated_cost") @db.Decimal(14, 2)
+
+  // Versioning & Lifecycle Status
+  currentVersionNumber Int          @default(1) @map("current_version_number")
+  status               DesignStatus @default(DRAFT) @map("status")
+
+  // Designer Attribution
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdBy   Employee? @relation("DesignCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  // Client Portal Settings
+  isClientPortalVisible Boolean  @default(true) @map("is_client_portal_visible")
+  coverImageUrl         Json?    @map("cover_image_url") // Featured ImageType JSON
+  tags                  String[] @default([]) @map("tags")
+
+  // Immutable Version History
+  versions DesignVersion[] @relation("DesignVersions")
+
+  // Soft Delete & Timestamps
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([folderId])
+  @@index([milestoneId])
+  @@index([status])
+  @@index([designType])
+  @@index([createdById])
+  @@index([isDeleted, deletedAt])
+  @@map("project_designs")
+}
+
+// ============================================================================
+// 3. DESIGN VERSIONS (Immutable Revision Snapshots)
+// ============================================================================
+
+model DesignVersion {
+  id       String        @id @default(uuid()) @db.Uuid
+  designId String        @map("design_id") @db.Uuid
+  design   ProjectDesign @relation("DesignVersions", fields: [designId], references: [id], onDelete: Cascade)
+
+  // Version Identification
+  versionNumber Int     @map("version_number") // 1, 2, 3...
+  versionCode   String? @map("version_code") // e.g. "v1.0", "v2.0", "v2.1"
+  versionName   String? @map("version_name") // e.g. "v1.0 - Initial Concept", "v2.0 - Smoked Oak Finish"
+  changelog     String? @map("changelog") @db.Text
+
+  // Technical Rendering Specifications
+  renderingEngine String? @map("rendering_engine") // e.g. "V-Ray 6", "Corona 9", "Lumion 2024", "Enscape"
+  resolution      String? @map("resolution") // e.g. "3840x2160 (4K UHD)", "8K Panorama", "Print PDF (300 DPI)"
+  submissionNotes String? @map("submission_notes") @db.Text
+
+  // Tamper-proof Lock Status (Locked once approved so version cannot be modified)
+  isLocked Boolean   @default(false) @map("is_locked")
+  lockedAt DateTime? @map("locked_at")
+
+  // Review & Approval Lifecycle Status
+  status DesignVersionStatus @default(DRAFT) @map("status")
+
+  submittedAt   DateTime? @map("submitted_at")
+  submittedById String?   @map("submitted_by_id") @db.Uuid
+  submittedBy   Employee? @relation("DesignVersionSubmittedBy", fields: [submittedById], references: [id], onDelete: SetNull)
+
+  // 1-to-Many Relations
+  attachments    DesignVersionAttachment[] @relation("VersionAttachments")
+  approvals      DesignVersionApproval[]   @relation("VersionApprovals")
+  changeRequests DesignChangeRequest[]     @relation("VersionChangeRequests")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([designId, versionNumber])
+  @@index([designId])
+  @@index([status])
+  @@index([versionNumber])
+  @@index([submittedById])
+  @@index([isLocked])
+  @@map("design_versions")
+}
+
+// ============================================================================
+// 4. DESIGN VERSION ATTACHMENTS (Dedicated Multi-Format Media Model)
+// ============================================================================
+
+model DesignVersionAttachment {
+  id              String        @id @default(uuid()) @db.Uuid
+  designVersionId String        @map("design_version_id") @db.Uuid
+  designVersion   DesignVersion @relation("VersionAttachments", fields: [designVersionId], references: [id], onDelete: Cascade)
+
+  // File Classification
+  attachmentType DesignAttachmentType @map("attachment_type")
+  title          String               @map("title") // e.g. "Front Angle 4K Render", "Ceiling DWG Layout", "Matterport 3D Tour"
+  caption        String?              @map("caption")
+  description    String?              @map("description") @db.Text
+
+  // Uploaded Cloud File (ImageType JSON: { id, url, bytes, format, provider })
+  file Json? @map("file")
+
+  // External Video & 3D Interactive Previews
+  externalUrl String? @map("external_url") // YouTube, Vimeo, Matterport, Sketchfab, Spline, Kuula 360 URL
+  embedCode   String? @map("embed_code") @db.Text // iframe embed code for interactive players
+  thumbnail   Json?   @map("thumbnail") // ImageType JSON preview thumbnail
+
+  // Technical Media Metadata
+  mimeType        String? @map("mime_type") // e.g. "image/webp", "application/pdf", "model/gltf-binary"
+  fileSizeBytes   BigInt? @map("file_size_bytes")
+  width           Int?    @map("width") // Pixel width for images/renders
+  height          Int?    @map("height") // Pixel height for images/renders
+  durationSeconds Int?    @map("duration_seconds") // For video / audio walkthroughs
+
+  // Display Configuration
+  isPrimary       Boolean @default(false) @map("is_primary")
+  orderIndex      Int     @default(0) @map("order_index")
+  isClientVisible Boolean @default(true) @map("is_client_visible")
+  metadata        Json?   @map("metadata") // Camera FOV, 360 yaw/pitch, 3D model polygon count, etc.
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([designVersionId])
+  @@index([attachmentType])
+  @@index([isPrimary])
+  @@index([orderIndex])
+  @@map("design_version_attachments")
+}
+
+// ============================================================================
+// 5. DESIGN VERSION APPROVALS (Dedicated Client Signoff & Approval Model)
+// ============================================================================
+
+model DesignVersionApproval {
+  id              String        @id @default(uuid()) @db.Uuid
+  designVersionId String        @map("design_version_id") @db.Uuid
+  designVersion   DesignVersion @relation("VersionApprovals", fields: [designVersionId], references: [id], onDelete: Cascade)
+
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationDesignApprovals", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  projectId String  @map("project_id") @db.Uuid
+  project   Project @relation("ProjectDesignApprovals", fields: [projectId], references: [id], onDelete: Cascade)
+
+  // Client Identification
+  customerId String?   @map("customer_id") @db.Uuid
+  customer   Customer? @relation("CustomerDesignApprovals", fields: [customerId], references: [id], onDelete: SetNull)
+
+  approvedByUserId String @map("approved_by_user_id") @db.Uuid
+  approvedByUser   User   @relation("UserDesignApprovals", fields: [approvedByUserId], references: [id], onDelete: Restrict)
+
+  // Approval Decision & Feedback
+  decision        DesignApprovalDecision @map("decision")
+  reviewComments  String?                @map("review_comments") @db.Text
+  conditions      String[]               @default([]) @map("conditions") // Stipulations required by client
+  rejectionReason String?                @map("rejection_reason") @db.Text
+  clientRating    Int?                   @map("client_rating") // 1 to 5 star rating
+
+  // Legal & Audit Signoff Verification
+  scopeChecklist    Json?   @map("scope_checklist") // { approvedFinishes: true, approvedDimensions: true, approvedElectrical: true }
+  digitalSignature  Json?   @map("digital_signature") // { signerName, signerEmail, signatureDataUrl, ipAddress, userAgent, signedAt }
+  signedDocumentUrl Json?   @map("signed_document_url") // Generated PDF signoff certificate ImageType JSON
+  ipAddress         String? @map("ip_address")
+  userAgent         String? @map("user_agent")
+
+  decidedAt DateTime @default(now()) @map("decided_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([designVersionId])
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([customerId])
+  @@index([approvedByUserId])
+  @@index([decision])
+  @@map("design_version_approvals")
+}
+
+// ============================================================================
+// 6. DESIGN CHANGE REQUESTS (Client Modification & Annotation Model)
+// ============================================================================
+
+model DesignChangeRequest {
+  id              String        @id @default(uuid()) @db.Uuid
+  designVersionId String        @map("design_version_id") @db.Uuid
+  designVersion   DesignVersion @relation("VersionChangeRequests", fields: [designVersionId], references: [id], onDelete: Cascade)
+
+  // Request Classification
+  requestNumber Int                  @default(1) @map("request_number")
+  title         String               @map("title") // e.g. "Change laminate finish to smoked walnut"
+  description   String               @map("description") @db.Text
+  category      DesignChangeCategory @default(MATERIAL_AND_FINISH) @map("category")
+  urgency       ProjectPriority      @default(MEDIUM) @map("urgency")
+  status        DesignChangeRequestStatus @default(PENDING) @map("status")
+
+  // Interactive Pin Annotations & Reference Media
+  pinAnnotations       Json? @map("pin_annotations") // Coordinate markers: [{ id, attachmentId, x, y, comment, color }]
+  referenceAttachments Json? @map("reference_attachments") // Client inspiration sketches/photos (Array of ImageType JSON)
+
+  // Client Attribution
+  requestedByUserId String? @map("requested_by_user_id") @db.Uuid
+  requestedByUser   User?   @relation("DesignChangeRequestedBy", fields: [requestedByUserId], references: [id], onDelete: SetNull)
+
+  // Designer Response & Resolution Linkage
+  responseNotes           String?   @map("response_notes") @db.Text
+  respondedById           String?   @map("responded_by_id") @db.Uuid
+  respondedBy             Employee? @relation("DesignChangeRespondedBy", fields: [respondedById], references: [id], onDelete: SetNull)
+  respondedAt             DateTime? @map("responded_at")
+  estimatedImpactDays     Int?      @map("estimated_impact_days") // Timeline delay impact
+  estimatedCostImpact     Decimal?  @map("estimated_cost_impact") @db.Decimal(14, 2)
+  resolvedInVersionNumber Int?      @map("resolved_in_version_number") // Resolving version number (e.g. 2)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([designVersionId])
+  @@index([status])
+  @@index([category])
+  @@index([requestedByUserId])
+  @@index([respondedById])
+  @@map("design_change_requests")
+}

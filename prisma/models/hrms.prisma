@@ -356,6 +356,9 @@ model Employee {
   complaintComments           ComplaintComment[]   @relation("ComplaintCommentEmployee")
   conductedSiteVisits         ProjectSiteVisit[]   @relation("SiteVisitVisitor")
   createdExpenses             Expense[]            @relation("ExpenseCreatedBy")
+  createdDesigns              ProjectDesign[]      @relation("DesignCreatedBy")
+  submittedDesignVersions     DesignVersion[]      @relation("DesignVersionSubmittedBy")
+  respondedDesignChanges      DesignChangeRequest[] @relation("DesignChangeRespondedBy")
 
   @@unique([organizationId, employeeCode])
   @@index([organizationId])

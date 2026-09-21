@@ -100,8 +100,9 @@ model Customer {
   meetings   Meeting[]          @relation("CustomerMeetings")
   tasks      Task[]             @relation("CustomerTasks")
   projects       Project[]                   @relation("CustomerProjects")
-  complaints     ProjectComplaint[]          @relation("CustomerReportedComplaints")
-  changeRequests WorkApprovalChangeRequest[] @relation("CustomerChangeRequests")
+  complaints      ProjectComplaint[]          @relation("CustomerReportedComplaints")
+  changeRequests  WorkApprovalChangeRequest[] @relation("CustomerChangeRequests")
+  designApprovals DesignVersionApproval[]     @relation("CustomerDesignApprovals")
 
   @@unique([organizationId, customerCode])
   @@unique([organizationId, phone])

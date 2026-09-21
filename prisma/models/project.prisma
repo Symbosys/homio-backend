@@ -268,8 +268,11 @@ model Project {
   progressEntries ProjectProgress[]  @relation("ProjectProgressEntries")
   workApprovals   WorkApproval[]     @relation("ProjectWorkApprovals")
   complaints      ProjectComplaint[] @relation("ProjectComplaints")
-  siteVisits      ProjectSiteVisit[] @relation("ProjectSiteVisits")
-  expenses        Expense[]          @relation("ProjectExpenses")
+  siteVisits      ProjectSiteVisit[]    @relation("ProjectSiteVisits")
+  expenses        Expense[]             @relation("ProjectExpenses")
+  designFolders   ProjectDesignFolder[]   @relation("ProjectDesignFolders")
+  designs         ProjectDesign[]         @relation("ProjectDesigns")
+  designApprovals DesignVersionApproval[] @relation("ProjectDesignApprovals")
 
   @@unique([organizationId, projectCode])
   @@index([organizationId])
@@ -507,6 +510,7 @@ model ProjectMilestone {
   complaints      ProjectComplaint[]   @relation("MilestoneComplaints")
   siteVisits      ProjectSiteVisit[]   @relation("MilestoneSiteVisits")
   expenses        Expense[]            @relation("MilestoneExpenses")
+  designs         ProjectDesign[]      @relation("MilestoneDesigns")
 
   @@unique([projectId, milestoneCode])
   @@index([projectId])

@@ -75,6 +75,9 @@ model Organization {
   projects                Project[]                         @relation("OrganizationProjects")
   expenses                Expense[]                         @relation("OrganizationExpenses")
   expenseCategories       ExpenseCategory[]                 @relation("OrganizationExpenseCategories")
+  designFolders           ProjectDesignFolder[]             @relation("OrganizationDesignFolders")
+  designs                 ProjectDesign[]                   @relation("OrganizationDesigns")
+  designApprovals         DesignVersionApproval[]           @relation("OrganizationDesignApprovals")
 
   @@index([slug])
   @@index([status])
