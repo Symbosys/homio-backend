@@ -13,7 +13,11 @@ export class ApprovalRepository {
   /**
    * Create a new WorkApproval entry
    */
-  async create(projectId: string, data: CreateApprovalInput, tx?: Prisma.TransactionClient) {
+  async create(
+    projectId: string,
+    data: CreateApprovalInput,
+    tx?: Prisma.TransactionClient,
+  ) {
     const db = tx || prisma;
     const { dueDate, attachments, ...directFields } = data;
 
@@ -22,7 +26,9 @@ export class ApprovalRepository {
         ...directFields,
         projectId,
         dueDate: dueDate ? new Date(dueDate) : null,
-        attachments: attachments ? (attachments as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
+        attachments: attachments
+          ? (attachments as unknown as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
       },
       include: {
         submittedBy: {
@@ -52,7 +58,11 @@ export class ApprovalRepository {
   /**
    * Find paginated list of work approvals for a project
    */
-  async findAll(projectId: string, query: GetApprovalsQueryInput, tx?: Prisma.TransactionClient) {
+  async findAll(
+    projectId: string,
+    query: GetApprovalsQueryInput,
+    tx?: Prisma.TransactionClient,
+  ) {
     const db = tx || prisma;
     const {
       status,
@@ -203,7 +213,12 @@ export class ApprovalRepository {
   /**
    * Partial update on a WorkApproval
    */
-  async update(id: string, projectId: string, data: UpdateApprovalInput, tx?: Prisma.TransactionClient) {
+  async update(
+    id: string,
+    projectId: string,
+    data: UpdateApprovalInput,
+    tx?: Prisma.TransactionClient,
+  ) {
     const db = tx || prisma;
     const { dueDate, attachments, ...directFields } = data;
 
@@ -212,9 +227,12 @@ export class ApprovalRepository {
       updatedAt: new Date(),
     };
 
-    if (dueDate !== undefined) updateData.dueDate = dueDate ? new Date(dueDate) : null;
+    if (dueDate !== undefined)
+      updateData.dueDate = dueDate ? new Date(dueDate) : null;
     if (attachments !== undefined) {
-      updateData.attachments = attachments ? (attachments as unknown as Prisma.InputJsonValue) : Prisma.JsonNull;
+      updateData.attachments = attachments
+        ? (attachments as unknown as Prisma.InputJsonValue)
+        : Prisma.JsonNull;
     }
 
     return db.workApproval.update({
@@ -248,7 +266,12 @@ export class ApprovalRepository {
   /**
    * Client review action (Approve / Reject)
    */
-  async review(id: string, projectId: string, data: ReviewApprovalInput, tx?: Prisma.TransactionClient) {
+  async review(
+    id: string,
+    projectId: string,
+    data: ReviewApprovalInput,
+    tx?: Prisma.TransactionClient,
+  ) {
     const db = tx || prisma;
     const isApproved = data.action === "APPROVE";
 
@@ -283,7 +306,11 @@ export class ApprovalRepository {
   /**
    * Soft delete WorkApproval
    */
-  async softDelete(id: string, projectId: string, tx?: Prisma.TransactionClient) {
+  async softDelete(
+    id: string,
+    projectId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
     const db = tx || prisma;
     return db.workApproval.update({
       where: { id, projectId },
@@ -304,7 +331,7 @@ export class ApprovalRepository {
   async createChangeRequest(
     workApprovalId: string,
     data: CreateChangeRequestInput,
-    tx?: Prisma.TransactionClient
+    tx?: Prisma.TransactionClient,
   ) {
     const db = tx || prisma;
     const { attachments, ...directFields } = data;
@@ -326,7 +353,9 @@ export class ApprovalRepository {
           workApprovalId,
           roundNumber: nextRoundNumber,
           status: "PENDING",
-          attachments: attachments ? (attachments as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
+          attachments: attachments
+            ? (attachments as unknown as Prisma.InputJsonValue)
+            : Prisma.JsonNull,
         },
         include: {
           requestedByCustomer: {
@@ -360,7 +389,10 @@ export class ApprovalRepository {
   /**
    * List all change requests for a work approval
    */
-  async findChangeRequests(workApprovalId: string, tx?: Prisma.TransactionClient) {
+  async findChangeRequests(
+    workApprovalId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
     const db = tx || prisma;
     return db.workApprovalChangeRequest.findMany({
       where: { workApprovalId },
@@ -391,7 +423,11 @@ export class ApprovalRepository {
   /**
    * Find single change request by ID
    */
-  async findChangeRequestById(id: string, workApprovalId: string, tx?: Prisma.TransactionClient) {
+  async findChangeRequestById(
+    id: string,
+    workApprovalId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
     const db = tx || prisma;
     return db.workApprovalChangeRequest.findFirst({
       where: { id, workApprovalId },
@@ -422,7 +458,7 @@ export class ApprovalRepository {
     id: string,
     workApprovalId: string,
     data: RespondChangeRequestInput,
-    tx?: Prisma.TransactionClient
+    tx?: Prisma.TransactionClient,
   ) {
     const db = tx || prisma;
     const { revisedAttachments, ...directFields } = data;

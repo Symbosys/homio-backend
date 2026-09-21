@@ -10,7 +10,10 @@ export class MilestoneRepository {
   /**
    * Auto-generate sequential Project Milestone Code e.g. "MS-01", "MS-02"
    */
-  async generateMilestoneCode(projectId: string, tx?: Prisma.TransactionClient): Promise<string> {
+  async generateMilestoneCode(
+    projectId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<string> {
     const db = tx || prisma;
     const count = await db.projectMilestone.count({
       where: { projectId },
@@ -24,10 +27,19 @@ export class MilestoneRepository {
   async create(
     projectId: string,
     data: CreateMilestoneInput & { milestoneCode: string },
-    tx?: Prisma.TransactionClient
+    tx?: Prisma.TransactionClient,
   ) {
     const db = tx || prisma;
-    const { checklists, attachments, budgetAmount, startDate, dueDate, actualStartDate, completedAt, ...directFields } = data;
+    const {
+      checklists,
+      attachments,
+      budgetAmount,
+      startDate,
+      dueDate,
+      actualStartDate,
+      completedAt,
+      ...directFields
+    } = data;
 
     return db.projectMilestone.create({
       data: {
@@ -37,20 +49,26 @@ export class MilestoneRepository {
         dueDate: new Date(dueDate),
         actualStartDate: actualStartDate ? new Date(actualStartDate) : null,
         completedAt: completedAt ? new Date(completedAt) : null,
-        budgetAmount: budgetAmount !== undefined && budgetAmount !== null ? new Prisma.Decimal(budgetAmount) : null,
-        attachments: attachments ? (attachments as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
-        checklists: checklists && checklists.length > 0
-          ? {
-              create: checklists.map((c, index) => ({
-                title: c.title,
-                isCompleted: c.isCompleted ?? false,
-                completedAt: c.completedAt ? new Date(c.completedAt) : null,
-                dueDate: c.dueDate ? new Date(c.dueDate) : null,
-                orderIndex: c.orderIndex ?? index,
-                assigneeId: c.assigneeId || null,
-              })),
-            }
-          : undefined,
+        budgetAmount:
+          budgetAmount !== undefined && budgetAmount !== null
+            ? new Prisma.Decimal(budgetAmount)
+            : null,
+        attachments: attachments
+          ? (attachments as unknown as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
+        checklists:
+          checklists && checklists.length > 0
+            ? {
+                create: checklists.map((c, index) => ({
+                  title: c.title,
+                  isCompleted: c.isCompleted ?? false,
+                  completedAt: c.completedAt ? new Date(c.completedAt) : null,
+                  dueDate: c.dueDate ? new Date(c.dueDate) : null,
+                  orderIndex: c.orderIndex ?? index,
+                  assigneeId: c.assigneeId || null,
+                })),
+              }
+            : undefined,
       },
       include: {
         assignee: {
@@ -85,9 +103,20 @@ export class MilestoneRepository {
   /**
    * Find all milestones for a project with checklist summary
    */
-  async findAll(projectId: string, query: GetMilestonesQueryInput, tx?: Prisma.TransactionClient) {
+  async findAll(
+    projectId: string,
+    query: GetMilestonesQueryInput,
+    tx?: Prisma.TransactionClient,
+  ) {
     const db = tx || prisma;
-    const { stage, status, priority, assigneeId, sortBy = "orderIndex", sortOrder = "asc" } = query;
+    const {
+      stage,
+      status,
+      priority,
+      assigneeId,
+      sortBy = "orderIndex",
+      sortOrder = "asc",
+    } = query;
 
     const where: Prisma.ProjectMilestoneWhereInput = {
       projectId,
@@ -184,10 +213,19 @@ export class MilestoneRepository {
     id: string,
     projectId: string,
     data: UpdateMilestoneInput,
-    tx?: Prisma.TransactionClient
+    tx?: Prisma.TransactionClient,
   ) {
     const db = tx || prisma;
-    const { checklists, attachments, budgetAmount, startDate, dueDate, actualStartDate, completedAt, ...directFields } = data;
+    const {
+      checklists,
+      attachments,
+      budgetAmount,
+      startDate,
+      dueDate,
+      actualStartDate,
+      completedAt,
+      ...directFields
+    } = data;
 
     const updateData: Prisma.ProjectMilestoneUpdateInput = {
       ...directFields,
@@ -196,13 +234,20 @@ export class MilestoneRepository {
 
     if (startDate) updateData.startDate = new Date(startDate);
     if (dueDate) updateData.dueDate = new Date(dueDate);
-    if (actualStartDate !== undefined) updateData.actualStartDate = actualStartDate ? new Date(actualStartDate) : null;
-    if (completedAt !== undefined) updateData.completedAt = completedAt ? new Date(completedAt) : null;
+    if (actualStartDate !== undefined)
+      updateData.actualStartDate = actualStartDate
+        ? new Date(actualStartDate)
+        : null;
+    if (completedAt !== undefined)
+      updateData.completedAt = completedAt ? new Date(completedAt) : null;
     if (budgetAmount !== undefined) {
-      updateData.budgetAmount = budgetAmount !== null ? new Prisma.Decimal(budgetAmount) : null;
+      updateData.budgetAmount =
+        budgetAmount !== null ? new Prisma.Decimal(budgetAmount) : null;
     }
     if (attachments !== undefined) {
-      updateData.attachments = attachments ? (attachments as unknown as Prisma.InputJsonValue) : Prisma.JsonNull;
+      updateData.attachments = attachments
+        ? (attachments as unknown as Prisma.InputJsonValue)
+        : Prisma.JsonNull;
     }
 
     if (checklists !== undefined) {
@@ -257,7 +302,7 @@ export class MilestoneRepository {
     checklistId: string,
     milestoneId: string,
     isCompleted?: boolean,
-    tx?: Prisma.TransactionClient
+    tx?: Prisma.TransactionClient,
   ) {
     const db = tx || prisma;
     const checklist = await db.milestoneChecklist.findFirst({
@@ -268,7 +313,8 @@ export class MilestoneRepository {
     });
     if (!checklist) return null;
 
-    const nextState = isCompleted !== undefined ? isCompleted : !checklist.isCompleted;
+    const nextState =
+      isCompleted !== undefined ? isCompleted : !checklist.isCompleted;
 
     return db.milestoneChecklist.update({
       where: { id: checklistId },
@@ -282,7 +328,11 @@ export class MilestoneRepository {
   /**
    * Soft delete milestone
    */
-  async softDelete(id: string, projectId: string, tx?: Prisma.TransactionClient) {
+  async softDelete(
+    id: string,
+    projectId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
     const db = tx || prisma;
     return db.projectMilestone.update({
       where: {

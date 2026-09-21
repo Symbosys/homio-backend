@@ -1,5 +1,8 @@
 import { asyncHandler } from "../../../middlewares/error.middleware.js";
-import { SuccessResponse, ErrorResponse } from "../../../utils/response.util.js";
+import {
+  SuccessResponse,
+  ErrorResponse,
+} from "../../../utils/response.util.js";
 import { statusCode } from "../../../types/types.js";
 import { milestoneService } from "../services/milestone.service.js";
 import {
@@ -19,16 +22,27 @@ import {
 export const createMilestone = asyncHandler(async (req, res) => {
   const organizationId = req.user?.organizationId;
   if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+    throw new ErrorResponse(
+      "Organization context required",
+      statusCode.Bad_Request,
+    );
   }
 
-  const parsed = createMilestoneSchema.parse({ params: req.params, body: req.body });
+  const parsed = createMilestoneSchema.parse({
+    params: req.params,
+    body: req.body,
+  });
   const result = await milestoneService.createMilestone(
     parsed.params.projectId,
     organizationId,
-    parsed.body
+    parsed.body,
   );
-  return SuccessResponse(res, "Milestone created successfully", result, statusCode.Created);
+  return SuccessResponse(
+    res,
+    "Milestone created successfully",
+    result,
+    statusCode.Created,
+  );
 });
 
 /**
@@ -39,18 +53,28 @@ export const createMilestone = asyncHandler(async (req, res) => {
 export const getMilestones = asyncHandler(async (req, res) => {
   const organizationId = req.user?.organizationId;
   if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+    throw new ErrorResponse(
+      "Organization context required",
+      statusCode.Bad_Request,
+    );
   }
 
-  const parsedParams = milestoneProjectIdParamSchema.parse({ params: req.params });
+  const parsedParams = milestoneProjectIdParamSchema.parse({
+    params: req.params,
+  });
   const parsedQuery = getMilestonesQuerySchema.parse({ query: req.query });
 
   const result = await milestoneService.getMilestones(
     parsedParams.params.projectId,
     organizationId,
-    parsedQuery.query
+    parsedQuery.query,
   );
-  return SuccessResponse(res, "Milestones retrieved successfully", result, statusCode.OK);
+  return SuccessResponse(
+    res,
+    "Milestones retrieved successfully",
+    result,
+    statusCode.OK,
+  );
 });
 
 /**
@@ -61,16 +85,24 @@ export const getMilestones = asyncHandler(async (req, res) => {
 export const getMilestoneById = asyncHandler(async (req, res) => {
   const organizationId = req.user?.organizationId;
   if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+    throw new ErrorResponse(
+      "Organization context required",
+      statusCode.Bad_Request,
+    );
   }
 
   const parsed = milestoneIdParamSchema.parse({ params: req.params });
   const result = await milestoneService.getMilestoneById(
     parsed.params.id,
     parsed.params.projectId,
-    organizationId
+    organizationId,
   );
-  return SuccessResponse(res, "Milestone details retrieved successfully", result, statusCode.OK);
+  return SuccessResponse(
+    res,
+    "Milestone details retrieved successfully",
+    result,
+    statusCode.OK,
+  );
 });
 
 /**
@@ -81,17 +113,28 @@ export const getMilestoneById = asyncHandler(async (req, res) => {
 export const updateMilestone = asyncHandler(async (req, res) => {
   const organizationId = req.user?.organizationId;
   if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+    throw new ErrorResponse(
+      "Organization context required",
+      statusCode.Bad_Request,
+    );
   }
 
-  const parsed = updateMilestoneSchema.parse({ params: req.params, body: req.body });
+  const parsed = updateMilestoneSchema.parse({
+    params: req.params,
+    body: req.body,
+  });
   const result = await milestoneService.updateMilestone(
     parsed.params.id,
     parsed.params.projectId,
     organizationId,
-    parsed.body
+    parsed.body,
   );
-  return SuccessResponse(res, "Milestone updated successfully", result, statusCode.OK);
+  return SuccessResponse(
+    res,
+    "Milestone updated successfully",
+    result,
+    statusCode.OK,
+  );
 });
 
 /**
@@ -102,18 +145,29 @@ export const updateMilestone = asyncHandler(async (req, res) => {
 export const toggleChecklistItem = asyncHandler(async (req, res) => {
   const organizationId = req.user?.organizationId;
   if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+    throw new ErrorResponse(
+      "Organization context required",
+      statusCode.Bad_Request,
+    );
   }
 
-  const parsed = toggleChecklistParamSchema.parse({ params: req.params, body: req.body });
+  const parsed = toggleChecklistParamSchema.parse({
+    params: req.params,
+    body: req.body,
+  });
   const result = await milestoneService.toggleChecklist(
     parsed.params.checklistId,
     parsed.params.milestoneId,
     parsed.params.projectId,
     organizationId,
-    parsed.body?.isCompleted
+    parsed.body?.isCompleted,
   );
-  return SuccessResponse(res, "Checklist item updated successfully", result, statusCode.OK);
+  return SuccessResponse(
+    res,
+    "Checklist item updated successfully",
+    result,
+    statusCode.OK,
+  );
 });
 
 /**
@@ -124,14 +178,22 @@ export const toggleChecklistItem = asyncHandler(async (req, res) => {
 export const deleteMilestone = asyncHandler(async (req, res) => {
   const organizationId = req.user?.organizationId;
   if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+    throw new ErrorResponse(
+      "Organization context required",
+      statusCode.Bad_Request,
+    );
   }
 
   const parsed = milestoneIdParamSchema.parse({ params: req.params });
   const result = await milestoneService.deleteMilestone(
     parsed.params.id,
     parsed.params.projectId,
-    organizationId
+    organizationId,
   );
-  return SuccessResponse(res, "Milestone deleted successfully", result, statusCode.OK);
+  return SuccessResponse(
+    res,
+    "Milestone deleted successfully",
+    result,
+    statusCode.OK,
+  );
 });

@@ -37,7 +37,11 @@ export const createProgressSchema = z.object({
     projectId: z.string().uuid("Invalid project ID format"),
   }),
   body: z.object({
-    milestoneId: z.string().uuid("Invalid milestone ID format").optional().nullable(),
+    milestoneId: z
+      .string()
+      .uuid("Invalid milestone ID format")
+      .optional()
+      .nullable(),
     areaRoom: z.string().max(100).optional().nullable(),
     workStage: z.string().max(100).optional().nullable(),
     progressDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
@@ -52,7 +56,11 @@ export const createProgressSchema = z.object({
     media: z.array(imageTypeSchema).default([]).optional().nullable(),
     visibility: ProgressVisibilityEnum.default("INTERNAL").optional(),
     approvalStatus: ProgressApprovalStatusEnum.default("SUBMITTED").optional(),
-    submittedById: z.string().uuid("Invalid submittedById format").optional().nullable(),
+    submittedById: z
+      .string()
+      .uuid("Invalid submittedById format")
+      .optional()
+      .nullable(),
   }),
 });
 
@@ -62,12 +70,18 @@ export const updateProgressSchema = z.object({
     id: z.string().uuid("Invalid progress ID format"),
   }),
   body: z.object({
-    milestoneId: z.string().uuid("Invalid milestone ID format").optional().nullable(),
+    milestoneId: z
+      .string()
+      .uuid("Invalid milestone ID format")
+      .optional()
+      .nullable(),
     areaRoom: z.string().max(100).optional().nullable(),
     workStage: z.string().max(100).optional().nullable(),
     progressDate: z
       .string()
-      .refine((val) => !isNaN(Date.parse(val)), { message: "Invalid progressDate format" })
+      .refine((val) => !isNaN(Date.parse(val)), {
+        message: "Invalid progressDate format",
+      })
       .optional(),
     progressPercent: z.number().min(0).max(100).optional(),
     description: z.string().max(5000).optional().nullable(),
@@ -77,7 +91,11 @@ export const updateProgressSchema = z.object({
     nextAction: z.string().max(5000).optional().nullable(),
     media: z.array(imageTypeSchema).optional().nullable(),
     visibility: ProgressVisibilityEnum.optional(),
-    submittedById: z.string().uuid("Invalid submittedById format").optional().nullable(),
+    submittedById: z
+      .string()
+      .uuid("Invalid submittedById format")
+      .optional()
+      .nullable(),
   }),
 });
 
@@ -103,14 +121,21 @@ export const getProgressQuerySchema = z.object({
     visibility: ProgressVisibilityEnum.optional(),
     startDate: z
       .string()
-      .refine((val) => !isNaN(Date.parse(val)), { message: "Invalid startDate format" })
+      .refine((val) => !isNaN(Date.parse(val)), {
+        message: "Invalid startDate format",
+      })
       .optional(),
     endDate: z
       .string()
-      .refine((val) => !isNaN(Date.parse(val)), { message: "Invalid endDate format" })
+      .refine((val) => !isNaN(Date.parse(val)), {
+        message: "Invalid endDate format",
+      })
       .optional(),
     submittedById: z.string().uuid().optional(),
-    sortBy: z.enum(["progressDate", "createdAt", "progressPercent"]).default("progressDate").optional(),
+    sortBy: z
+      .enum(["progressDate", "createdAt", "progressPercent"])
+      .default("progressDate")
+      .optional(),
     sortOrder: z.enum(["asc", "desc"]).default("desc").optional(),
   }),
 });
@@ -122,4 +147,6 @@ export const getProgressQuerySchema = z.object({
 export type CreateProgressInput = z.infer<typeof createProgressSchema>["body"];
 export type UpdateProgressInput = z.infer<typeof updateProgressSchema>["body"];
 export type ReviewProgressInput = z.infer<typeof reviewProgressSchema>["body"];
-export type GetProgressQueryInput = z.infer<typeof getProgressQuerySchema>["query"];
+export type GetProgressQueryInput = z.infer<
+  typeof getProgressQuerySchema
+>["query"];

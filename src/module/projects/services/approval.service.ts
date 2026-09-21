@@ -15,13 +15,20 @@ export class ApprovalService {
   /**
    * Create a WorkApproval entry under a project
    */
-  async createApproval(projectId: string, organizationId: string, data: CreateApprovalInput) {
+  async createApproval(
+    projectId: string,
+    organizationId: string,
+    data: CreateApprovalInput,
+  ) {
     // 1. Verify Project belongs to Organization
     const project = await prisma.project.findFirst({
       where: { id: projectId, organizationId, isDeleted: false },
     });
     if (!project) {
-      throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
+      throw new ErrorResponse(
+        "Project not found in this organization",
+        statusCode.Not_Found,
+      );
     }
 
     // 2. Verify Submitter Employee belongs to Organization if supplied
@@ -30,7 +37,10 @@ export class ApprovalService {
         where: { id: data.submittedById, organizationId, isDeleted: false },
       });
       if (!employee) {
-        throw new ErrorResponse("Submitter employee not found in this organization", statusCode.Bad_Request);
+        throw new ErrorResponse(
+          "Submitter employee not found in this organization",
+          statusCode.Bad_Request,
+        );
       }
     }
 
@@ -40,7 +50,10 @@ export class ApprovalService {
         where: { id: data.milestoneId, projectId, isDeleted: false },
       });
       if (!milestone) {
-        throw new ErrorResponse("Milestone not found in this project", statusCode.Bad_Request);
+        throw new ErrorResponse(
+          "Milestone not found in this project",
+          statusCode.Bad_Request,
+        );
       }
     }
 
@@ -50,12 +63,19 @@ export class ApprovalService {
   /**
    * Get paginated list of approvals for a project
    */
-  async getApprovals(projectId: string, organizationId: string, query: GetApprovalsQueryInput) {
+  async getApprovals(
+    projectId: string,
+    organizationId: string,
+    query: GetApprovalsQueryInput,
+  ) {
     const project = await prisma.project.findFirst({
       where: { id: projectId, organizationId, isDeleted: false },
     });
     if (!project) {
-      throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
+      throw new ErrorResponse(
+        "Project not found in this organization",
+        statusCode.Not_Found,
+      );
     }
 
     return approvalRepo.findAll(projectId, query);
@@ -69,7 +89,10 @@ export class ApprovalService {
       where: { id: projectId, organizationId, isDeleted: false },
     });
     if (!project) {
-      throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
+      throw new ErrorResponse(
+        "Project not found in this organization",
+        statusCode.Not_Found,
+      );
     }
 
     const approval = await approvalRepo.findById(id, projectId);
@@ -83,12 +106,20 @@ export class ApprovalService {
   /**
    * Update approval details
    */
-  async updateApproval(id: string, projectId: string, organizationId: string, data: UpdateApprovalInput) {
+  async updateApproval(
+    id: string,
+    projectId: string,
+    organizationId: string,
+    data: UpdateApprovalInput,
+  ) {
     const project = await prisma.project.findFirst({
       where: { id: projectId, organizationId, isDeleted: false },
     });
     if (!project) {
-      throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
+      throw new ErrorResponse(
+        "Project not found in this organization",
+        statusCode.Not_Found,
+      );
     }
 
     const existing = await approvalRepo.findById(id, projectId);
@@ -101,7 +132,10 @@ export class ApprovalService {
         where: { id: data.submittedById, organizationId, isDeleted: false },
       });
       if (!employee) {
-        throw new ErrorResponse("Submitter employee not found in this organization", statusCode.Bad_Request);
+        throw new ErrorResponse(
+          "Submitter employee not found in this organization",
+          statusCode.Bad_Request,
+        );
       }
     }
 
@@ -110,7 +144,10 @@ export class ApprovalService {
         where: { id: data.milestoneId, projectId, isDeleted: false },
       });
       if (!milestone) {
-        throw new ErrorResponse("Milestone not found in this project", statusCode.Bad_Request);
+        throw new ErrorResponse(
+          "Milestone not found in this project",
+          statusCode.Bad_Request,
+        );
       }
     }
 
@@ -120,12 +157,20 @@ export class ApprovalService {
   /**
    * Client review action (APPROVE / REJECT)
    */
-  async reviewApproval(id: string, projectId: string, organizationId: string, data: ReviewApprovalInput) {
+  async reviewApproval(
+    id: string,
+    projectId: string,
+    organizationId: string,
+    data: ReviewApprovalInput,
+  ) {
     const project = await prisma.project.findFirst({
       where: { id: projectId, organizationId, isDeleted: false },
     });
     if (!project) {
-      throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
+      throw new ErrorResponse(
+        "Project not found in this organization",
+        statusCode.Not_Found,
+      );
     }
 
     const existing = await approvalRepo.findById(id, projectId);
@@ -144,7 +189,10 @@ export class ApprovalService {
       where: { id: projectId, organizationId, isDeleted: false },
     });
     if (!project) {
-      throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
+      throw new ErrorResponse(
+        "Project not found in this organization",
+        statusCode.Not_Found,
+      );
     }
 
     const existing = await approvalRepo.findById(id, projectId);
@@ -166,13 +214,16 @@ export class ApprovalService {
     projectId: string,
     approvalId: string,
     organizationId: string,
-    data: CreateChangeRequestInput
+    data: CreateChangeRequestInput,
   ) {
     const project = await prisma.project.findFirst({
       where: { id: projectId, organizationId, isDeleted: false },
     });
     if (!project) {
-      throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
+      throw new ErrorResponse(
+        "Project not found in this organization",
+        statusCode.Not_Found,
+      );
     }
 
     const approval = await approvalRepo.findById(approvalId, projectId);
@@ -182,10 +233,17 @@ export class ApprovalService {
 
     if (data.requestedByCustomerId) {
       const customer = await prisma.customer.findFirst({
-        where: { id: data.requestedByCustomerId, organizationId, isDeleted: false },
+        where: {
+          id: data.requestedByCustomerId,
+          organizationId,
+          isDeleted: false,
+        },
       });
       if (!customer) {
-        throw new ErrorResponse("Customer not found in this organization", statusCode.Bad_Request);
+        throw new ErrorResponse(
+          "Customer not found in this organization",
+          statusCode.Bad_Request,
+        );
       }
     }
 
@@ -195,12 +253,19 @@ export class ApprovalService {
   /**
    * List change requests for an approval
    */
-  async getChangeRequests(projectId: string, approvalId: string, organizationId: string) {
+  async getChangeRequests(
+    projectId: string,
+    approvalId: string,
+    organizationId: string,
+  ) {
     const project = await prisma.project.findFirst({
       where: { id: projectId, organizationId, isDeleted: false },
     });
     if (!project) {
-      throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
+      throw new ErrorResponse(
+        "Project not found in this organization",
+        statusCode.Not_Found,
+      );
     }
 
     const approval = await approvalRepo.findById(approvalId, projectId);
@@ -219,13 +284,16 @@ export class ApprovalService {
     approvalId: string,
     id: string,
     organizationId: string,
-    data: RespondChangeRequestInput
+    data: RespondChangeRequestInput,
   ) {
     const project = await prisma.project.findFirst({
       where: { id: projectId, organizationId, isDeleted: false },
     });
     if (!project) {
-      throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
+      throw new ErrorResponse(
+        "Project not found in this organization",
+        statusCode.Not_Found,
+      );
     }
 
     const approval = await approvalRepo.findById(approvalId, projectId);
@@ -233,7 +301,10 @@ export class ApprovalService {
       throw new ErrorResponse("Work approval not found", statusCode.Not_Found);
     }
 
-    const changeRequest = await approvalRepo.findChangeRequestById(id, approvalId);
+    const changeRequest = await approvalRepo.findChangeRequestById(
+      id,
+      approvalId,
+    );
     if (!changeRequest) {
       throw new ErrorResponse("Change request not found", statusCode.Not_Found);
     }
@@ -243,7 +314,10 @@ export class ApprovalService {
         where: { id: data.respondedById, organizationId, isDeleted: false },
       });
       if (!employee) {
-        throw new ErrorResponse("Responder employee not found in this organization", statusCode.Bad_Request);
+        throw new ErrorResponse(
+          "Responder employee not found in this organization",
+          statusCode.Bad_Request,
+        );
       }
     }
 

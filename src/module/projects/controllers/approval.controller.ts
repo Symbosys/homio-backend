@@ -1,5 +1,8 @@
 import { asyncHandler } from "../../../middlewares/error.middleware.js";
-import { SuccessResponse, ErrorResponse } from "../../../utils/response.util.js";
+import {
+  SuccessResponse,
+  ErrorResponse,
+} from "../../../utils/response.util.js";
 import { statusCode } from "../../../types/types.js";
 import { approvalService } from "../services/approval.service.js";
 import {
@@ -22,16 +25,27 @@ import {
 export const createApproval = asyncHandler(async (req, res) => {
   const organizationId = req.user?.organizationId;
   if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+    throw new ErrorResponse(
+      "Organization context required",
+      statusCode.Bad_Request,
+    );
   }
 
-  const parsed = createApprovalSchema.parse({ params: req.params, body: req.body });
+  const parsed = createApprovalSchema.parse({
+    params: req.params,
+    body: req.body,
+  });
   const result = await approvalService.createApproval(
     parsed.params.projectId,
     organizationId,
-    parsed.body
+    parsed.body,
   );
-  return SuccessResponse(res, "Work approval created successfully", result, statusCode.Created);
+  return SuccessResponse(
+    res,
+    "Work approval created successfully",
+    result,
+    statusCode.Created,
+  );
 });
 
 /**
@@ -42,18 +56,28 @@ export const createApproval = asyncHandler(async (req, res) => {
 export const getApprovals = asyncHandler(async (req, res) => {
   const organizationId = req.user?.organizationId;
   if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+    throw new ErrorResponse(
+      "Organization context required",
+      statusCode.Bad_Request,
+    );
   }
 
-  const parsedParams = approvalProjectIdParamSchema.parse({ params: req.params });
+  const parsedParams = approvalProjectIdParamSchema.parse({
+    params: req.params,
+  });
   const parsedQuery = getApprovalsQuerySchema.parse({ query: req.query });
 
   const result = await approvalService.getApprovals(
     parsedParams.params.projectId,
     organizationId,
-    parsedQuery.query
+    parsedQuery.query,
   );
-  return SuccessResponse(res, "Work approvals retrieved successfully", result, statusCode.OK);
+  return SuccessResponse(
+    res,
+    "Work approvals retrieved successfully",
+    result,
+    statusCode.OK,
+  );
 });
 
 /**
@@ -64,16 +88,24 @@ export const getApprovals = asyncHandler(async (req, res) => {
 export const getApprovalById = asyncHandler(async (req, res) => {
   const organizationId = req.user?.organizationId;
   if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+    throw new ErrorResponse(
+      "Organization context required",
+      statusCode.Bad_Request,
+    );
   }
 
   const parsed = approvalIdParamSchema.parse({ params: req.params });
   const result = await approvalService.getApprovalById(
     parsed.params.id,
     parsed.params.projectId,
-    organizationId
+    organizationId,
   );
-  return SuccessResponse(res, "Work approval details retrieved successfully", result, statusCode.OK);
+  return SuccessResponse(
+    res,
+    "Work approval details retrieved successfully",
+    result,
+    statusCode.OK,
+  );
 });
 
 /**
@@ -84,17 +116,28 @@ export const getApprovalById = asyncHandler(async (req, res) => {
 export const updateApproval = asyncHandler(async (req, res) => {
   const organizationId = req.user?.organizationId;
   if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+    throw new ErrorResponse(
+      "Organization context required",
+      statusCode.Bad_Request,
+    );
   }
 
-  const parsed = updateApprovalSchema.parse({ params: req.params, body: req.body });
+  const parsed = updateApprovalSchema.parse({
+    params: req.params,
+    body: req.body,
+  });
   const result = await approvalService.updateApproval(
     parsed.params.id,
     parsed.params.projectId,
     organizationId,
-    parsed.body
+    parsed.body,
   );
-  return SuccessResponse(res, "Work approval updated successfully", result, statusCode.OK);
+  return SuccessResponse(
+    res,
+    "Work approval updated successfully",
+    result,
+    statusCode.OK,
+  );
 });
 
 /**
@@ -105,17 +148,28 @@ export const updateApproval = asyncHandler(async (req, res) => {
 export const reviewApproval = asyncHandler(async (req, res) => {
   const organizationId = req.user?.organizationId;
   if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+    throw new ErrorResponse(
+      "Organization context required",
+      statusCode.Bad_Request,
+    );
   }
 
-  const parsed = reviewApprovalSchema.parse({ params: req.params, body: req.body });
+  const parsed = reviewApprovalSchema.parse({
+    params: req.params,
+    body: req.body,
+  });
   const result = await approvalService.reviewApproval(
     parsed.params.id,
     parsed.params.projectId,
     organizationId,
-    parsed.body
+    parsed.body,
   );
-  return SuccessResponse(res, `Work approval ${parsed.body.action.toLowerCase()}d successfully`, result, statusCode.OK);
+  return SuccessResponse(
+    res,
+    `Work approval ${parsed.body.action.toLowerCase()}d successfully`,
+    result,
+    statusCode.OK,
+  );
 });
 
 /**
@@ -126,16 +180,24 @@ export const reviewApproval = asyncHandler(async (req, res) => {
 export const deleteApproval = asyncHandler(async (req, res) => {
   const organizationId = req.user?.organizationId;
   if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+    throw new ErrorResponse(
+      "Organization context required",
+      statusCode.Bad_Request,
+    );
   }
 
   const parsed = approvalIdParamSchema.parse({ params: req.params });
   const result = await approvalService.deleteApproval(
     parsed.params.id,
     parsed.params.projectId,
-    organizationId
+    organizationId,
   );
-  return SuccessResponse(res, "Work approval deleted successfully", result, statusCode.OK);
+  return SuccessResponse(
+    res,
+    "Work approval deleted successfully",
+    result,
+    statusCode.OK,
+  );
 });
 
 // ==========================================
@@ -150,17 +212,28 @@ export const deleteApproval = asyncHandler(async (req, res) => {
 export const createChangeRequest = asyncHandler(async (req, res) => {
   const organizationId = req.user?.organizationId;
   if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+    throw new ErrorResponse(
+      "Organization context required",
+      statusCode.Bad_Request,
+    );
   }
 
-  const parsed = createChangeRequestSchema.parse({ params: req.params, body: req.body });
+  const parsed = createChangeRequestSchema.parse({
+    params: req.params,
+    body: req.body,
+  });
   const result = await approvalService.createChangeRequest(
     parsed.params.projectId,
     parsed.params.approvalId,
     organizationId,
-    parsed.body
+    parsed.body,
   );
-  return SuccessResponse(res, "Change request submitted successfully", result, statusCode.Created);
+  return SuccessResponse(
+    res,
+    "Change request submitted successfully",
+    result,
+    statusCode.Created,
+  );
 });
 
 /**
@@ -171,16 +244,26 @@ export const createChangeRequest = asyncHandler(async (req, res) => {
 export const getChangeRequests = asyncHandler(async (req, res) => {
   const organizationId = req.user?.organizationId;
   if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+    throw new ErrorResponse(
+      "Organization context required",
+      statusCode.Bad_Request,
+    );
   }
 
-  const parsed = approvalChangeRequestsParamSchema.parse({ params: req.params });
+  const parsed = approvalChangeRequestsParamSchema.parse({
+    params: req.params,
+  });
   const result = await approvalService.getChangeRequests(
     parsed.params.projectId,
     parsed.params.approvalId,
-    organizationId
+    organizationId,
   );
-  return SuccessResponse(res, "Change requests retrieved successfully", result, statusCode.OK);
+  return SuccessResponse(
+    res,
+    "Change requests retrieved successfully",
+    result,
+    statusCode.OK,
+  );
 });
 
 /**
@@ -191,16 +274,27 @@ export const getChangeRequests = asyncHandler(async (req, res) => {
 export const respondChangeRequest = asyncHandler(async (req, res) => {
   const organizationId = req.user?.organizationId;
   if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+    throw new ErrorResponse(
+      "Organization context required",
+      statusCode.Bad_Request,
+    );
   }
 
-  const parsed = respondChangeRequestSchema.parse({ params: req.params, body: req.body });
+  const parsed = respondChangeRequestSchema.parse({
+    params: req.params,
+    body: req.body,
+  });
   const result = await approvalService.respondChangeRequest(
     parsed.params.projectId,
     parsed.params.approvalId,
     parsed.params.id,
     organizationId,
-    parsed.body
+    parsed.body,
   );
-  return SuccessResponse(res, "Change request responded successfully", result, statusCode.OK);
+  return SuccessResponse(
+    res,
+    "Change request responded successfully",
+    result,
+    statusCode.OK,
+  );
 });

@@ -13,7 +13,7 @@ export class ProgressRepository {
   async create(
     projectId: string,
     data: CreateProgressInput,
-    tx?: Prisma.TransactionClient
+    tx?: Prisma.TransactionClient,
   ) {
     const db = tx || prisma;
     const { progressDate, media, ...directFields } = data;
@@ -23,7 +23,9 @@ export class ProgressRepository {
         ...directFields,
         projectId,
         progressDate: new Date(progressDate),
-        media: media ? (media as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
+        media: media
+          ? (media as unknown as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
       },
       include: {
         submittedBy: {
@@ -52,7 +54,11 @@ export class ProgressRepository {
   /**
    * List paginated progress logs for a project with multiple filters
    */
-  async findAll(projectId: string, query: GetProgressQueryInput, tx?: Prisma.TransactionClient) {
+  async findAll(
+    projectId: string,
+    query: GetProgressQueryInput,
+    tx?: Prisma.TransactionClient,
+  ) {
     const db = tx || prisma;
     const {
       page = 1,
@@ -75,8 +81,12 @@ export class ProgressRepository {
       projectId,
       isDeleted: false,
       ...(milestoneId ? { milestoneId } : {}),
-      ...(areaRoom ? { areaRoom: { contains: areaRoom, mode: "insensitive" } } : {}),
-      ...(workStage ? { workStage: { contains: workStage, mode: "insensitive" } } : {}),
+      ...(areaRoom
+        ? { areaRoom: { contains: areaRoom, mode: "insensitive" } }
+        : {}),
+      ...(workStage
+        ? { workStage: { contains: workStage, mode: "insensitive" } }
+        : {}),
       ...(approvalStatus ? { approvalStatus } : {}),
       ...(visibility ? { visibility } : {}),
       ...(submittedById ? { submittedById } : {}),
@@ -199,7 +209,7 @@ export class ProgressRepository {
     id: string,
     projectId: string,
     data: UpdateProgressInput,
-    tx?: Prisma.TransactionClient
+    tx?: Prisma.TransactionClient,
   ) {
     const db = tx || prisma;
     const { progressDate, media, ...directFields } = data;
@@ -213,7 +223,9 @@ export class ProgressRepository {
       updateData.progressDate = new Date(progressDate);
     }
     if (media !== undefined) {
-      updateData.media = media ? (media as unknown as Prisma.InputJsonValue) : Prisma.JsonNull;
+      updateData.media = media
+        ? (media as unknown as Prisma.InputJsonValue)
+        : Prisma.JsonNull;
     }
 
     return db.projectProgress.update({
@@ -252,7 +264,7 @@ export class ProgressRepository {
     approvalStatus: "APPROVED" | "REJECTED" | "REVISION_REQUESTED",
     approvedById?: string,
     rejectionReason?: string | null,
-    tx?: Prisma.TransactionClient
+    tx?: Prisma.TransactionClient,
   ) {
     const db = tx || prisma;
     return db.projectProgress.update({
@@ -284,7 +296,11 @@ export class ProgressRepository {
   /**
    * Soft delete progress log
    */
-  async softDelete(id: string, projectId: string, tx?: Prisma.TransactionClient) {
+  async softDelete(
+    id: string,
+    projectId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
     const db = tx || prisma;
     return db.projectProgress.update({
       where: {

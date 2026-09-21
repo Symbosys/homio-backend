@@ -17,7 +17,7 @@ export class ProgressService {
     projectId: string,
     organizationId: string,
     data: CreateProgressInput,
-    userId?: string
+    userId?: string,
   ) {
     // 1. Verify Project belongs to Organization
     const project = await prisma.project.findFirst({
@@ -28,7 +28,10 @@ export class ProgressService {
       },
     });
     if (!project) {
-      throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
+      throw new ErrorResponse(
+        "Project not found in this organization",
+        statusCode.Not_Found,
+      );
     }
 
     // 2. If Milestone is supplied, verify it belongs to this Project
@@ -41,7 +44,10 @@ export class ProgressService {
         },
       });
       if (!milestone) {
-        throw new ErrorResponse("Milestone not found under this project", statusCode.Not_Found);
+        throw new ErrorResponse(
+          "Milestone not found under this project",
+          statusCode.Not_Found,
+        );
       }
     }
 
@@ -55,7 +61,10 @@ export class ProgressService {
         },
       });
       if (!employee) {
-        throw new ErrorResponse("Submitting employee not found in this organization", statusCode.Bad_Request);
+        throw new ErrorResponse(
+          "Submitting employee not found in this organization",
+          statusCode.Bad_Request,
+        );
       }
     }
 
@@ -68,7 +77,7 @@ export class ProgressService {
   async getProgressList(
     projectId: string,
     organizationId: string,
-    query: GetProgressQueryInput
+    query: GetProgressQueryInput,
   ) {
     const project = await prisma.project.findFirst({
       where: {
@@ -78,7 +87,10 @@ export class ProgressService {
       },
     });
     if (!project) {
-      throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
+      throw new ErrorResponse(
+        "Project not found in this organization",
+        statusCode.Not_Found,
+      );
     }
 
     return progressRepo.findAll(projectId, query);
@@ -87,11 +99,7 @@ export class ProgressService {
   /**
    * Get single progress log by ID
    */
-  async getProgressById(
-    id: string,
-    projectId: string,
-    organizationId: string
-  ) {
+  async getProgressById(id: string, projectId: string, organizationId: string) {
     const project = await prisma.project.findFirst({
       where: {
         id: projectId,
@@ -100,7 +108,10 @@ export class ProgressService {
       },
     });
     if (!project) {
-      throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
+      throw new ErrorResponse(
+        "Project not found in this organization",
+        statusCode.Not_Found,
+      );
     }
 
     const progress = await progressRepo.findById(id, projectId);
@@ -118,7 +129,7 @@ export class ProgressService {
     id: string,
     projectId: string,
     organizationId: string,
-    data: UpdateProgressInput
+    data: UpdateProgressInput,
   ) {
     const project = await prisma.project.findFirst({
       where: {
@@ -128,7 +139,10 @@ export class ProgressService {
       },
     });
     if (!project) {
-      throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
+      throw new ErrorResponse(
+        "Project not found in this organization",
+        statusCode.Not_Found,
+      );
     }
 
     const existing = await progressRepo.findById(id, projectId);
@@ -146,7 +160,10 @@ export class ProgressService {
         },
       });
       if (!milestone) {
-        throw new ErrorResponse("Milestone not found under this project", statusCode.Not_Found);
+        throw new ErrorResponse(
+          "Milestone not found under this project",
+          statusCode.Not_Found,
+        );
       }
     }
 
@@ -161,7 +178,7 @@ export class ProgressService {
     projectId: string,
     organizationId: string,
     data: ReviewProgressInput,
-    user?: { id?: string }
+    user?: { id?: string },
   ) {
     const project = await prisma.project.findFirst({
       where: {
@@ -171,7 +188,10 @@ export class ProgressService {
       },
     });
     if (!project) {
-      throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
+      throw new ErrorResponse(
+        "Project not found in this organization",
+        statusCode.Not_Found,
+      );
     }
 
     const existing = await progressRepo.findById(id, projectId);
@@ -200,18 +220,14 @@ export class ProgressService {
       projectId,
       data.approvalStatus,
       approvedEmployeeId,
-      data.rejectionReason
+      data.rejectionReason,
     );
   }
 
   /**
    * Soft delete progress log
    */
-  async deleteProgress(
-    id: string,
-    projectId: string,
-    organizationId: string
-  ) {
+  async deleteProgress(id: string, projectId: string, organizationId: string) {
     const project = await prisma.project.findFirst({
       where: {
         id: projectId,
@@ -220,7 +236,10 @@ export class ProgressService {
       },
     });
     if (!project) {
-      throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
+      throw new ErrorResponse(
+        "Project not found in this organization",
+        statusCode.Not_Found,
+      );
     }
 
     const existing = await progressRepo.findById(id, projectId);

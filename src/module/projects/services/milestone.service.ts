@@ -15,7 +15,7 @@ export class MilestoneService {
   async createMilestone(
     projectId: string,
     organizationId: string,
-    data: CreateMilestoneInput
+    data: CreateMilestoneInput,
   ) {
     // 1. Verify Project belongs to Organization
     const project = await prisma.project.findFirst({
@@ -26,7 +26,10 @@ export class MilestoneService {
       },
     });
     if (!project) {
-      throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
+      throw new ErrorResponse(
+        "Project not found in this organization",
+        statusCode.Not_Found,
+      );
     }
 
     // 2. Verify Assignee belongs to Organization if supplied
@@ -39,7 +42,10 @@ export class MilestoneService {
         },
       });
       if (!assignee) {
-        throw new ErrorResponse("Assignee employee not found in this organization", statusCode.Bad_Request);
+        throw new ErrorResponse(
+          "Assignee employee not found in this organization",
+          statusCode.Bad_Request,
+        );
       }
     }
 
@@ -58,7 +64,7 @@ export class MilestoneService {
       if (existing) {
         throw new ErrorResponse(
           `Milestone code '${milestoneCode}' already exists in this project`,
-          statusCode.Conflict
+          statusCode.Conflict,
         );
       }
     }
@@ -69,7 +75,11 @@ export class MilestoneService {
   /**
    * Get all milestones for a project
    */
-  async getMilestones(projectId: string, organizationId: string, query: GetMilestonesQueryInput) {
+  async getMilestones(
+    projectId: string,
+    organizationId: string,
+    query: GetMilestonesQueryInput,
+  ) {
     const project = await prisma.project.findFirst({
       where: {
         id: projectId,
@@ -78,7 +88,10 @@ export class MilestoneService {
       },
     });
     if (!project) {
-      throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
+      throw new ErrorResponse(
+        "Project not found in this organization",
+        statusCode.Not_Found,
+      );
     }
 
     return milestoneRepo.findAll(projectId, query);
@@ -87,7 +100,11 @@ export class MilestoneService {
   /**
    * Get single milestone by ID
    */
-  async getMilestoneById(id: string, projectId: string, organizationId: string) {
+  async getMilestoneById(
+    id: string,
+    projectId: string,
+    organizationId: string,
+  ) {
     const project = await prisma.project.findFirst({
       where: {
         id: projectId,
@@ -96,7 +113,10 @@ export class MilestoneService {
       },
     });
     if (!project) {
-      throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
+      throw new ErrorResponse(
+        "Project not found in this organization",
+        statusCode.Not_Found,
+      );
     }
 
     const milestone = await milestoneRepo.findById(id, projectId);
@@ -114,7 +134,7 @@ export class MilestoneService {
     id: string,
     projectId: string,
     organizationId: string,
-    data: UpdateMilestoneInput
+    data: UpdateMilestoneInput,
   ) {
     const project = await prisma.project.findFirst({
       where: {
@@ -124,7 +144,10 @@ export class MilestoneService {
       },
     });
     if (!project) {
-      throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
+      throw new ErrorResponse(
+        "Project not found in this organization",
+        statusCode.Not_Found,
+      );
     }
 
     const existing = await milestoneRepo.findById(id, projectId);
@@ -142,7 +165,10 @@ export class MilestoneService {
         },
       });
       if (!assignee) {
-        throw new ErrorResponse("Assignee employee not found in this organization", statusCode.Bad_Request);
+        throw new ErrorResponse(
+          "Assignee employee not found in this organization",
+          statusCode.Bad_Request,
+        );
       }
     }
 
@@ -159,7 +185,7 @@ export class MilestoneService {
       if (duplicate) {
         throw new ErrorResponse(
           `Milestone code '${data.milestoneCode}' already exists in this project`,
-          statusCode.Conflict
+          statusCode.Conflict,
         );
       }
     }
@@ -175,7 +201,7 @@ export class MilestoneService {
     milestoneId: string,
     projectId: string,
     organizationId: string,
-    isCompleted?: boolean
+    isCompleted?: boolean,
   ) {
     const project = await prisma.project.findFirst({
       where: {
@@ -185,7 +211,10 @@ export class MilestoneService {
       },
     });
     if (!project) {
-      throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
+      throw new ErrorResponse(
+        "Project not found in this organization",
+        statusCode.Not_Found,
+      );
     }
 
     const milestone = await milestoneRepo.findById(milestoneId, projectId);
@@ -193,9 +222,16 @@ export class MilestoneService {
       throw new ErrorResponse("Milestone not found", statusCode.Not_Found);
     }
 
-    const updatedChecklist = await milestoneRepo.toggleChecklist(checklistId, milestoneId, isCompleted);
+    const updatedChecklist = await milestoneRepo.toggleChecklist(
+      checklistId,
+      milestoneId,
+      isCompleted,
+    );
     if (!updatedChecklist) {
-      throw new ErrorResponse("Checklist item not found in this milestone", statusCode.Not_Found);
+      throw new ErrorResponse(
+        "Checklist item not found in this milestone",
+        statusCode.Not_Found,
+      );
     }
 
     // Calculate updated completion percentage
@@ -203,13 +239,21 @@ export class MilestoneService {
       where: { milestoneId },
     });
     const completedCount = allChecklists.filter((c) => c.isCompleted).length;
-    const completionPercent = allChecklists.length > 0 ? (completedCount / allChecklists.length) * 100 : 0;
+    const completionPercent =
+      allChecklists.length > 0
+        ? (completedCount / allChecklists.length) * 100
+        : 0;
 
     await prisma.projectMilestone.update({
       where: { id: milestoneId },
       data: {
         completionPercent,
-        status: completionPercent === 100 ? "COMPLETED" : completionPercent > 0 ? "IN_PROGRESS" : milestone.status,
+        status:
+          completionPercent === 100
+            ? "COMPLETED"
+            : completionPercent > 0
+              ? "IN_PROGRESS"
+              : milestone.status,
       },
     });
 
@@ -228,7 +272,10 @@ export class MilestoneService {
       },
     });
     if (!project) {
-      throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
+      throw new ErrorResponse(
+        "Project not found in this organization",
+        statusCode.Not_Found,
+      );
     }
 
     const existing = await milestoneRepo.findById(id, projectId);

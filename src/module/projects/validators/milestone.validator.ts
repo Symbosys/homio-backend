@@ -29,16 +29,24 @@ export const milestoneChecklistItemInputSchema = z.object({
   isCompleted: z.boolean().default(false).optional(),
   completedAt: z
     .string()
-    .refine((val) => !isNaN(Date.parse(val)), { message: "Invalid completedAt format" })
+    .refine((val) => !isNaN(Date.parse(val)), {
+      message: "Invalid completedAt format",
+    })
     .optional()
     .nullable(),
   orderIndex: z.number().int().nonnegative().default(0).optional(),
   dueDate: z
     .string()
-    .refine((val) => !isNaN(Date.parse(val)), { message: "Invalid dueDate format" })
+    .refine((val) => !isNaN(Date.parse(val)), {
+      message: "Invalid dueDate format",
+    })
     .optional()
     .nullable(),
-  assigneeId: z.string().uuid("Invalid assignee ID format").optional().nullable(),
+  assigneeId: z
+    .string()
+    .uuid("Invalid assignee ID format")
+    .optional()
+    .nullable(),
 });
 
 // ==========================================
@@ -64,9 +72,11 @@ export const toggleChecklistParamSchema = z.object({
     milestoneId: z.string().uuid("Invalid milestone ID format"),
     checklistId: z.string().uuid("Invalid checklist ID format"),
   }),
-  body: z.object({
-    isCompleted: z.boolean().optional(),
-  }).optional(),
+  body: z
+    .object({
+      isCompleted: z.boolean().optional(),
+    })
+    .optional(),
 });
 
 export const createMilestoneSchema = z.object({
@@ -91,18 +101,26 @@ export const createMilestoneSchema = z.object({
     }),
     actualStartDate: z
       .string()
-      .refine((val) => !isNaN(Date.parse(val)), { message: "Invalid actualStartDate format" })
+      .refine((val) => !isNaN(Date.parse(val)), {
+        message: "Invalid actualStartDate format",
+      })
       .optional()
       .nullable(),
     completedAt: z
       .string()
-      .refine((val) => !isNaN(Date.parse(val)), { message: "Invalid completedAt format" })
+      .refine((val) => !isNaN(Date.parse(val)), {
+        message: "Invalid completedAt format",
+      })
       .optional()
       .nullable(),
     completionPercent: z.number().min(0).max(100).default(0).optional(),
 
     // Ownership & Gates
-    assigneeId: z.string().uuid("Invalid assignee ID format").optional().nullable(),
+    assigneeId: z
+      .string()
+      .uuid("Invalid assignee ID format")
+      .optional()
+      .nullable(),
     approvalRequired: z.boolean().default(false).optional(),
     paymentRequired: z.boolean().default(false).optional(),
     budgetAmount: z.number().nonnegative().optional().nullable(),
@@ -111,7 +129,10 @@ export const createMilestoneSchema = z.object({
     attachments: z.array(imageTypeSchema).optional().nullable(),
 
     // Optional Nested Checklists
-    checklists: z.array(milestoneChecklistItemInputSchema).default([]).optional(),
+    checklists: z
+      .array(milestoneChecklistItemInputSchema)
+      .default([])
+      .optional(),
   }),
 });
 
@@ -132,26 +153,38 @@ export const updateMilestoneSchema = z.object({
     // Timeline
     startDate: z
       .string()
-      .refine((val) => !isNaN(Date.parse(val)), { message: "Invalid startDate format" })
+      .refine((val) => !isNaN(Date.parse(val)), {
+        message: "Invalid startDate format",
+      })
       .optional(),
     dueDate: z
       .string()
-      .refine((val) => !isNaN(Date.parse(val)), { message: "Invalid dueDate format" })
+      .refine((val) => !isNaN(Date.parse(val)), {
+        message: "Invalid dueDate format",
+      })
       .optional(),
     actualStartDate: z
       .string()
-      .refine((val) => !isNaN(Date.parse(val)), { message: "Invalid actualStartDate format" })
+      .refine((val) => !isNaN(Date.parse(val)), {
+        message: "Invalid actualStartDate format",
+      })
       .optional()
       .nullable(),
     completedAt: z
       .string()
-      .refine((val) => !isNaN(Date.parse(val)), { message: "Invalid completedAt format" })
+      .refine((val) => !isNaN(Date.parse(val)), {
+        message: "Invalid completedAt format",
+      })
       .optional()
       .nullable(),
     completionPercent: z.number().min(0).max(100).optional(),
 
     // Ownership & Gates
-    assigneeId: z.string().uuid("Invalid assignee ID format").optional().nullable(),
+    assigneeId: z
+      .string()
+      .uuid("Invalid assignee ID format")
+      .optional()
+      .nullable(),
     approvalRequired: z.boolean().optional(),
     paymentRequired: z.boolean().optional(),
     budgetAmount: z.number().nonnegative().optional().nullable(),
@@ -170,7 +203,16 @@ export const getMilestonesQuerySchema = z.object({
     status: MilestoneStatusEnum.optional(),
     priority: ProjectPriorityEnum.optional(),
     assigneeId: z.string().uuid().optional(),
-    sortBy: z.enum(["orderIndex", "startDate", "dueDate", "completionPercent", "createdAt"]).default("orderIndex").optional(),
+    sortBy: z
+      .enum([
+        "orderIndex",
+        "startDate",
+        "dueDate",
+        "completionPercent",
+        "createdAt",
+      ])
+      .default("orderIndex")
+      .optional(),
     sortOrder: z.enum(["asc", "desc"]).default("asc").optional(),
   }),
 });
@@ -179,7 +221,15 @@ export const getMilestonesQuerySchema = z.object({
 // TYPE INFERENCES
 // ==========================================
 
-export type CreateMilestoneInput = z.infer<typeof createMilestoneSchema>["body"];
-export type UpdateMilestoneInput = z.infer<typeof updateMilestoneSchema>["body"];
-export type GetMilestonesQueryInput = z.infer<typeof getMilestonesQuerySchema>["query"];
-export type MilestoneChecklistItemInput = z.infer<typeof milestoneChecklistItemInputSchema>;
+export type CreateMilestoneInput = z.infer<
+  typeof createMilestoneSchema
+>["body"];
+export type UpdateMilestoneInput = z.infer<
+  typeof updateMilestoneSchema
+>["body"];
+export type GetMilestonesQueryInput = z.infer<
+  typeof getMilestonesQuerySchema
+>["query"];
+export type MilestoneChecklistItemInput = z.infer<
+  typeof milestoneChecklistItemInputSchema
+>;

@@ -1,5 +1,8 @@
 import { asyncHandler } from "../../../middlewares/error.middleware.js";
-import { SuccessResponse, ErrorResponse } from "../../../utils/response.util.js";
+import {
+  SuccessResponse,
+  ErrorResponse,
+} from "../../../utils/response.util.js";
 import { statusCode } from "../../../types/types.js";
 import { progressService } from "../services/progress.service.js";
 import {
@@ -19,17 +22,28 @@ import {
 export const createProgress = asyncHandler(async (req, res) => {
   const organizationId = req.user?.organizationId;
   if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+    throw new ErrorResponse(
+      "Organization context required",
+      statusCode.Bad_Request,
+    );
   }
 
-  const parsed = createProgressSchema.parse({ params: req.params, body: req.body });
+  const parsed = createProgressSchema.parse({
+    params: req.params,
+    body: req.body,
+  });
   const result = await progressService.createProgress(
     parsed.params.projectId,
     organizationId,
     parsed.body,
-    req.user?.id
+    req.user?.id,
   );
-  return SuccessResponse(res, "Site progress entry logged successfully", result, statusCode.Created);
+  return SuccessResponse(
+    res,
+    "Site progress entry logged successfully",
+    result,
+    statusCode.Created,
+  );
 });
 
 /**
@@ -40,18 +54,28 @@ export const createProgress = asyncHandler(async (req, res) => {
 export const getProgressList = asyncHandler(async (req, res) => {
   const organizationId = req.user?.organizationId;
   if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+    throw new ErrorResponse(
+      "Organization context required",
+      statusCode.Bad_Request,
+    );
   }
 
-  const parsedParams = progressProjectIdParamSchema.parse({ params: req.params });
+  const parsedParams = progressProjectIdParamSchema.parse({
+    params: req.params,
+  });
   const parsedQuery = getProgressQuerySchema.parse({ query: req.query });
 
   const result = await progressService.getProgressList(
     parsedParams.params.projectId,
     organizationId,
-    parsedQuery.query
+    parsedQuery.query,
   );
-  return SuccessResponse(res, "Site progress entries retrieved successfully", result, statusCode.OK);
+  return SuccessResponse(
+    res,
+    "Site progress entries retrieved successfully",
+    result,
+    statusCode.OK,
+  );
 });
 
 /**
@@ -62,16 +86,24 @@ export const getProgressList = asyncHandler(async (req, res) => {
 export const getProgressById = asyncHandler(async (req, res) => {
   const organizationId = req.user?.organizationId;
   if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+    throw new ErrorResponse(
+      "Organization context required",
+      statusCode.Bad_Request,
+    );
   }
 
   const parsed = progressIdParamSchema.parse({ params: req.params });
   const result = await progressService.getProgressById(
     parsed.params.id,
     parsed.params.projectId,
-    organizationId
+    organizationId,
   );
-  return SuccessResponse(res, "Site progress details retrieved successfully", result, statusCode.OK);
+  return SuccessResponse(
+    res,
+    "Site progress details retrieved successfully",
+    result,
+    statusCode.OK,
+  );
 });
 
 /**
@@ -82,17 +114,28 @@ export const getProgressById = asyncHandler(async (req, res) => {
 export const updateProgress = asyncHandler(async (req, res) => {
   const organizationId = req.user?.organizationId;
   if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+    throw new ErrorResponse(
+      "Organization context required",
+      statusCode.Bad_Request,
+    );
   }
 
-  const parsed = updateProgressSchema.parse({ params: req.params, body: req.body });
+  const parsed = updateProgressSchema.parse({
+    params: req.params,
+    body: req.body,
+  });
   const result = await progressService.updateProgress(
     parsed.params.id,
     parsed.params.projectId,
     organizationId,
-    parsed.body
+    parsed.body,
   );
-  return SuccessResponse(res, "Site progress entry updated successfully", result, statusCode.OK);
+  return SuccessResponse(
+    res,
+    "Site progress entry updated successfully",
+    result,
+    statusCode.OK,
+  );
 });
 
 /**
@@ -103,18 +146,29 @@ export const updateProgress = asyncHandler(async (req, res) => {
 export const reviewProgress = asyncHandler(async (req, res) => {
   const organizationId = req.user?.organizationId;
   if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+    throw new ErrorResponse(
+      "Organization context required",
+      statusCode.Bad_Request,
+    );
   }
 
-  const parsed = reviewProgressSchema.parse({ params: req.params, body: req.body });
+  const parsed = reviewProgressSchema.parse({
+    params: req.params,
+    body: req.body,
+  });
   const result = await progressService.reviewProgress(
     parsed.params.id,
     parsed.params.projectId,
     organizationId,
     parsed.body,
-    req.user
+    req.user,
   );
-  return SuccessResponse(res, "Site progress approval status updated successfully", result, statusCode.OK);
+  return SuccessResponse(
+    res,
+    "Site progress approval status updated successfully",
+    result,
+    statusCode.OK,
+  );
 });
 
 /**
@@ -125,14 +179,22 @@ export const reviewProgress = asyncHandler(async (req, res) => {
 export const deleteProgress = asyncHandler(async (req, res) => {
   const organizationId = req.user?.organizationId;
   if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+    throw new ErrorResponse(
+      "Organization context required",
+      statusCode.Bad_Request,
+    );
   }
 
   const parsed = progressIdParamSchema.parse({ params: req.params });
   const result = await progressService.deleteProgress(
     parsed.params.id,
     parsed.params.projectId,
-    organizationId
+    organizationId,
   );
-  return SuccessResponse(res, "Site progress entry deleted successfully", result, statusCode.OK);
+  return SuccessResponse(
+    res,
+    "Site progress entry deleted successfully",
+    result,
+    statusCode.OK,
+  );
 });
