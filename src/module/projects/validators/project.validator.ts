@@ -83,6 +83,7 @@ export const projectSiteInputSchema = z.object({
   contactPhone: z.string().max(20).optional().nullable(),
   contactEmail: z.string().email("Invalid contact email").optional().nullable().or(z.literal("")),
   accessInstructions: z.string().max(2000).optional().nullable(),
+  additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
 });
 
 export const projectScheduleInputSchema = z.object({
@@ -143,6 +144,7 @@ export const projectScheduleInputSchema = z.object({
     .nullable(),
   estimatedDurationDays: z.number().int().nonnegative().optional().nullable(),
   actualDurationDays: z.number().int().nonnegative().optional().nullable(),
+  additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
 });
 
 export const projectMetricInputSchema = z.object({
@@ -160,6 +162,7 @@ export const projectMetricInputSchema = z.object({
     })
     .optional()
     .nullable(),
+  additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
 });
 
 export const projectCommercialInputSchema = z.object({
@@ -176,6 +179,7 @@ export const projectCommercialInputSchema = z.object({
   labourCost: z.number().nonnegative().default(0).optional(),
   supervisionCost: z.number().nonnegative().default(0).optional(),
   grossMarginPercent: z.number().optional().nullable(),
+  additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
 });
 
 export const projectMemberInputSchema = z.object({
@@ -187,6 +191,7 @@ export const projectMemberInputSchema = z.object({
   isPrimary: z.boolean().default(false).optional(),
   isActive: z.boolean().default(true).optional(),
   allocatedHoursPerWeek: z.number().nonnegative().max(168).optional().nullable(),
+  additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
 });
 
 // ImageType JSON Schema for coverImageUrl
@@ -233,6 +238,7 @@ export const createProjectSchema = z.object({
     tags: z.array(z.string().max(50)).default([]).optional(),
     notes: z.string().max(5000).optional().nullable(),
     customFields: z.record(z.string(), z.any()).optional().nullable(),
+    additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
 
     // Optional Segregated Child Tables
     site: projectSiteInputSchema.optional().nullable(),
@@ -271,6 +277,7 @@ export const updateProjectSchema = z.object({
     tags: z.array(z.string().max(50)).optional(),
     notes: z.string().max(5000).optional().nullable(),
     customFields: z.record(z.string(), z.any()).optional().nullable(),
+    additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
 
     // Segregated Child Tables (Partial / Nested update)
     site: projectSiteInputSchema.partial().optional().nullable(),

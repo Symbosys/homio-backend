@@ -61,6 +61,10 @@ describe("Projects Module Tests", () => {
             architecturalStyle: "Contemporary Minimalist",
             ceilingHeightFt: 11.5,
           },
+          additionalInformation: {
+            clientTier: "VIP",
+            customRequirementNotes: "Requires imported Italian fittings",
+          },
 
           // 1-to-1 Site
           site: {
@@ -80,6 +84,11 @@ describe("Projects Module Tests", () => {
             contactPhone: "+919876543210",
             contactEmail: "rajesh.sharma@example.com",
             accessInstructions: "Security pass required at Main Gate #2.",
+            additionalInformation: {
+              liftAccess: true,
+              parkingSlots: 2,
+              entryGateNumber: "Gate 2B",
+            },
           },
 
           // 1-to-1 Schedule
@@ -91,6 +100,10 @@ describe("Projects Module Tests", () => {
             warrantyStartDate: "2027-04-15",
             warrantyEndDate: "2028-04-15",
             estimatedDurationDays: 180,
+            additionalInformation: {
+              workingHourRestrictions: "9 AM - 6 PM only",
+              monsoonBufferDays: 15,
+            },
           },
 
           // 1-to-1 Metric
@@ -102,6 +115,10 @@ describe("Projects Module Tests", () => {
             paymentProgress: 0,
             qualityScore: 100,
             safetyScore: 100,
+            additionalInformation: {
+              auditIntervalDays: 14,
+              safetyOfficerAssigned: true,
+            },
           },
 
           // 1-to-1 Commercial
@@ -117,6 +134,10 @@ describe("Projects Module Tests", () => {
             labourCost: 300000,
             supervisionCost: 100000,
             grossMarginPercent: 32.5,
+            additionalInformation: {
+              paymentTerms: "30% Advance, 40% Mid-way, 30% Handover",
+              taxInvoiceType: "GST_TAX_INVOICE",
+            },
           },
 
           // 1-to-Many Dynamic Team Members
@@ -129,6 +150,10 @@ describe("Projects Module Tests", () => {
               isPrimary: true,
               isActive: true,
               allocatedHoursPerWeek: 30,
+              additionalInformation: {
+                reportingFrequency: "Daily",
+                siteVisitDays: ["Monday", "Thursday"],
+              },
             },
             {
               employeeId: MOCK_EMPLOYEE_ID_2,
@@ -138,6 +163,9 @@ describe("Projects Module Tests", () => {
               isPrimary: true,
               isActive: true,
               allocatedHoursPerWeek: 20,
+              additionalInformation: {
+                softwarePreferred: "AutoCAD & 3ds Max",
+              },
             },
           ],
         },
@@ -146,11 +174,17 @@ describe("Projects Module Tests", () => {
       const parsed = createProjectSchema.parse(payload);
       expect(parsed.body.name).toBe("Villa Grandeur 4BHK Turnkey Interior");
       expect(parsed.body.customerId).toBe(MOCK_CUSTOMER_ID);
+      expect(parsed.body.additionalInformation?.clientTier).toBe("VIP");
       expect(parsed.body.site?.city).toBe("Bangalore");
+      expect(parsed.body.site?.additionalInformation?.parkingSlots).toBe(2);
       expect(parsed.body.schedule?.estimatedDurationDays).toBe(180);
+      expect(parsed.body.schedule?.additionalInformation?.monsoonBufferDays).toBe(15);
+      expect(parsed.body.metric?.additionalInformation?.safetyOfficerAssigned).toBe(true);
       expect(parsed.body.commercial?.contractAmount).toBe(8200000);
+      expect(parsed.body.commercial?.additionalInformation?.paymentTerms).toBe("30% Advance, 40% Mid-way, 30% Handover");
       expect(parsed.body.members?.length).toBe(2);
       expect(parsed.body.members?.[0]?.role).toBe("PROJECT_MANAGER");
+      expect(parsed.body.members?.[0]?.additionalInformation?.reportingFrequency).toBe("Daily");
       expect(parsed.body.members?.[1]?.role).toBe("LEAD_DESIGNER");
     });
 
@@ -186,19 +220,34 @@ describe("Projects Module Tests", () => {
   // 3. Project Partial Update & Dirty Payload Validation
   // =========================================================================
   describe("Update Project Validation", () => {
-    it("should validate partial project updates with individual nested updates", () => {
+    it("should validate partial project updates with individual nested updates and additionalInformation", () => {
       const updatePayload = {
         params: { id: "99999999-9999-4999-8999-999999999999" },
         body: {
           status: "EXECUTION" as const,
           currentStage: "EXECUTION" as const,
+          additionalInformation: {
+            specialEscalationContact: "+919876500000",
+          },
+          site: {
+            additionalInformation: {
+              liftAccess: false,
+              staircaseDimensions: "4ft width",
+            },
+          },
           metric: {
             progressPercent: 45.5,
             executionProgress: 50.0,
             paymentProgress: 40.0,
+            additionalInformation: {
+              snagsFoundCount: 3,
+            },
           },
           commercial: {
             totalReceivedAmount: 4000000,
+            additionalInformation: {
+              discountApprovedBy: "CEO",
+            },
           },
         },
       };
@@ -206,8 +255,12 @@ describe("Projects Module Tests", () => {
       const parsed = updateProjectSchema.parse(updatePayload);
       expect(parsed.params.id).toBe("99999999-9999-4999-8999-999999999999");
       expect(parsed.body.status).toBe("EXECUTION");
+      expect(parsed.body.additionalInformation?.specialEscalationContact).toBe("+919876500000");
+      expect(parsed.body.site?.additionalInformation?.liftAccess).toBe(false);
       expect(parsed.body.metric?.progressPercent).toBe(45.5);
+      expect(parsed.body.metric?.additionalInformation?.snagsFoundCount).toBe(3);
       expect(parsed.body.commercial?.totalReceivedAmount).toBe(4000000);
+      expect(parsed.body.commercial?.additionalInformation?.discountApprovedBy).toBe("CEO");
     });
   });
 

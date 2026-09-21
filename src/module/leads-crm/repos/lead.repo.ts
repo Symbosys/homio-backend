@@ -20,7 +20,7 @@ export class LeadRepository {
     tx?: Prisma.TransactionClient
   ) {
     const db = tx || prisma;
-    const { possessionDate, customFields, tags, estimatedBudget, customer, ...directFields } = data as any;
+    const { possessionDate, customFields, additionalInformation, tags, estimatedBudget, customer, ...directFields } = data as any;
 
     return db.lead.create({
       data: {
@@ -30,6 +30,7 @@ export class LeadRepository {
         possessionDate: possessionDate ? new Date(possessionDate) : null,
         tags: tags || [],
         customFields: customFields ? (customFields as Prisma.InputJsonValue) : Prisma.JsonNull,
+        additionalInformation: additionalInformation ? (additionalInformation as Prisma.InputJsonValue) : Prisma.JsonNull,
       },
       include: {
         customer: {
@@ -333,7 +334,7 @@ export class LeadRepository {
     tx?: Prisma.TransactionClient
   ) {
     const db = tx || prisma;
-    const { possessionDate, estimatedBudget, customFields, ...directFields } = data;
+    const { possessionDate, estimatedBudget, customFields, additionalInformation, ...directFields } = data;
 
     return db.lead.update({
       where: { id },
@@ -342,6 +343,7 @@ export class LeadRepository {
         ...(possessionDate !== undefined ? { possessionDate: possessionDate ? new Date(possessionDate) : null } : {}),
         ...(estimatedBudget !== undefined ? { estimatedBudget: estimatedBudget !== null ? new Prisma.Decimal(estimatedBudget) : null } : {}),
         ...(customFields !== undefined ? { customFields: customFields ? (customFields as Prisma.InputJsonValue) : Prisma.JsonNull } : {}),
+        ...(additionalInformation !== undefined ? { additionalInformation: additionalInformation ? (additionalInformation as Prisma.InputJsonValue) : Prisma.JsonNull } : {}),
       } as Prisma.LeadUncheckedUpdateInput,
       include: {
         customer: {

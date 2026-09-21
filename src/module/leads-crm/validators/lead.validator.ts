@@ -85,6 +85,7 @@ export const createLeadSchema = z.object({
     tags: z.array(z.string()).default([]).optional(),
     notes: z.string().max(3000).optional().nullable(),
     customFields: z.record(z.string(), z.any()).optional().nullable(),
+    additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
   }).refine((data) => data.customerId || (data.customer && data.customer.firstName && data.customer.phone), {
     message: "Either customerId or customer details (with firstName and phone) must be provided",
     path: ["customerId"],
@@ -119,6 +120,7 @@ export const updateLeadSchema = z.object({
     tags: z.array(z.string()).optional(),
     notes: z.string().max(3000).optional().nullable(),
     customFields: z.record(z.string(), z.any()).optional().nullable(),
+    additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
     customer: customerPayloadSchema.partial().optional(),
   }),
 });

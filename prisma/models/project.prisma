@@ -248,9 +248,10 @@ model Project {
   clientFeedback        String? @map("client_feedback") @db.Text
 
   // Metadata, Tags & Custom Fields
-  tags         String[] @default([]) @map("tags")
-  notes        String?  @map("notes") @db.Text
-  customFields Json?    @map("custom_fields")
+  tags                  String[] @default([]) @map("tags")
+  notes                 String?  @map("notes") @db.Text
+  customFields          Json?    @map("custom_fields")
+  additionalInformation Json?    @map("additional_information")
 
   // Soft Delete & Timestamps
   isDeleted Boolean   @default(false) @map("is_deleted")
@@ -312,10 +313,11 @@ model ProjectSite {
   carpetAreaSqft Float?  @map("carpet_area_sqft")
 
   // On-Site Point of Contact
-  contactPerson       String? @map("contact_person")
-  contactPhone        String? @map("contact_phone")
-  contactEmail        String? @map("contact_email")
-  accessInstructions String? @map("access_instructions") @db.Text
+  contactPerson         String? @map("contact_person")
+  contactPhone          String? @map("contact_phone")
+  contactEmail          String? @map("contact_email")
+  accessInstructions   String? @map("access_instructions") @db.Text
+  additionalInformation Json?   @map("additional_information")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -349,8 +351,9 @@ model ProjectMember {
   assignedAt            DateTime  @default(now()) @map("assigned_at")
   unassignedAt          DateTime? @map("unassigned_at")
 
-  assignedById String? @map("assigned_by_id") @db.Uuid
-  assignedBy   User?   @relation("ProjectMemberAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+  assignedById          String?   @map("assigned_by_id") @db.Uuid
+  assignedBy            User?     @relation("ProjectMemberAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+  additionalInformation Json?     @map("additional_information")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -386,8 +389,9 @@ model ProjectSchedule {
   extendedWarrantyEndDate DateTime? @map("extended_warranty_end_date") @db.Date
 
   // Duration Estimates
-  estimatedDurationDays Int? @map("estimated_duration_days")
-  actualDurationDays    Int? @map("actual_duration_days")
+  estimatedDurationDays Int?   @map("estimated_duration_days")
+  actualDurationDays    Int?   @map("actual_duration_days")
+  additionalInformation Json?  @map("additional_information")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -416,9 +420,10 @@ model ProjectMetric {
   qualityScore Float? @map("quality_score") // 0 to 100
   safetyScore  Float? @map("safety_score")  // 0 to 100
 
-  lastEvaluatedAt DateTime? @map("last_evaluated_at")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+  lastEvaluatedAt       DateTime? @map("last_evaluated_at")
+  additionalInformation Json?     @map("additional_information")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
 
   @@map("project_metrics")
 }
@@ -452,7 +457,8 @@ model ProjectCommercial {
   supervisionCost Decimal @default(0) @map("supervision_cost") @db.Decimal(14, 2)
 
   // Margins
-  grossMarginPercent Float @default(0) @map("gross_margin_percent")
+  grossMarginPercent    Float @default(0) @map("gross_margin_percent")
+  additionalInformation Json? @map("additional_information")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

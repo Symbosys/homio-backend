@@ -114,9 +114,10 @@ model Lead {
   lostAt      DateTime? @map("lost_at")
 
   // Metadata & Custom Attributes
-  tags         String[] @default([]) @map("tags")
-  notes        String?  @map("notes")
-  customFields Json?    @map("custom_fields")
+  tags                  String[] @default([]) @map("tags")
+  notes                 String?  @map("notes")
+  customFields          Json?    @map("custom_fields")
+  additionalInformation Json?    @map("additional_information")
 
   // Soft Delete & Timestamps
   isDeleted Boolean   @default(false) @map("is_deleted")

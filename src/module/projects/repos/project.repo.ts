@@ -63,6 +63,7 @@ export class ProjectRepository {
       members,
       coverImageUrl,
       customFields,
+      additionalInformation,
       tags,
       ...coreFields
     } = data;
@@ -74,6 +75,7 @@ export class ProjectRepository {
         createdById: createdById || null,
         coverImageUrl: coverImageUrl ? (coverImageUrl as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
         customFields: customFields ? (customFields as Prisma.InputJsonValue) : Prisma.JsonNull,
+        additionalInformation: additionalInformation ? (additionalInformation as Prisma.InputJsonValue) : Prisma.JsonNull,
         tags: tags || [],
 
         // 1-to-1 Site details
@@ -96,6 +98,7 @@ export class ProjectRepository {
                 contactPhone: site.contactPhone || null,
                 contactEmail: site.contactEmail || null,
                 accessInstructions: site.accessInstructions || null,
+                additionalInformation: site.additionalInformation ? (site.additionalInformation as Prisma.InputJsonValue) : Prisma.JsonNull,
               },
             }
           : undefined,
@@ -117,6 +120,7 @@ export class ProjectRepository {
                   : null,
                 estimatedDurationDays: schedule.estimatedDurationDays ?? null,
                 actualDurationDays: schedule.actualDurationDays ?? null,
+                additionalInformation: schedule.additionalInformation ? (schedule.additionalInformation as Prisma.InputJsonValue) : Prisma.JsonNull,
               },
             }
           : undefined,
@@ -133,6 +137,7 @@ export class ProjectRepository {
                 qualityScore: metric.qualityScore ?? null,
                 safetyScore: metric.safetyScore ?? null,
                 lastEvaluatedAt: metric.lastEvaluatedAt ? new Date(metric.lastEvaluatedAt) : null,
+                additionalInformation: metric.additionalInformation ? (metric.additionalInformation as Prisma.InputJsonValue) : Prisma.JsonNull,
               },
             }
           : undefined,
@@ -168,6 +173,7 @@ export class ProjectRepository {
                 labourCost: new Prisma.Decimal(commercial.labourCost ?? 0),
                 supervisionCost: new Prisma.Decimal(commercial.supervisionCost ?? 0),
                 grossMarginPercent: commercial.grossMarginPercent ?? 0,
+                additionalInformation: commercial.additionalInformation ? (commercial.additionalInformation as Prisma.InputJsonValue) : Prisma.JsonNull,
               },
             }
           : undefined,
@@ -184,6 +190,7 @@ export class ProjectRepository {
                 isActive: m.isActive ?? true,
                 allocatedHoursPerWeek: m.allocatedHoursPerWeek ?? null,
                 assignedById: createdById || null,
+                additionalInformation: m.additionalInformation ? (m.additionalInformation as Prisma.InputJsonValue) : Prisma.JsonNull,
               })),
             }
           : undefined,
@@ -450,6 +457,7 @@ export class ProjectRepository {
       coverImageUrl,
       customFields,
       tags,
+      additionalInformation,
       ...coreFields
     } = data;
 
@@ -471,6 +479,11 @@ export class ProjectRepository {
     }
     if (tags !== undefined) {
       projectUpdateData.tags = tags;
+    }
+    if (additionalInformation !== undefined) {
+      projectUpdateData.additionalInformation = additionalInformation
+        ? (additionalInformation as Prisma.InputJsonValue)
+        : Prisma.JsonNull;
     }
 
     // 1-to-1 Site upsert
@@ -497,6 +510,9 @@ export class ProjectRepository {
               contactPhone: site.contactPhone || null,
               contactEmail: site.contactEmail || null,
               accessInstructions: site.accessInstructions || null,
+              additionalInformation: site.additionalInformation
+                ? (site.additionalInformation as Prisma.InputJsonValue)
+                : Prisma.JsonNull,
             },
             update: {
               ...(site.siteName !== undefined ? { siteName: site.siteName } : {}),
@@ -515,6 +531,13 @@ export class ProjectRepository {
               ...(site.contactPhone !== undefined ? { contactPhone: site.contactPhone } : {}),
               ...(site.contactEmail !== undefined ? { contactEmail: site.contactEmail } : {}),
               ...(site.accessInstructions !== undefined ? { accessInstructions: site.accessInstructions } : {}),
+              ...(site.additionalInformation !== undefined
+                ? {
+                    additionalInformation: site.additionalInformation
+                      ? (site.additionalInformation as Prisma.InputJsonValue)
+                      : Prisma.JsonNull,
+                  }
+                : {}),
             },
           },
         };
@@ -540,6 +563,9 @@ export class ProjectRepository {
             : null,
           estimatedDurationDays: schedule.estimatedDurationDays ?? null,
           actualDurationDays: schedule.actualDurationDays ?? null,
+          additionalInformation: schedule.additionalInformation
+            ? (schedule.additionalInformation as Prisma.InputJsonValue)
+            : Prisma.JsonNull,
         };
 
         const scheduleUpdateData: Prisma.ProjectScheduleUpdateInput = {};
@@ -567,6 +593,10 @@ export class ProjectRepository {
           scheduleUpdateData.estimatedDurationDays = schedule.estimatedDurationDays;
         if (schedule.actualDurationDays !== undefined)
           scheduleUpdateData.actualDurationDays = schedule.actualDurationDays;
+        if (schedule.additionalInformation !== undefined)
+          scheduleUpdateData.additionalInformation = schedule.additionalInformation
+            ? (schedule.additionalInformation as Prisma.InputJsonValue)
+            : Prisma.JsonNull;
 
         projectUpdateData.schedule = {
           upsert: {
@@ -591,6 +621,9 @@ export class ProjectRepository {
           qualityScore: metric.qualityScore ?? null,
           safetyScore: metric.safetyScore ?? null,
           lastEvaluatedAt: metric.lastEvaluatedAt ? new Date(metric.lastEvaluatedAt) : null,
+          additionalInformation: metric.additionalInformation
+            ? (metric.additionalInformation as Prisma.InputJsonValue)
+            : Prisma.JsonNull,
         };
 
         const metricUpdateData: Prisma.ProjectMetricUpdateInput = {};
@@ -603,6 +636,10 @@ export class ProjectRepository {
         if (metric.safetyScore !== undefined) metricUpdateData.safetyScore = metric.safetyScore;
         if (metric.lastEvaluatedAt !== undefined)
           metricUpdateData.lastEvaluatedAt = metric.lastEvaluatedAt ? new Date(metric.lastEvaluatedAt) : null;
+        if (metric.additionalInformation !== undefined)
+          metricUpdateData.additionalInformation = metric.additionalInformation
+            ? (metric.additionalInformation as Prisma.InputJsonValue)
+            : Prisma.JsonNull;
 
         projectUpdateData.metric = {
           upsert: {
@@ -648,6 +685,9 @@ export class ProjectRepository {
           labourCost: new Prisma.Decimal(commercial.labourCost ?? 0),
           supervisionCost: new Prisma.Decimal(commercial.supervisionCost ?? 0),
           grossMarginPercent: commercial.grossMarginPercent ?? 0,
+          additionalInformation: commercial.additionalInformation
+            ? (commercial.additionalInformation as Prisma.InputJsonValue)
+            : Prisma.JsonNull,
         };
 
         const commercialUpdateData: Prisma.ProjectCommercialUpdateInput = {};
@@ -677,6 +717,10 @@ export class ProjectRepository {
           commercialUpdateData.supervisionCost = new Prisma.Decimal(commercial.supervisionCost);
         if (commercial.grossMarginPercent !== undefined && commercial.grossMarginPercent !== null)
           commercialUpdateData.grossMarginPercent = commercial.grossMarginPercent;
+        if (commercial.additionalInformation !== undefined)
+          commercialUpdateData.additionalInformation = commercial.additionalInformation
+            ? (commercial.additionalInformation as Prisma.InputJsonValue)
+            : Prisma.JsonNull;
 
         projectUpdateData.commercial = {
           upsert: {
@@ -705,6 +749,9 @@ export class ProjectRepository {
             isActive: m.isActive ?? true,
             allocatedHoursPerWeek: m.allocatedHoursPerWeek ?? null,
             assignedById: updatedById || null,
+            additionalInformation: m.additionalInformation
+              ? (m.additionalInformation as Prisma.InputJsonValue)
+              : Prisma.JsonNull,
           })),
         };
       }
