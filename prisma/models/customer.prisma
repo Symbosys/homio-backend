@@ -99,6 +99,9 @@ model Customer {
   documents  CustomerDocument[] @relation("CustomerDocuments")
   meetings   Meeting[]          @relation("CustomerMeetings")
   tasks      Task[]             @relation("CustomerTasks")
+  projects       Project[]                   @relation("CustomerProjects")
+  complaints     ProjectComplaint[]          @relation("CustomerReportedComplaints")
+  changeRequests WorkApprovalChangeRequest[] @relation("CustomerChangeRequests")
 
   @@unique([organizationId, customerCode])
   @@unique([organizationId, phone])

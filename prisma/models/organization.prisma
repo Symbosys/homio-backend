@@ -72,6 +72,9 @@ model Organization {
   taskChecklists          TaskChecklistItem[]               @relation("OrganizationTaskChecklists")
   taskActivities          TaskActivity[]                    @relation("OrganizationTaskActivities")
   taskDocuments           TaskDocument[]                    @relation("OrganizationTaskDocuments")
+  projects                Project[]                         @relation("OrganizationProjects")
+  expenses                Expense[]                         @relation("OrganizationExpenses")
+  expenseCategories       ExpenseCategory[]                 @relation("OrganizationExpenseCategories")
 
   @@index([slug])
   @@index([status])

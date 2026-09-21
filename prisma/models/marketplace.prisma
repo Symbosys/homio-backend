@@ -171,22 +171,36 @@ model Vendor {
   organizationId String       @map("organization_id") @db.Uuid
   organization   Organization @relation("OrganizationVendors", fields: [organizationId], references: [id], onDelete: Cascade)
 
-  name                  String   @map("name")
   code                  String?  @map("code")
+  name                  String   @map("name")
+  companyName           String?  @map("company_name")
+  category              String?  @map("category") // e.g. "TILES", "TIMBER", "ELECTRICAL", "FABRICATION", "CONTRACTOR", "SERVICES"
   contactPerson         String?  @map("contact_person")
   email                 String?  @map("email")
   phone                 String?  @map("phone")
+  alternatePhone        String?  @map("alternate_phone")
+  website               String?  @map("website")
   address               String?  @map("address")
   city                  String?  @map("city")
   state                 String?  @map("state")
+  country               String   @default("IN") @map("country")
   pincode               String?  @map("pincode")
   gstin                 String?  @map("gstin")
+  panNumber             String?  @map("pan_number")
+  bankName              String?  @map("bank_name")
+  bankAccountNumber     String?  @map("bank_account_number")
+  bankIfscCode          String?  @map("bank_ifsc_code")
+  bankBranch            String?  @map("bank_branch")
+  paymentTermsDays      Int?     @default(30) @map("payment_terms_days")
   defaultCommissionRate Decimal? @map("default_commission_rate") @db.Decimal(5, 2) // Default % owner gets on product sale
+  rating                Float?   @map("rating")
+  notes                 String?  @map("notes") @db.Text
   isActive              Boolean  @default(true) @map("is_active")
 
-  // Associated Products
+  // Associated Relations
   homeDecorProducts HomeDecorProduct[] @relation("VendorHomeDecorProducts")
   materialProducts  MaterialProduct[]  @relation("VendorMaterialProducts")
+  expenses          Expense[]          @relation("VendorExpenses")
 
   isDeleted Boolean   @default(false) @map("is_deleted")
   deletedAt DateTime? @map("deleted_at")
@@ -195,6 +209,8 @@ model Vendor {
 
   @@unique([organizationId, name])
   @@index([organizationId, isActive])
+  @@index([category])
+  @@index([isDeleted, deletedAt])
   @@map("vendors")
 }
 

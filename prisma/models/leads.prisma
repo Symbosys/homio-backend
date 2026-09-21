@@ -131,6 +131,7 @@ model Lead {
   documents      LeadDocument[]     @relation("LeadDocuments")
   meetings       Meeting[]          @relation("LeadMeetings")
   tasks          Task[]             @relation("LeadTasks")
+  projects       Project[]          @relation("LeadProjects")
 
   @@unique([organizationId, leadCode])
   @@index([organizationId])

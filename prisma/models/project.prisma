@@ -1,0 +1,976 @@
+// ==========================================
+// PROJECT ENUMS
+// ==========================================
+
+enum ProjectType {
+  TURNKEY          // End-to-end design & build execution
+  CONSULTING       // Advisory / design-only consulting
+  FORM_BASED       // Simple / templated form-based project
+  INTERIOR_DESIGN  // Custom interior designing & 3D styling
+  RENOVATION       // Remodeling & civil restoration
+  COMMERCIAL       // Commercial workspace / retail fit-out
+  RESIDENTIAL      // Residential home / villa
+}
+
+enum ProjectStatus {
+  DRAFT            // Initial onboarding & scope definition
+  PLANNED          // Kickoff planned, awaiting resource allocation
+  DESIGN           // 2D/3D design & moodboard phase
+  APPROVAL_PENDING // Client / management signoff pending
+  EXECUTION        // Active on-site procurement & construction
+  ON_HOLD          // Temporarily paused by client/contractor
+  DELAYED          // Critical path blocked / timeline breached
+  COMPLETED        // Work finished, pending final handover
+  HANDOVER         // Formal site & key handover to client
+  CLOSED           // Final settlement completed & archived
+  CANCELLED        // Project terminated
+}
+
+enum ProjectHealth {
+  HEALTHY          // On schedule, within budget
+  AT_RISK          // Minor timeline or material risk detected
+  DELAYED          // Behind schedule
+  CRITICAL         // Severe delays, escalation or dispute
+  COMPLETED        // Successfully delivered
+}
+
+enum ProjectStage {
+  PLANNING         // Scope of work & preliminary estimate
+  DESIGN           // Architectural, structural & interior design
+  APPROVAL         // Client drawing & estimate signoff
+  EXECUTION        // Site civil, electrical, carpentry & painting
+  PROCUREMENT      // Material sourcing & vendor purchase orders
+  HANDOVER         // Snag list resolution & key handover
+  AFTER_SALES      // Warranty & maintenance support
+}
+
+enum ProjectPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ProjectMemberRole {
+  PROJECT_MANAGER
+  LEAD_DESIGNER
+  ASSISTANT_DESIGNER
+  SITE_SUPERVISOR
+  SITE_ENGINEER
+  SALES_OWNER
+  PROCUREMENT_MANAGER
+  QUALITY_AUDITOR
+  MEP_CONSULTANT
+  SAFETY_OFFICER
+  OTHER
+}
+
+enum MilestoneStatus {
+  NOT_STARTED        // Milestone scheduled but not active
+  IN_PROGRESS        // Execution actively ongoing
+  PENDING_APPROVAL   // Work submitted for client/QA approval
+  COMPLETED          // Milestone verified and signed off
+  DELAYED            // Critical deadline breached
+  BLOCKED            // Impeded by external dependency / dispute
+  CANCELLED          // Dropped from scope
+}
+
+enum ProgressVisibility {
+  INTERNAL           // Visible only to internal organization team
+  CLIENT_VISIBLE     // Displayed on Client Portal & customer reports
+}
+
+enum ProgressApprovalStatus {
+  DRAFT              // Work log being drafted by site engineer
+  SUBMITTED          // Submitted for Project Manager review
+  APPROVED           // Approved by PM / Lead Architect
+  REJECTED           // Rejected due to defects/snags
+  REVISION_REQUESTED // Minor fixes requested
+}
+
+enum ApprovalType {
+  DESIGN           // 2D/3D Floor plans, elevations, moodboards, 3D renders
+  MATERIAL         // Tile, laminate, veneer, fabric, hardware, sanitaryware
+  EXECUTION_STAGE  // Civil work, false ceiling, MEP rough-in
+  WORK_COMPLETION  // Milestone or phase completion verification
+  PAYMENT          // Milestone or variation payment signoff
+  FINAL_HANDOVER   // Final site handover & possession
+  OTHER            // Custom signoff
+}
+
+enum ApprovalStatus {
+  PENDING             // Awaiting client review
+  APPROVED            // Approved by client
+  REJECTED            // Rejected by client
+  REVISION_REQUESTED  // Client requested changes / alterations
+  RESUBMITTED         // Resubmitted after implementing revisions
+}
+
+enum ComplaintType {
+  DESIGN        // Design discrepancy or aesthetic flaw
+  QUALITY       // Workmanship or finish defect
+  MATERIAL      // Substandard or damaged material
+  EXECUTION     // Structural, plumbing, or electrical issue
+  TIMELINE      // Timeline or delay issue
+  BEHAVIOUR     // On-site personnel or contractor conduct
+  PAYMENT       // Commercial or invoice dispute
+  COMMUNICATION // Lack of communication or updates
+  WARRANTY      // Post-handover defect
+  OTHER         // Miscellaneous grievance
+}
+
+enum ComplaintStatus {
+  OPEN          // Ticket raised
+  ACKNOWLEDGED  // Acknowledged by team
+  ASSIGNED      // Assigned to site engineer / vendor
+  IN_PROGRESS   // Rectification underway
+  WAITING       // Awaiting client confirmation or replacement materials
+  RESOLVED      // Rectified and internally verified
+  CLOSED        // Client verified and closed
+  REJECTED      // Invalid / out of warranty / out of scope
+  REOPENED      // Reopened if unresolved
+}
+
+enum ComplaintSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ChangeRequestStatus {
+  PENDING     // Submitted by client, awaiting organization review
+  IN_REVIEW   // Under evaluation by design / project team
+  ACCEPTED    // Accepted by team, actively incorporating revisions
+  REJECTED    // Rejected / infeasible / out of scope
+  IMPLEMENTED // Completed & resubmitted for client sign-off
+}
+
+// ==========================================
+// SITE VISIT ENUMS
+// ==========================================
+
+enum SiteVisitType {
+  MEASUREMENT         // Initial site survey, laser dimensions, as-built mapping
+  DESIGN              // Design & moodboard validation at site
+  EXECUTION           // Active construction / installation oversight
+  INSPECTION          // Quality & safety audit inspection
+  SUPERVISOR          // Routine supervisor daily site round
+  CLIENT              // Client walkthrough & physical site review
+  MATERIAL_INSPECTION // Inflow material delivery check & verification
+  FINAL_INSPECTION    // Snaglist & pre-handover final inspection
+  OTHER               // Custom visit
+}
+
+enum SiteVisitStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  RESCHEDULED
+}
+
+enum SiteVisitOutcome {
+  COMPLETED           // Successfully completed with all points addressed
+  ISSUES_FOUND        // Defects, snags, or non-compliance detected
+  FOLLOW_UP_REQUIRED  // Additional visit or engineering action required
+  PENDING_APPROVAL    // Sign-off / drawing revision pending
+}
+
+// ==========================================
+// EXPENSE ENUMS
+// ==========================================
+
+enum ExpenseScope {
+  PROJECT       // Cost directly attributed to a specific project
+  ORGANIZATION  // General company / overhead operational expense
+  BOTH          // Applicable to both project & organization expenses
+}
+
+enum ExpensePaymentMethod {
+  CASH
+  BANK_TRANSFER
+  UPI
+  CREDIT_CARD
+  DEBIT_CARD
+  CHEQUE
+  PETTY_CASH
+  OTHER
+}
+
+enum ExpensePaymentStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  PAID
+  PARTIALLY_PAID
+  REJECTED
+  CANCELLED
+}
+
+// ==========================================
+// 1. CORE PROJECT MODEL (Tenant Root)
+// ==========================================
+
+model Project {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationProjects", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Client & Lead Attribution
+  customerId String   @map("customer_id") @db.Uuid
+  customer   Customer @relation("CustomerProjects", fields: [customerId], references: [id], onDelete: Restrict)
+
+  leadId String? @map("lead_id") @db.Uuid
+  lead   Lead?   @relation("LeadProjects", fields: [leadId], references: [id], onDelete: SetNull)
+
+  // Identity & Classification
+  projectCode  String          @map("project_code") // e.g. "PRJ-2026-0001"
+  name         String          @map("name")
+  description  String?         @map("description") @db.Text
+  category     String?         @map("category") // e.g. "Residential Luxury", "Modular Kitchen"
+  type         ProjectType     @default(TURNKEY) @map("type")
+  status       ProjectStatus   @default(PLANNED) @map("status")
+  health       ProjectHealth   @default(HEALTHY) @map("health")
+  currentStage ProjectStage    @default(PLANNING) @map("current_stage")
+  priority     ProjectPriority @default(MEDIUM) @map("priority")
+
+  // Cloud Media (ImageType JSON: { id, url, bytes, format, provider })
+  coverImageUrl Json? @map("cover_image_url")
+
+  // Creator audit
+  createdById String? @map("created_by_id") @db.Uuid
+  createdBy   User?   @relation("ProjectCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  // Client Portal Settings & Client Feedback
+  isClientPortalVisible Boolean @default(true) @map("is_client_portal_visible")
+  clientRating          Float?  @map("client_rating")
+  clientFeedback        String? @map("client_feedback") @db.Text
+
+  // Metadata, Tags & Custom Fields
+  tags         String[] @default([]) @map("tags")
+  notes        String?  @map("notes") @db.Text
+  customFields Json?    @map("custom_fields")
+
+  // Soft Delete & Timestamps
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  // 1-to-1 & 1-to-Many Segregated Relations
+  site            ProjectSite?
+  schedule        ProjectSchedule?
+  metric          ProjectMetric?
+  commercial      ProjectCommercial?
+  members         ProjectMember[]
+  milestones      ProjectMilestone[] @relation("ProjectMilestones")
+  progressEntries ProjectProgress[]  @relation("ProjectProgressEntries")
+  workApprovals   WorkApproval[]     @relation("ProjectWorkApprovals")
+  complaints      ProjectComplaint[] @relation("ProjectComplaints")
+  siteVisits      ProjectSiteVisit[] @relation("ProjectSiteVisits")
+  expenses        Expense[]          @relation("ProjectExpenses")
+
+  @@unique([organizationId, projectCode])
+  @@index([organizationId])
+  @@index([customerId])
+  @@index([leadId])
+  @@index([status])
+  @@index([health])
+  @@index([currentStage])
+  @@index([priority])
+  @@index([isDeleted, deletedAt])
+  @@map("projects")
+}
+
+// ==========================================
+// 2. PROJECT SITE & PHYSICAL LOCATION (1-to-1)
+// ==========================================
+
+model ProjectSite {
+  id        String  @id @default(uuid()) @db.Uuid
+  projectId String  @unique @map("project_id") @db.Uuid
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // Site Location Details
+  siteName String? @map("site_name") // e.g. "Prestige Lakeside, Tower 4, Flat 1202"
+  address  String? @map("address")
+  city     String? @map("city")
+  state    String? @map("state")
+  country  String  @default("IN") @map("country")
+  pincode  String? @map("pincode")
+  gpsLat   Float?  @map("gps_lat")
+  gpsLng   Float?  @map("gps_lng")
+
+  // Physical Specifications
+  propertyType   String? @map("property_type") // e.g. "4BHK Villa", "Penthouse", "Commercial Office"
+  floorNumber    String? @map("floor_number")
+  totalAreaSqft  Float?  @map("total_area_sqft")
+  carpetAreaSqft Float?  @map("carpet_area_sqft")
+
+  // On-Site Point of Contact
+  contactPerson       String? @map("contact_person")
+  contactPhone        String? @map("contact_phone")
+  contactEmail        String? @map("contact_email")
+  accessInstructions String? @map("access_instructions") @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([city])
+  @@map("project_sites")
+}
+
+// ==========================================
+// 3. PROJECT DYNAMIC TEAM MEMBERS (1-to-Many)
+// ==========================================
+
+model ProjectMember {
+  id        String  @id @default(uuid()) @db.Uuid
+  projectId String  @map("project_id") @db.Uuid
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // Assigned Employee from HRMS
+  employeeId String   @map("employee_id") @db.Uuid
+  employee   Employee @relation("EmployeeProjectMembers", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  // Flexible Role & Responsibilities
+  role             ProjectMemberRole @default(OTHER) @map("role")
+  customRoleTitle  String?           @map("custom_role_title") // e.g. "Lead 3D Visualizer", "Acoustic Consultant"
+  responsibilities String?           @map("responsibilities") @db.Text
+  isPrimary        Boolean           @default(false) @map("is_primary") // e.g. Primary Project Manager
+  isActive         Boolean           @default(true) @map("is_active")
+
+  // Allocation & Timeline
+  allocatedHoursPerWeek Float?    @map("allocated_hours_per_week")
+  assignedAt            DateTime  @default(now()) @map("assigned_at")
+  unassignedAt          DateTime? @map("unassigned_at")
+
+  assignedById String? @map("assigned_by_id") @db.Uuid
+  assignedBy   User?   @relation("ProjectMemberAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([projectId, employeeId, role])
+  @@index([projectId])
+  @@index([employeeId])
+  @@index([role])
+  @@index([isActive])
+  @@map("project_members")
+}
+
+// ==========================================
+// 4. PROJECT SCHEDULE & TIMELINE (1-to-1)
+// ==========================================
+
+model ProjectSchedule {
+  id        String  @id @default(uuid()) @db.Uuid
+  projectId String  @unique @map("project_id") @db.Uuid
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // Key Dates
+  plannedStartDate DateTime  @map("planned_start_date") @db.Date
+  plannedEndDate   DateTime  @map("planned_end_date") @db.Date
+  actualStartDate  DateTime? @map("actual_start_date") @db.Date
+  actualEndDate    DateTime? @map("actual_end_date") @db.Date
+
+  // Handover & Warranty Lifecycle
+  kickoffDate             DateTime? @map("kickoff_date") @db.Date
+  siteHandoverDate        DateTime? @map("site_handover_date") @db.Date
+  warrantyStartDate       DateTime? @map("warranty_start_date") @db.Date
+  warrantyEndDate         DateTime? @map("warranty_end_date") @db.Date
+  extendedWarrantyEndDate DateTime? @map("extended_warranty_end_date") @db.Date
+
+  // Duration Estimates
+  estimatedDurationDays Int? @map("estimated_duration_days")
+  actualDurationDays    Int? @map("actual_duration_days")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([plannedStartDate, plannedEndDate])
+  @@map("project_schedules")
+}
+
+// ==========================================
+// 5. PROJECT PROGRESS & METRIC AGGREGATES (1-to-1)
+// ==========================================
+
+model ProjectMetric {
+  id        String  @id @default(uuid()) @db.Uuid
+  projectId String  @unique @map("project_id") @db.Uuid
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // Percentage Metrics (0.00 to 100.00%)
+  progressPercent     Float @default(0) @map("progress_percent")
+  designProgress      Float @default(0) @map("design_progress")
+  executionProgress   Float @default(0) @map("execution_progress")
+  procurementProgress Float @default(0) @map("procurement_progress")
+  paymentProgress     Float @default(0) @map("payment_progress")
+
+  // Quality & Safety Audit Scores
+  qualityScore Float? @map("quality_score") // 0 to 100
+  safetyScore  Float? @map("safety_score")  // 0 to 100
+
+  lastEvaluatedAt DateTime? @map("last_evaluated_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@map("project_metrics")
+}
+
+// ==========================================
+// 6. PROJECT FINANCIALS & COMMERCIALS (1-to-1)
+// ==========================================
+
+model ProjectCommercial {
+  id        String  @id @default(uuid()) @db.Uuid
+  projectId String  @unique @map("project_id") @db.Uuid
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  currency String @default("INR") @map("currency")
+
+  // Revenue & Value Components
+  estimatedBudget       Decimal? @map("estimated_budget") @db.Decimal(14, 2)
+  contractAmount        Decimal  @default(0) @map("contract_amount") @db.Decimal(14, 2)
+  additionalWorkAmount  Decimal  @default(0) @map("additional_work_amount") @db.Decimal(14, 2)
+  discountAmount        Decimal  @default(0) @map("discount_amount") @db.Decimal(14, 2)
+  revisedContractAmount Decimal  @default(0) @map("revised_contract_amount") @db.Decimal(14, 2)
+
+  // Inflow & Outflow
+  totalReceivedAmount    Decimal @default(0) @map("total_received_amount") @db.Decimal(14, 2)
+  totalOutstandingAmount Decimal @default(0) @map("total_outstanding_amount") @db.Decimal(14, 2)
+  totalExpenseAmount     Decimal @default(0) @map("total_expense_amount") @db.Decimal(14, 2)
+
+  // Cost Breakdown
+  materialCost    Decimal @default(0) @map("material_cost") @db.Decimal(14, 2)
+  labourCost      Decimal @default(0) @map("labour_cost") @db.Decimal(14, 2)
+  supervisionCost Decimal @default(0) @map("supervision_cost") @db.Decimal(14, 2)
+
+  // Margins
+  grossMarginPercent Float @default(0) @map("gross_margin_percent")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("project_commercials")
+}
+
+// ==========================================
+// 7. PROJECT MILESTONE (1-to-Many with Project)
+// ==========================================
+
+model ProjectMilestone {
+  id        String  @id @default(uuid()) @db.Uuid
+  projectId String  @map("project_id") @db.Uuid
+  project   Project @relation("ProjectMilestones", fields: [projectId], references: [id], onDelete: Cascade)
+
+  // Identity & Classification
+  milestoneCode String          @map("milestone_code") // e.g. "MS-01", "MS-02"
+  name          String          @map("name") // e.g. "False Ceiling & Electrical Rough-in"
+  description   String?         @map("description") @db.Text
+  stage         ProjectStage    @default(EXECUTION) @map("stage")
+  status        MilestoneStatus @default(NOT_STARTED) @map("status")
+  priority      ProjectPriority @default(MEDIUM) @map("priority")
+  orderIndex    Int             @default(0) @map("order_index") // Sequence sorting
+
+  // Schedule & Progress
+  startDate         DateTime  @map("planned_start_date") @db.Date
+  dueDate           DateTime  @map("planned_due_date") @db.Date
+  actualStartDate   DateTime? @map("actual_start_date") @db.Date
+  completedAt       DateTime? @map("completed_at") @db.Date
+  completionPercent Float     @default(0) @map("completion_percent") // 0.0 to 100.0
+
+  // Personnel Ownership
+  assigneeId String?   @map("assignee_id") @db.Uuid
+  assignee   Employee? @relation("MilestoneAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  // Gates & Approvals
+  approvalRequired Boolean  @default(false) @map("approval_required")
+  paymentRequired  Boolean  @default(false) @map("payment_required")
+  budgetAmount     Decimal? @map("budget_amount") @db.Decimal(14, 2)
+
+  // Cloud Attachments (Array of ImageType JSON)
+  attachments Json? @map("attachments")
+
+  // Soft Delete & Timestamps
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  checklists      MilestoneChecklist[] @relation("MilestoneChecklists")
+  progressEntries ProjectProgress[]    @relation("MilestoneProgressEntries")
+  workApprovals   WorkApproval[]       @relation("MilestoneWorkApprovals")
+  complaints      ProjectComplaint[]   @relation("MilestoneComplaints")
+  siteVisits      ProjectSiteVisit[]   @relation("MilestoneSiteVisits")
+  expenses        Expense[]            @relation("MilestoneExpenses")
+
+  @@unique([projectId, milestoneCode])
+  @@index([projectId])
+  @@index([assigneeId])
+  @@index([status])
+  @@index([stage])
+  @@index([orderIndex])
+  @@index([isDeleted, deletedAt])
+  @@map("project_milestones")
+}
+
+// ==========================================
+// 8. MILESTONE CHECKLIST (1-to-Many with Milestone)
+// ==========================================
+
+model MilestoneChecklist {
+  id          String           @id @default(uuid()) @db.Uuid
+  milestoneId String           @map("milestone_id") @db.Uuid
+  milestone   ProjectMilestone @relation("MilestoneChecklists", fields: [milestoneId], references: [id], onDelete: Cascade)
+
+  title       String    @map("title") // e.g. "Verify conduit pressure test"
+  isCompleted Boolean   @default(false) @map("is_completed")
+  completedAt DateTime? @map("completed_at")
+  orderIndex  Int       @default(0) @map("order_index")
+  dueDate     DateTime? @map("due_date") @db.Date
+
+  assigneeId String?   @map("assignee_id") @db.Uuid
+  assignee   Employee? @relation("ChecklistAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([milestoneId])
+  @@index([isCompleted])
+  @@map("milestone_checklists")
+}
+
+// ==========================================
+// 9. PROJECT PROGRESS (Site Logs / Daily Field Updates)
+// ==========================================
+
+model ProjectProgress {
+  id        String  @id @default(uuid()) @db.Uuid
+  projectId String  @map("project_id") @db.Uuid
+  project   Project @relation("ProjectProgressEntries", fields: [projectId], references: [id], onDelete: Cascade)
+
+  milestoneId String?           @map("milestone_id") @db.Uuid
+  milestone   ProjectMilestone? @relation("MilestoneProgressEntries", fields: [milestoneId], references: [id], onDelete: SetNull)
+
+  // Physical Location & Work Category
+  areaRoom  String? @map("area_room") // e.g. "Master Bedroom", "Kitchen", "Living Area"
+  workStage String? @map("work_stage") // e.g. "Carpentry", "Electrical Rough-in", "Tile Laying"
+
+  // Date & Percentage
+  progressDate    DateTime @map("progress_date") @db.Date
+  progressPercent Float    @default(0) @map("progress_percent") // e.g. 75.0%
+
+  // Work Accomplished & Blockers
+  description   String? @map("description") @db.Text
+  workCompleted String? @map("work_completed") @db.Text
+  workPending   String? @map("work_pending") @db.Text
+  issues        String? @map("issues") @db.Text
+  nextAction    String? @map("next_action") @db.Text
+
+  // Cloud Media Attachments (Photos, Videos, Inspections: Array of ImageType JSON)
+  media Json? @map("media")
+
+  // Visibility & Verification Workflow
+  visibility     ProgressVisibility     @default(INTERNAL) @map("visibility")
+  approvalStatus ProgressApprovalStatus @default(SUBMITTED) @map("approval_status")
+
+  // Personnel Submission & Review
+  submittedById String?   @map("submitted_by_id") @db.Uuid
+  submittedBy   Employee? @relation("ProgressSubmittedBy", fields: [submittedById], references: [id], onDelete: SetNull)
+
+  approvedById    String?   @map("approved_by_id") @db.Uuid
+  approvedBy      Employee? @relation("ProgressApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt      DateTime? @map("approved_at")
+  rejectionReason String?   @map("rejection_reason") @db.Text
+
+  // Soft Delete & Timestamps
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@index([projectId])
+  @@index([milestoneId])
+  @@index([progressDate])
+  @@index([approvalStatus])
+  @@index([visibility])
+  @@index([isDeleted, deletedAt])
+  @@map("project_progress")
+}
+
+// ==========================================
+// 10. WORK APPROVAL (Client Sign-Offs & Change Requests)
+// ==========================================
+
+model WorkApproval {
+  id        String  @id @default(uuid()) @db.Uuid
+  projectId String  @map("project_id") @db.Uuid
+  project   Project @relation("ProjectWorkApprovals", fields: [projectId], references: [id], onDelete: Cascade)
+
+  milestoneId String?           @map("milestone_id") @db.Uuid
+  milestone   ProjectMilestone? @relation("MilestoneWorkApprovals", fields: [milestoneId], references: [id], onDelete: SetNull)
+
+  // Identity & Classification
+  title       String          @map("title") // e.g. "Kitchen Cabinets & Quartz Countertop Finish"
+  description String?         @map("description") @db.Text
+  type        ApprovalType    @default(DESIGN) @map("type")
+  status      ApprovalStatus  @default(PENDING) @map("status")
+  priority    ProjectPriority @default(MEDIUM) @map("priority")
+
+  // Submission & Workflow
+  submittedById String?   @map("submitted_by_id") @db.Uuid
+  submittedBy   Employee? @relation("WorkApprovalSubmittedBy", fields: [submittedById], references: [id], onDelete: SetNull)
+  submittedAt   DateTime  @default(now()) @map("submitted_at")
+  dueDate       DateTime? @map("due_date") @db.Date // Target deadline for client signoff
+
+  // Client Decision & Change Request Lifecycle
+  reviewedAt      DateTime? @map("reviewed_at")
+  clientFeedback  String?   @map("client_feedback") @db.Text // Overall client response
+  revisionNotes   String?   @map("revision_notes") @db.Text  // Specific change requests / tweaks requested
+  revisionCount   Int       @default(0) @map("revision_count") // Tracks revision rounds
+  rejectionReason String?   @map("rejection_reason") @db.Text
+
+  // Cloud Attachments (Array of ImageType JSON: drawings, 3D renders, spec sheets)
+  attachments Json? @map("attachments")
+
+  // Client Portal Settings
+  isClientPortalVisible Boolean @default(true) @map("is_client_portal_visible")
+
+  // Soft Delete & Timestamps
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  // Change Requests Lifecycle (1-to-Many)
+  changeRequests WorkApprovalChangeRequest[] @relation("WorkApprovalChangeRequests")
+
+  @@index([projectId])
+  @@index([milestoneId])
+  @@index([status])
+  @@index([type])
+  @@index([submittedById])
+  @@index([isDeleted, deletedAt])
+  @@map("work_approvals")
+}
+
+// ==========================================
+// 11. WORK APPROVAL CHANGE REQUEST (Client Modification Rounds)
+// ==========================================
+
+model WorkApprovalChangeRequest {
+  id             String       @id @default(uuid()) @db.Uuid
+  workApprovalId String       @map("work_approval_id") @db.Uuid
+  workApproval   WorkApproval @relation("WorkApprovalChangeRequests", fields: [workApprovalId], references: [id], onDelete: Cascade)
+
+  // Iteration / Revision sequence
+  roundNumber Int     @default(1) @map("round_number")
+  title       String? @map("title")
+
+  // Client Request Details
+  requestedChanges String              @map("requested_changes") @db.Text // Specific modifications demanded
+  reason           String?             @map("reason") @db.Text            // Context / rationale
+  status           ChangeRequestStatus @default(PENDING) @map("status")
+
+  // Client Attribution & Media
+  requestedByCustomerId String?   @map("requested_by_customer_id") @db.Uuid
+  requestedByCustomer   Customer? @relation("CustomerChangeRequests", fields: [requestedByCustomerId], references: [id], onDelete: SetNull)
+  requestedAt           DateTime  @default(now()) @map("requested_at")
+  attachments           Json?     @map("attachments") // Client markup images / reference sketches (ImageType JSON array)
+
+  // Organization Response & Resolution
+  responseNotes      String?   @map("response_notes") @db.Text // Team feedback or explanation of revisions
+  respondedById      String?   @map("responded_by_id") @db.Uuid
+  respondedBy        Employee? @relation("ChangeRequestRespondedBy", fields: [respondedById], references: [id], onDelete: SetNull)
+  respondedAt        DateTime? @map("responded_at")
+  revisedAttachments Json?     @map("revised_attachments") // Updated drawings/renders uploaded in response
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([workApprovalId])
+  @@index([status])
+  @@index([requestedByCustomerId])
+  @@index([respondedById])
+  @@map("work_approval_change_requests")
+}
+
+// ==========================================
+// 12. PROJECT COMPLAINT (Issues & Snags Tracking)
+// ==========================================
+
+model ProjectComplaint {
+  id        String  @id @default(uuid()) @db.Uuid
+  projectId String  @map("project_id") @db.Uuid
+  project   Project @relation("ProjectComplaints", fields: [projectId], references: [id], onDelete: Cascade)
+
+  milestoneId String?           @map("milestone_id") @db.Uuid
+  milestone   ProjectMilestone? @relation("MilestoneComplaints", fields: [milestoneId], references: [id], onDelete: SetNull)
+
+  // Identity & Classification
+  title       String            @map("title") // e.g. "Misaligned tile grout in master bathroom"
+  description String            @map("description") @db.Text
+  type        ComplaintType     @default(QUALITY) @map("type")
+  status      ComplaintStatus   @default(OPEN) @map("status")
+  severity    ComplaintSeverity @default(MEDIUM) @map("severity")
+  priority    ProjectPriority   @default(MEDIUM) @map("priority")
+
+  // Site Location Context
+  areaRoom String? @map("area_room") // e.g. "Master Bedroom", "Kitchen"
+
+  // Reporter Attribution
+  reportedByCustomerId String?   @map("reported_by_customer_id") @db.Uuid
+  reportedByCustomer   Customer? @relation("CustomerReportedComplaints", fields: [reportedByCustomerId], references: [id], onDelete: SetNull)
+
+  reportedByEmployeeId String?   @map("reported_by_employee_id") @db.Uuid
+  reportedByEmployee   Employee? @relation("EmployeeReportedComplaints", fields: [reportedByEmployeeId], references: [id], onDelete: SetNull)
+
+  reportedAt DateTime @default(now()) @map("reported_at")
+
+  // Assignment & Resolution Lifecycle
+  assignedToId String?   @map("assigned_to_id") @db.Uuid
+  assignedTo   Employee? @relation("EmployeeAssignedComplaints", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  targetResolutionDate DateTime? @map("target_resolution_date") @db.Date
+  resolvedAt           DateTime? @map("resolved_at")
+  resolvedById         String?   @map("resolved_by_id") @db.Uuid
+  resolvedBy           Employee? @relation("EmployeeResolvedComplaints", fields: [resolvedById], references: [id], onDelete: SetNull)
+  resolutionNotes      String?   @map("resolution_notes") @db.Text
+
+  closedAt        DateTime? @map("closed_at")
+  rejectionReason String?   @map("rejection_reason") @db.Text
+
+  // Cloud Attachments (Photos/Videos of defect & proof of rectification: ImageType JSON array)
+  attachments Json? @map("attachments")
+
+  // Soft Delete & Timestamps
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  // Discussion & Feedback Thread
+  comments ComplaintComment[] @relation("ComplaintComments")
+
+  @@index([projectId])
+  @@index([milestoneId])
+  @@index([status])
+  @@index([type])
+  @@index([severity])
+  @@index([priority])
+  @@index([assignedToId])
+  @@index([reportedByCustomerId])
+  @@index([isDeleted, deletedAt])
+  @@map("project_complaints")
+}
+
+// ==========================================
+// 13. COMPLAINT COMMENT (Activity & Chat Thread)
+// ==========================================
+
+model ComplaintComment {
+  id          String           @id @default(uuid()) @db.Uuid
+  complaintId String           @map("complaint_id") @db.Uuid
+  complaint   ProjectComplaint @relation("ComplaintComments", fields: [complaintId], references: [id], onDelete: Cascade)
+
+  authorType String    @map("author_type") // "CUSTOMER" or "EMPLOYEE"
+  userId     String?   @map("user_id") @db.Uuid
+  user       User?     @relation("ComplaintCommentUser", fields: [userId], references: [id], onDelete: SetNull)
+  employeeId String?   @map("employee_id") @db.Uuid
+  employee   Employee? @relation("ComplaintCommentEmployee", fields: [employeeId], references: [id], onDelete: SetNull)
+
+  message     String @map("message") @db.Text
+  attachments Json?  @map("attachments") // ImageType JSON array
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([complaintId])
+  @@index([createdAt])
+  @@map("complaint_comments")
+}
+
+// ==========================================
+// 14. PROJECT SITE VISIT (Field Surveys & Inspections)
+// ==========================================
+
+model ProjectSiteVisit {
+  id        String  @id @default(uuid()) @db.Uuid
+  projectId String  @map("project_id") @db.Uuid
+  project   Project @relation("ProjectSiteVisits", fields: [projectId], references: [id], onDelete: Cascade)
+
+  milestoneId String?           @map("milestone_id") @db.Uuid
+  milestone   ProjectMilestone? @relation("MilestoneSiteVisits", fields: [milestoneId], references: [id], onDelete: SetNull)
+
+  // Identity & Classification
+  title     String           @map("title") // e.g. "False Ceiling Framing & Electrical Conduit Check"
+  visitType SiteVisitType    @default(EXECUTION) @map("visit_type")
+  status    SiteVisitStatus  @default(SCHEDULED) @map("status")
+  outcome   SiteVisitOutcome? @map("outcome")
+
+  // Schedule & Timing
+  plannedDate DateTime  @map("planned_date") @db.Date
+  actualDate  DateTime? @map("actual_date") @db.Date
+  startTime   String?   @map("start_time") // e.g. "10:30 AM"
+  endTime     String?   @map("end_time")   // e.g. "12:00 PM"
+
+  // Purpose, Observations & Actions
+  purpose          String? @map("purpose") @db.Text
+  summary          String? @map("summary") @db.Text           // Observations / work inspected
+  issuesIdentified String? @map("issues_identified") @db.Text // Snags & defects identified
+  actionItems      String? @map("action_items") @db.Text      // Next actions / contractor instructions
+
+  // Attendees & Location
+  visitorEmployeeId    String?   @map("visitor_employee_id") @db.Uuid
+  visitorEmployee      Employee? @relation("SiteVisitVisitor", fields: [visitorEmployeeId], references: [id], onDelete: SetNull)
+  clientRepresentative String?   @map("client_representative") // Name of client / representative met
+  locationGpsLat       Float?    @map("location_gps_lat")
+  locationGpsLng       Float?    @map("location_gps_lng")
+
+  // Cloud Attachments (Site inspection photos, videos, sketches: ImageType JSON array)
+  attachments Json? @map("attachments")
+
+  // Client Portal Settings
+  isClientPortalVisible Boolean @default(true) @map("is_client_portal_visible")
+
+  // Soft Delete & Timestamps
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@index([projectId])
+  @@index([milestoneId])
+  @@index([visitorEmployeeId])
+  @@index([visitType])
+  @@index([status])
+  @@index([plannedDate])
+  @@index([isDeleted, deletedAt])
+  @@map("project_site_visits")
+}
+
+// ==========================================
+// 15. EXPENSE CATEGORY (Dynamic Organization Master)
+// ==========================================
+
+model ExpenseCategory {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationExpenseCategories", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Classification & Naming
+  name        String       @map("name") // e.g. "Raw Materials", "Site Labour", "Software & Tools", "Office Rent"
+  slug        String       @map("slug") // e.g. "raw-materials", "site-labour", "office-rent"
+  code        String?      @map("code") // Optional GL / Accounting Code (e.g. "5100", "EXP-MAT-01")
+  description String?      @map("description") @db.Text
+  scope       ExpenseScope @default(PROJECT) @map("scope") // Applicable to PROJECT, ORGANIZATION, or BOTH
+
+  // UI Theming & Visuals
+  color String? @map("color") // Hex badge color (e.g. "#6366F1")
+  icon  String? @map("icon")  // Lucide icon identifier (e.g. "Package", "Wrench", "Building2")
+
+  // Tax & Accounting Metadata
+  isTaxDeductible Boolean @default(true) @map("is_tax_deductible") // Whether this category qualifies for tax deduction
+  isDefault       Boolean @default(false) @map("is_default")       // System pre-seeded default category vs custom created
+  isActive        Boolean @default(true) @map("is_active")
+
+  // Associated Expenses Relation
+  expenses Expense[] @relation("CategoryExpenses")
+
+  // Soft Delete & Timestamps
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@unique([organizationId, name])
+  @@unique([organizationId, slug])
+  @@index([organizationId, isActive])
+  @@index([organizationId, scope])
+  @@index([isDeleted, deletedAt])
+  @@map("expense_categories")
+}
+
+// ==========================================
+// 16. EXPENSE (Project & Organization Financials)
+// ==========================================
+
+model Expense {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationExpenses", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Optional Project & Milestone Association (Null = General Organization Overhead)
+  projectId String?  @map("project_id") @db.Uuid
+  project   Project? @relation("ProjectExpenses", fields: [projectId], references: [id], onDelete: Cascade)
+
+  milestoneId String?           @map("milestone_id") @db.Uuid
+  milestone   ProjectMilestone? @relation("MilestoneExpenses", fields: [milestoneId], references: [id], onDelete: SetNull)
+
+  // Optional Vendor / Supplier Linkage
+  vendorId String? @map("vendor_id") @db.Uuid
+  vendor   Vendor? @relation("VendorExpenses", fields: [vendorId], references: [id], onDelete: SetNull)
+
+  // Scope & Dynamic Category Linkage
+  title        String           @map("title") // e.g. "Italian Marble 450 sqft purchase" or "Office Studio Rent - Oct 2026"
+  description  String?          @map("description") @db.Text
+  expenseScope ExpenseScope     @default(PROJECT) @map("expense_scope")
+  categoryId   String?          @map("category_id") @db.Uuid
+  category     ExpenseCategory? @relation("CategoryExpenses", fields: [categoryId], references: [id], onDelete: SetNull)
+
+  // Financial Figures
+  amount      Decimal @map("amount") @db.Decimal(14, 2)
+  taxAmount   Decimal @default(0) @map("tax_amount") @db.Decimal(14, 2)
+  totalAmount Decimal @map("total_amount") @db.Decimal(14, 2)
+  currency    String  @default("INR") @map("currency")
+
+  // Payment Timeline & Mode
+  expenseDate   DateTime             @map("expense_date") @db.Date
+  paymentMethod ExpensePaymentMethod @default(BANK_TRANSFER) @map("payment_method")
+  paymentStatus ExpensePaymentStatus @default(PAID) @map("payment_status")
+  paidAt        DateTime?            @map("paid_at")
+
+  // Billing & Invoicing Reference
+  invoiceNumber        String? @map("invoice_number")
+  transactionReference String? @map("transaction_reference") // UTR / Cheque / Bank Ref No
+
+  // Personnel Attribution
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdBy   Employee? @relation("ExpenseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  // Cloud Attachments & Receipts
+  receiptUrl  Json? @map("receipt_url")  // Primary invoice / receipt copy (ImageType JSON)
+  attachments Json? @map("attachments")  // Additional delivery challans / PO slips (ImageType JSON array)
+
+  // Billing & Reimbursement Flags
+  isBillableToClient Boolean @default(false) @map("is_billable_to_client") // True if billed to client as variation / reimbursable
+  isReimbursable     Boolean @default(false) @map("is_reimbursable")      // True if paid out-of-pocket by employee
+  isReimbursed       Boolean @default(false) @map("is_reimbursed")
+
+  // Custom Tags & Notes
+  notes String?  @map("notes") @db.Text
+  tags  String[] @default([]) @map("tags")
+
+  // Soft Delete & Timestamps
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([milestoneId])
+  @@index([vendorId])
+  @@index([expenseScope])
+  @@index([categoryId])
+  @@index([paymentStatus])
+  @@index([expenseDate])
+  @@index([createdById])
+  @@index([isDeleted, deletedAt])
+  @@map("expenses")
+}

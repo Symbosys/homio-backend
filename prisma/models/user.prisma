@@ -74,6 +74,9 @@ model User {
   createdTasks              Task[]             @relation("TaskCreatedBy")
   assignedTaskAssignees     TaskAssignee[]     @relation("TaskAssigneeAssignedBy")
   uploadedTaskDocuments     TaskDocument[]     @relation("TaskDocumentUploadedBy")
+  createdProjects           Project[]          @relation("ProjectCreatedBy")
+  assignedProjectMembers    ProjectMember[]    @relation("ProjectMemberAssignedBy")
+  complaintComments         ComplaintComment[]    @relation("ComplaintCommentUser")
 
   @@index([organizationId])
   @@index([email])
