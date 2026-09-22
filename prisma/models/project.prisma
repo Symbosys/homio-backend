@@ -209,6 +209,55 @@ enum ExpensePaymentStatus {
 }
 
 // ==========================================
+// PROJECT HANDOVER ENUMS
+// ==========================================
+
+enum ProjectHandoverStatus {
+  DRAFT               // Organization site team drafting handover package
+  SCHEDULED           // Formal handover inspection & possession date scheduled
+  INSPECTION_PENDING  // Joint site inspection walkthrough pending
+  SNAGS_IN_PROGRESS   // Punch-list rectification actively ongoing prior to possession
+  CLIENT_REVIEW       // Deliverables, warranties & documents under client review
+  ACCEPTED            // Client signed acceptance & possession certificate
+  REJECTED            // Handover rejected by client due to critical defects/disputes
+  COMPLETED           // Keys delivered, warranty active, project archived
+  CANCELLED           // Handover cancelled / aborted
+}
+
+enum HandoverItemCategory {
+  KEYS                  // Main door, bedrooms, wardrobes, utility, DB box, terrace
+  ACCESS_CARD_OR_REMOTE // Smart lock RFID cards, gate remotes, sensor fobs, automation pads
+  APPLIANCE_MANUAL      // Hob, chimney, microwave, dishwasher, geyser manuals
+  WARRANTY_DOCUMENT     // Manufacturer & contractor warranty cards (woodwork, waterproofing, paint)
+  AS_BUILT_DRAWING      // Final as-built MEP, electrical conduit & plumbing line drawings
+  MAINTENANCE_GUIDE     // Marble polish, veneer care, fabric care instructions
+  SPARE_MATERIAL        // Extra tiles, touch-up paint cans, extra laminate, hardware
+  OTHER                 // Custom hand-off deliverable
+}
+
+enum HandoverItemStatus {
+  PENDING         // Prepared but not yet inspected/handed over
+  VERIFIED        // Verified ready by internal site supervisor
+  HANDED_OVER     // Physically received and acknowledged by client
+  NOT_APPLICABLE  // Waived or not applicable for this project
+}
+
+enum HandoverSnagSeverity {
+  LOW       // Cosmetic flaw (minor scuff mark, paint smudge, uneven silicone bead)
+  MEDIUM    // Functional defect (stiff latch, loose hinge, misaligned switch plate)
+  HIGH      // Significant defect (cracked tile, plumbing drip, deep veneer scratch)
+  CRITICAL  // Safety or handover blocker (short circuit, active water seepage)
+}
+
+enum HandoverSnagStatus {
+  REPORTED            // Snag identified during joint walkthrough
+  IN_PROGRESS         // Work assigned to vendor / trade contractor
+  RESOLVED            // Work rectified and checked by site engineer
+  ACCEPTED_BY_CLIENT  // Client verified and cleared the snag
+  WAIVED              // Mutually agreed to waive or deferred to DLP
+}
+
+// ==========================================
 // 1. CORE PROJECT MODEL (Tenant Root)
 // ==========================================
 
@@ -273,7 +322,17 @@ model Project {
   expenses        Expense[]             @relation("ProjectExpenses")
   designFolders   ProjectDesignFolder[]   @relation("ProjectDesignFolders")
   designs         ProjectDesign[]         @relation("ProjectDesigns")
-  designApprovals DesignVersionApproval[] @relation("ProjectDesignApprovals")
+  designApprovals    DesignVersionApproval[] @relation("ProjectDesignApprovals")
+  materialRequests   MaterialRequest[]       @relation("ProjectMaterialRequests")
+  vendorRfqs         VendorRfq[]             @relation("ProjectVendorRfqs")
+  vendorQuotations   VendorQuotation[]       @relation("ProjectVendorQuotations")
+  materialDispatches MaterialDispatch[]      @relation("ProjectMaterialDispatches")
+  handovers          ProjectHandover[]       @relation("ProjectHandovers")
+  projectWarranties           ProjectWarranty[]          @relation("ProjectWarranties")
+  afterSalesServiceRequests  AfterSalesServiceRequest[] @relation("ProjectAfterSalesServiceRequests")
+  afterSalesServiceVisits    AfterSalesServiceVisit[]   @relation("ProjectAfterSalesServiceVisits")
+  customerFeedbacks          CustomerFeedback[]         @relation("ProjectCustomerFeedbacks")
+  retentionFollowUps         RetentionFollowUp[]        @relation("ProjectRetentionFollowUps")
 
   @@unique([organizationId, projectCode])
   @@index([organizationId])
@@ -766,6 +825,7 @@ model ProjectComplaint {
 
   // Discussion & Feedback Thread
   comments ComplaintComment[] @relation("ComplaintComments")
+  handoverSnags ProjectHandoverSnag[] @relation("ComplaintHandoverSnags")
 
   @@index([projectId])
   @@index([milestoneId])
@@ -984,3 +1044,157 @@ model Expense {
   @@index([isDeleted, deletedAt])
   @@map("expenses")
 }
+
+// ==========================================
+// 17. PROJECT HANDOVER (Formal Site Handover & Possession)
+// ==========================================
+
+model ProjectHandover {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationProjectHandovers", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Project & Client Association
+  projectId  String   @map("project_id") @db.Uuid
+  project    Project  @relation("ProjectHandovers", fields: [projectId], references: [id], onDelete: Cascade)
+  customerId String   @map("customer_id") @db.Uuid
+  customer   Customer @relation("CustomerProjectHandovers", fields: [customerId], references: [id], onDelete: Restrict)
+
+  // Handover Identity & Status
+  handoverNumber String                @map("handover_number") // e.g. "HND-2026-0001"
+  title          String                @map("title")           // e.g. "Villa Grandeur 4BHK Final Handover & Possession"
+  description    String?               @map("description") @db.Text
+  status         ProjectHandoverStatus @default(DRAFT) @map("status")
+
+  // Timeline
+  scheduledDate DateTime? @map("scheduled_date") @db.Date // Planned client walkthrough & key handover
+  inspectedDate DateTime? @map("inspected_date") @db.Date // Actual joint inspection date
+  handoverDate  DateTime? @map("handover_date") @db.Date  // Actual key possession date
+
+  // Commercial & Financial Settlement Clearance
+  isCommercialCleared   Boolean  @default(false) @map("is_commercial_cleared")
+  finalSettlementAmount Decimal? @map("final_settlement_amount") @db.Decimal(14, 2)
+  pendingAmount         Decimal? @default(0) @map("pending_amount") @db.Decimal(14, 2)
+  commercialRemarks     String?  @map("commercial_remarks") @db.Text
+
+  // Warranty & Defect Liability Period (DLP)
+  warrantyPeriodMonths Int?      @default(12) @map("warranty_period_months")
+  warrantyStartDate    DateTime? @map("warranty_start_date") @db.Date
+  warrantyEndDate      DateTime? @map("warranty_end_date") @db.Date
+  warrantyTerms        String?   @map("warranty_terms") @db.Text
+  warrantyDocumentUrl  Json?     @map("warranty_document_url") // ImageType structured JSON
+
+  // Formal Handover Execution & Client Acceptance
+  handedOverById         String?   @map("handed_over_by_id") @db.Uuid
+  handedOverBy           Employee? @relation("EmployeeHandedOverProjects", fields: [handedOverById], references: [id], onDelete: SetNull)
+  clientSignoffName      String?   @map("client_signoff_name")    // Name of client / authorized POA representative
+  clientSignedAt         DateTime? @map("client_signed_at")
+  clientSignatureUrl     Json?     @map("client_signature_url")     // Digital touch signature (ImageType JSON)
+  clientFeedback         String?   @map("client_feedback") @db.Text // Client testimonials / remarks
+  clientRating           Float?    @map("client_rating")           // 1.0 to 5.0 CSAT rating
+  handoverCertificateUrl Json?     @map("handover_certificate_url") // Final PDF sign-off sheet (ImageType JSON)
+  sitePhotos             Json?     @map("site_photos")             // Finished walkthrough site photos (ImageType JSON array)
+
+  // Universal Custom Fields & Metadata
+  additionalInformation Json? @map("additional_information")
+
+  // Soft Delete & Timestamps
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  // Child Relations
+  items      ProjectHandoverItem[] @relation("HandoverItems")
+  snags      ProjectHandoverSnag[] @relation("HandoverSnags")
+  warranties ProjectWarranty[]     @relation("HandoverWarranties")
+
+  @@unique([organizationId, handoverNumber])
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([customerId])
+  @@index([status])
+  @@index([handedOverById])
+  @@index([handoverDate])
+  @@index([isDeleted, deletedAt])
+  @@map("project_handovers")
+}
+
+// ==========================================
+// 18. PROJECT HANDOVER ITEM (Deliverables, Keys & Manuals Checklist)
+// ==========================================
+
+model ProjectHandoverItem {
+  id         String          @id @default(uuid()) @db.Uuid
+  handoverId String          @map("handover_id") @db.Uuid
+  handover   ProjectHandover @relation("HandoverItems", fields: [handoverId], references: [id], onDelete: Cascade)
+
+  category      HandoverItemCategory @default(KEYS) @map("category")
+  name          String               @map("name")        // e.g. "Main Door Smart Lock RFID Cards (x3)"
+  description   String?              @map("description") @db.Text
+  quantity      Int                  @default(1) @map("quantity")
+  unit          String?              @default("PCS") @map("unit") // PCS, SET, ROLL, CAN, FILE
+  status        HandoverItemStatus   @default(PENDING) @map("status")
+  handedOverAt  DateTime?            @map("handed_over_at")
+  recipientName String?              @map("recipient_name")
+  documentUrl   Json?                @map("document_url") // ImageType JSON (PDF manual / warranty photo)
+  notes         String?              @map("notes") @db.Text
+
+  // Universal Custom Fields & Metadata
+  additionalInformation Json? @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([handoverId])
+  @@index([category])
+  @@index([status])
+  @@map("project_handover_items")
+}
+
+// ==========================================
+// 19. PROJECT HANDOVER SNAG (Punch-List & Pre-Handover Rectification)
+// ==========================================
+
+model ProjectHandoverSnag {
+  id         String          @id @default(uuid()) @db.Uuid
+  handoverId String          @map("handover_id") @db.Uuid
+  handover   ProjectHandover @relation("HandoverSnags", fields: [handoverId], references: [id], onDelete: Cascade)
+
+  // Optional linkage to existing ProjectComplaint ticket
+  complaintId String?           @map("complaint_id") @db.Uuid
+  complaint   ProjectComplaint? @relation("ComplaintHandoverSnags", fields: [complaintId], references: [id], onDelete: SetNull)
+
+  areaRoom    String?              @map("area_room")   // e.g. "Living Room", "Master Bathroom"
+  title       String               @map("title")       // e.g. "Touch-up paint behind sofa wall"
+  description String?              @map("description") @db.Text
+  severity    HandoverSnagSeverity @default(LOW) @map("severity")
+  status      HandoverSnagStatus   @default(REPORTED) @map("status")
+
+  // Assigned Trade Specialist / Employee
+  assignedToId String?   @map("assigned_to_id") @db.Uuid
+  assignedTo   Employee? @relation("EmployeeAssignedHandoverSnags", fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  // Resolution Tracking
+  targetResolutionDate DateTime? @map("target_resolution_date") @db.Date
+  resolvedAt           DateTime? @map("resolved_at")
+  resolvedNotes        String?   @map("resolved_notes") @db.Text
+
+  // Photographic Evidence (ImageType JSON)
+  beforePhotoUrl Json? @map("before_photo_url")
+  afterPhotoUrl  Json? @map("after_photo_url")
+
+  // Universal Custom Fields & Metadata
+  additionalInformation Json? @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([handoverId])
+  @@index([complaintId])
+  @@index([status])
+  @@index([severity])
+  @@index([assignedToId])
+  @@map("project_handover_snags")
+}
+

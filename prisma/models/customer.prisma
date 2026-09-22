@@ -103,6 +103,7 @@ model Customer {
   complaints      ProjectComplaint[]          @relation("CustomerReportedComplaints")
   changeRequests  WorkApprovalChangeRequest[] @relation("CustomerChangeRequests")
   designApprovals DesignVersionApproval[]     @relation("CustomerDesignApprovals")
+  projectHandovers ProjectHandover[]          @relation("CustomerProjectHandovers")
 
   @@unique([organizationId, customerCode])
   @@unique([organizationId, phone])

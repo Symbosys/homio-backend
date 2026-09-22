@@ -12,6 +12,8 @@ import marketplaceRouter from "./module/marketplace/routes/index.js";
 import hrmsRouter from "./module/hrms/routes/index.js";
 import crmRouter from "./module/leads-crm/routes/index.js";
 import projectsRouter from "./module/projects/routes/index.js";
+import procurementRouter from "./module/procurement/routes/index.js";
+import afterSalesRouter from "./module/after-sales/routes/index.js";
 
 const app = express();
 
@@ -68,6 +70,16 @@ app.use("/api/v1/crm", crmRouter);
  * Projects Module Routes (Full Lifecycle, Sites, Schedules, Metrics, Financials, Dynamic Teams)
  */
 app.use("/api/v1/projects", projectsRouter);
+
+/**
+ * Procurement & Operations Module Routes (Material Requests, Vendor RFQs, Quotations, Dispatches)
+ */
+app.use("/api/v1/procurement", procurementRouter);
+
+/**
+ * After-Sales Services, Warranties, Claims, Field Visits, CSAT & Retention Routes
+ */
+app.use("/api/v1/after-sales", afterSalesRouter);
 
 app.use(errorMiddleware);
 

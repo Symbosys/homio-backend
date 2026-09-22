@@ -359,6 +359,12 @@ model Employee {
   createdDesigns              ProjectDesign[]      @relation("DesignCreatedBy")
   submittedDesignVersions     DesignVersion[]      @relation("DesignVersionSubmittedBy")
   respondedDesignChanges      DesignChangeRequest[] @relation("DesignChangeRespondedBy")
+  handedOverProjects          ProjectHandover[]     @relation("EmployeeHandedOverProjects")
+  assignedHandoverSnags       ProjectHandoverSnag[] @relation("EmployeeAssignedHandoverSnags")
+  reviewedWarrantyClaims      WarrantyClaim[]       @relation("EmployeeReviewedWarrantyClaims")
+  assignedServiceRequests     AfterSalesServiceRequest[] @relation("EmployeeAssignedServiceRequests")
+  assignedServiceVisits       AfterSalesServiceVisit[]   @relation("EmployeeAssignedServiceVisits")
+  assignedRetentionFollowUps  RetentionFollowUp[]   @relation("EmployeeAssignedRetentionFollowUps")
 
   @@unique([organizationId, employeeCode])
   @@index([organizationId])

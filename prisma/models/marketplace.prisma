@@ -202,6 +202,9 @@ model Vendor {
   homeDecorOfferings HomeDecorProductVendor[] @relation("VendorHomeDecorOfferings")
   materialOfferings  MaterialProductVendor[]  @relation("VendorMaterialOfferings")
   expenses           Expense[]                @relation("VendorExpenses")
+  rfqInvites         VendorRfqInvite[]        @relation("VendorRfqInvites")
+  quotations         VendorQuotation[]        @relation("VendorQuotations")
+  dispatches         MaterialDispatch[]       @relation("VendorDispatches")
 
   isDeleted Boolean   @default(false) @map("is_deleted")
   deletedAt DateTime? @map("deleted_at")
@@ -463,6 +466,12 @@ model MaterialProduct {
   isFeatured  Boolean       @default(false) @map("is_featured")
   rating      Decimal       @default(0.0) @map("rating") @db.Decimal(3, 2)
   ordersCount Int           @default(0) @map("orders_count")
+
+  // Procurement & Site Requisition Relations
+  materialRequestItems MaterialRequestItem[]  @relation("CatalogMaterialRequestItems")
+  rfqItems             VendorRfqItem[]        @relation("CatalogRfqItems")
+  quotationItems       VendorQuotationItem[]  @relation("CatalogQuotationItems")
+  dispatchItems        MaterialDispatchItem[] @relation("CatalogDispatchItems")
 
   isDeleted Boolean   @default(false) @map("is_deleted")
   deletedAt DateTime? @map("deleted_at")

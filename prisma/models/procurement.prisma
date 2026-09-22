@@ -1,0 +1,513 @@
+// =============================================================================
+// PROCUREMENT & OPERATIONS MODULE SCHEMA (STREAMLINED & PRODUCTION-GRADE)
+// Homio CRM - Multi-Tenant B2B Interior Design & Construction Operations OS
+// =============================================================================
+
+// =============================================================================
+// 1. ENUMS
+// =============================================================================
+
+enum MaterialRequestPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+  CRITICAL
+}
+
+enum MaterialRequestStatus {
+  DRAFT               // Initial site indent drafted
+  SUBMITTED           // Submitted to procurement
+  UNDER_REVIEW        // Rate/vendor feasibility check
+  APPROVED            // Approved by Project Manager / Admin
+  REJECTED            // Indent rejected
+  IN_PROCUREMENT      // RFQ or direct vendor dispatch initiated
+  PARTIALLY_FULFILLED // Partial site delivery
+  FULFILLED           // Fully delivered & verified on site
+  CANCELLED           // Indent cancelled
+}
+
+enum VendorRfqStatus {
+  DRAFT               // Draft RFQ
+  SENT                // Sent to vendors
+  RESPONSES_RECEIVED  // Quotations/bids received
+  CLOSED              // Vendor selected & awarded
+  CANCELLED           // RFQ cancelled
+  EXPIRED             // Deadline passed
+}
+
+enum RfqInviteStatus {
+  INVITED             // RFQ sent to vendor
+  VIEWED              // RFQ opened by vendor
+  RESPONDED           // Vendor submitted quotation
+  DECLINED            // Vendor declined
+}
+
+enum VendorQuotationStatus {
+  RECEIVED            // Quotation submitted by vendor
+  UNDER_REVIEW        // Review in progress
+  SHORTLISTED         // Shortlisted for award
+  ACCEPTED            // Quote accepted
+  REJECTED            // Quote rejected
+  EXPIRED             // Validity lapsed
+}
+
+enum MaterialDispatchStatus {
+  PLANNED             // Dispatch scheduled
+  IN_TRANSIT          // Shipped / on vehicle
+  DELIVERED           // Reached project site
+  RECEIVED            // Unloaded & QA verified
+  PARTIALLY_RECEIVED  // Discrepancy / partial acceptance
+  REJECTED            // Rejected at site gate
+  CANCELLED           // Dispatch cancelled
+}
+
+enum MaterialItemCondition {
+  GOOD                // Verified & passed inspection
+  DAMAGED             // Transit / handling damage
+  SHORT               // Quantity deficit
+  WRONG_ITEM          // Specification / SKU mismatch
+  REJECTED            // QA rejected
+}
+
+// =============================================================================
+// 2. MATERIAL REQUISITIONS (SITE INDENTS)
+// =============================================================================
+
+/**
+ * MaterialRequest
+ * Site material requisition raised for a Project.
+ */
+model MaterialRequest {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationMaterialRequests", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  projectId String  @map("project_id") @db.Uuid
+  project   Project @relation("ProjectMaterialRequests", fields: [projectId], references: [id], onDelete: Cascade)
+
+  // Requisition Details
+  requestNumber  String                  @map("request_number") // e.g. "MR-2026-001"
+  requestDate    DateTime                @default(now()) @map("request_date")
+  requiredByDate DateTime                @map("required_by_date")
+  priority       MaterialRequestPriority @default(NORMAL) @map("priority")
+  status         MaterialRequestStatus   @default(SUBMITTED) @map("status")
+
+  // Location & Context
+  siteLocation String? @map("site_location") // Room / Floor / Zone
+  category     String? @map("category") // Civil, Electrical, Woodwork, Finishing
+  reason       String? @map("reason") @db.Text
+  notes        String? @map("notes") @db.Text
+
+  // Financial Estimation
+  estimatedCost Decimal @default(0) @map("estimated_cost") @db.Decimal(12, 2)
+  approvedCost  Decimal @default(0) @map("approved_cost") @db.Decimal(12, 2)
+
+  // Stakeholders
+  requestedById String? @map("requested_by_id") @db.Uuid
+  requestedBy   User?   @relation("UserRequestedMaterialRequests", fields: [requestedById], references: [id], onDelete: SetNull)
+  approvedById  String? @map("approved_by_id") @db.Uuid
+  approvedBy    User?   @relation("UserApprovedMaterialRequests", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  // Dynamic Custom Fields Standard
+  additionalInformation Json? @map("additional_information")
+
+  // Relations
+  items      MaterialRequestItem[] @relation("MaterialRequestItems")
+  rfqs       VendorRfq[]           @relation("MaterialRequestRfqs")
+  quotations VendorQuotation[]     @relation("MaterialRequestQuotations")
+  dispatches MaterialDispatch[]    @relation("MaterialRequestDispatches")
+
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@unique([organizationId, requestNumber])
+  @@index([organizationId, projectId])
+  @@index([organizationId, status])
+  @@map("material_requests")
+}
+
+/**
+ * MaterialRequestItem
+ * Line items within a requisition, optionally linked to wholesale MaterialProduct.
+ */
+model MaterialRequestItem {
+  id             String          @id @default(uuid()) @db.Uuid
+  organizationId String          @map("organization_id") @db.Uuid
+  organization   Organization    @relation("OrganizationMaterialRequestItems", fields: [organizationId], references: [id], onDelete: Cascade)
+  requestId      String          @map("request_id") @db.Uuid
+  request        MaterialRequest @relation("MaterialRequestItems", fields: [requestId], references: [id], onDelete: Cascade)
+
+  // Linkage to Wholesale Catalog (Optional)
+  materialProductId String?          @map("material_product_id") @db.Uuid
+  materialProduct   MaterialProduct? @relation("CatalogMaterialRequestItems", fields: [materialProductId], references: [id], onDelete: SetNull)
+
+  // Item Identity & Specs
+  name           String  @map("name")
+  sku            String? @map("sku")
+  brand          String? @map("brand")
+  specifications String? @map("specifications") @db.Text
+  dimensions     String? @map("dimensions") // Length x Width x Thickness
+
+  // Quantities & Rates
+  quantity          Decimal  @map("quantity") @db.Decimal(12, 3)
+  unit              String   @map("unit") // 'Sq.Ft.', 'PC / Nos', 'Running Ft.', 'Kg', 'Box'
+  estimatedRate     Decimal  @default(0) @map("estimated_rate") @db.Decimal(12, 2)
+  estimatedAmount   Decimal  @default(0) @map("estimated_amount") @db.Decimal(12, 2)
+  approvedQuantity  Decimal? @map("approved_quantity") @db.Decimal(12, 3)
+  fulfilledQuantity Decimal  @default(0) @map("fulfilled_quantity") @db.Decimal(12, 3)
+
+  requiredDate  DateTime @map("required_date")
+  notes         String?  @map("notes") @db.Text
+  attachmentUrl Json?    @map("attachment_url") // ImageType JSON
+
+  // Dynamic Custom Fields Standard
+  additionalInformation Json? @map("additional_information")
+
+  // Downstream relations
+  rfqItems VendorRfqItem[] @relation("RequestItemRfqItems")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([organizationId, requestId])
+  @@index([materialProductId])
+  @@map("material_request_items")
+}
+
+// =============================================================================
+// 3. VENDOR RFQ (REQUEST FOR QUOTATION / TENDER)
+// =============================================================================
+
+/**
+ * VendorRfq
+ * Request For Quotations sent to vendors for a specific Project / Material Request.
+ */
+model VendorRfq {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationVendorRfqs", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  projectId String  @map("project_id") @db.Uuid
+  project   Project @relation("ProjectVendorRfqs", fields: [projectId], references: [id], onDelete: Cascade)
+
+  materialRequestId String?          @map("material_request_id") @db.Uuid
+  materialRequest   MaterialRequest? @relation("MaterialRequestRfqs", fields: [materialRequestId], references: [id], onDelete: SetNull)
+
+  rfqNumber String                  @map("rfq_number") // e.g. "RFQ-2026-001"
+  title     String                  @map("title")
+  rfqDate   DateTime                @default(now()) @map("rfq_date")
+  deadline  DateTime                @map("deadline")
+  priority  MaterialRequestPriority @default(NORMAL) @map("priority")
+  status    VendorRfqStatus         @default(SENT) @map("status")
+
+  deliveryLocation String? @map("delivery_location") @db.Text
+  terms            String? @map("terms") @db.Text
+  notes            String? @map("notes") @db.Text
+
+  createdById String? @map("created_by_id") @db.Uuid
+  createdBy   User?   @relation("UserCreatedRfqs", fields: [createdById], references: [id], onDelete: SetNull)
+
+  // Dynamic Custom Fields Standard
+  additionalInformation Json? @map("additional_information")
+
+  // Relations
+  items      VendorRfqItem[]   @relation("RfqItems")
+  invites    VendorRfqInvite[] @relation("RfqVendorInvites")
+  quotations VendorQuotation[] @relation("RfqVendorQuotations")
+
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@unique([organizationId, rfqNumber])
+  @@index([organizationId, projectId])
+  @@index([organizationId, status])
+  @@map("vendor_rfqs")
+}
+
+/**
+ * VendorRfqInvite
+ * Vendors invited to quote for an RFQ.
+ */
+model VendorRfqInvite {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationRfqInvites", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  rfqId String    @map("rfq_id") @db.Uuid
+  rfq   VendorRfq @relation("RfqVendorInvites", fields: [rfqId], references: [id], onDelete: Cascade)
+
+  vendorId String @map("vendor_id") @db.Uuid
+  vendor   Vendor @relation("VendorRfqInvites", fields: [vendorId], references: [id], onDelete: Cascade)
+
+  status      RfqInviteStatus @default(INVITED) @map("status")
+  invitedAt   DateTime        @default(now()) @map("invited_at")
+  respondedAt DateTime?       @map("responded_at")
+  notes       String?         @map("notes") @db.Text
+
+  // Dynamic Custom Fields Standard
+  additionalInformation Json? @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([rfqId, vendorId])
+  @@index([organizationId, status])
+  @@map("vendor_rfq_invites")
+}
+
+/**
+ * VendorRfqItem
+ * Line item requested in the RFQ.
+ */
+model VendorRfqItem {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationVendorRfqItems", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  rfqId String    @map("rfq_id") @db.Uuid
+  rfq   VendorRfq @relation("RfqItems", fields: [rfqId], references: [id], onDelete: Cascade)
+
+  materialRequestItemId String?              @map("material_request_item_id") @db.Uuid
+  materialRequestItem   MaterialRequestItem? @relation("RequestItemRfqItems", fields: [materialRequestItemId], references: [id], onDelete: SetNull)
+
+  materialProductId String?          @map("material_product_id") @db.Uuid
+  materialProduct   MaterialProduct? @relation("CatalogRfqItems", fields: [materialProductId], references: [id], onDelete: SetNull)
+
+  name           String   @map("name")
+  specifications String?  @map("specifications") @db.Text
+  brand          String?  @map("brand")
+  quantity       Decimal  @map("quantity") @db.Decimal(12, 3)
+  unit           String   @map("unit")
+  targetRate     Decimal? @map("target_rate") @db.Decimal(12, 2)
+  requiredDate   DateTime @map("required_date")
+  notes          String?  @map("notes") @db.Text
+
+  // Dynamic Custom Fields Standard
+  additionalInformation Json? @map("additional_information")
+
+  quotationItems VendorQuotationItem[] @relation("RfqItemQuotationItems")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([organizationId, rfqId])
+  @@map("vendor_rfq_items")
+}
+
+// =============================================================================
+// 4. VENDOR QUOTATIONS & BIDS
+// =============================================================================
+
+/**
+ * VendorQuotation
+ * Quotes/Bids submitted by Vendors for a Project / RFQ.
+ */
+model VendorQuotation {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationVendorQuotations", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  projectId String  @map("project_id") @db.Uuid
+  project   Project @relation("ProjectVendorQuotations", fields: [projectId], references: [id], onDelete: Cascade)
+
+  vendorId String @map("vendor_id") @db.Uuid
+  vendor   Vendor @relation("VendorQuotations", fields: [vendorId], references: [id], onDelete: Cascade)
+
+  rfqId String?    @map("rfq_id") @db.Uuid
+  rfq   VendorRfq? @relation("RfqVendorQuotations", fields: [rfqId], references: [id], onDelete: SetNull)
+
+  materialRequestId String?          @map("material_request_id") @db.Uuid
+  materialRequest   MaterialRequest? @relation("MaterialRequestQuotations", fields: [materialRequestId], references: [id], onDelete: SetNull)
+
+  // Quotation Header
+  quotationNumber String                @map("quotation_number") // e.g. "VQ-2026-001"
+  quoteDate       DateTime              @default(now()) @map("quote_date")
+  validUntil      DateTime              @map("valid_until")
+  currency        String                @default("INR") @map("currency")
+  status          VendorQuotationStatus @default(RECEIVED) @map("status")
+
+  // Pricing Totals
+  subtotal    Decimal @default(0) @map("subtotal") @db.Decimal(12, 2)
+  discount    Decimal @default(0) @map("discount") @db.Decimal(12, 2)
+  tax         Decimal @default(0) @map("tax") @db.Decimal(12, 2)
+  freight     Decimal @default(0) @map("freight") @db.Decimal(12, 2)
+  totalAmount Decimal @default(0) @map("total_amount") @db.Decimal(12, 2)
+
+  // Commercial Terms
+  paymentTerms     String? @default("30 Days Net") @map("payment_terms")
+  deliveryTimeline String? @map("delivery_timeline") // e.g. "5 Days"
+  warrantyPeriod   String? @map("warranty_period") // e.g. "12 Months"
+
+  // Evaluation & Scorecard
+  vendorRating    Decimal? @map("vendor_rating") @db.Decimal(3, 2)
+  evaluationNotes String?  @map("evaluation_notes") @db.Text
+  attachmentUrl   Json?    @map("attachment_url") // ImageType JSON (PDF quote)
+
+  reviewedById String? @map("reviewed_by_id") @db.Uuid
+  reviewedBy   User?   @relation("UserReviewedQuotations", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  // Dynamic Custom Fields Standard
+  additionalInformation Json? @map("additional_information")
+
+  // Relations
+  items      VendorQuotationItem[] @relation("QuotationItems")
+  dispatches MaterialDispatch[]    @relation("QuotationDispatches")
+
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@unique([organizationId, vendorId, quotationNumber])
+  @@index([organizationId, projectId])
+  @@index([organizationId, vendorId])
+  @@index([organizationId, status])
+  @@map("vendor_quotations")
+}
+
+/**
+ * VendorQuotationItem
+ * Line items within a Vendor's Quotation.
+ */
+model VendorQuotationItem {
+  id             String          @id @default(uuid()) @db.Uuid
+  organizationId String          @map("organization_id") @db.Uuid
+  organization   Organization    @relation("OrganizationVendorQuotationItems", fields: [organizationId], references: [id], onDelete: Cascade)
+  quotationId    String          @map("quotation_id") @db.Uuid
+  quotation      VendorQuotation @relation("QuotationItems", fields: [quotationId], references: [id], onDelete: Cascade)
+
+  rfqItemId String?        @map("rfq_item_id") @db.Uuid
+  rfqItem   VendorRfqItem? @relation("RfqItemQuotationItems", fields: [rfqItemId], references: [id], onDelete: SetNull)
+
+  materialProductId String?          @map("material_product_id") @db.Uuid
+  materialProduct   MaterialProduct? @relation("CatalogQuotationItems", fields: [materialProductId], references: [id], onDelete: SetNull)
+
+  name           String  @map("name")
+  brand          String? @map("brand")
+  specifications String? @map("specifications") @db.Text
+  quantity       Decimal @map("quantity") @db.Decimal(12, 3)
+  unit           String  @map("unit")
+
+  unitRate        Decimal @map("unit_rate") @db.Decimal(12, 2)
+  taxRate         Decimal @default(18.0) @map("tax_rate") @db.Decimal(5, 2)
+  discountPercent Decimal @default(0) @map("discount_percent") @db.Decimal(5, 2)
+  totalAmount     Decimal @map("total_amount") @db.Decimal(12, 2)
+
+  deliveryDays String? @map("delivery_days")
+  remarks      String? @map("remarks") @db.Text
+
+  // Dynamic Custom Fields Standard
+  additionalInformation Json? @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([organizationId, quotationId])
+  @@map("vendor_quotation_items")
+}
+
+// =============================================================================
+// 5. MATERIAL DISPATCH & SITE RECEIPTS (LOGISTICS & QUALITY RECEIPT)
+// =============================================================================
+
+/**
+ * MaterialDispatch
+ * Material consignment tracking from Vendor to Project site.
+ */
+model MaterialDispatch {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationMaterialDispatches", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  projectId String  @map("project_id") @db.Uuid
+  project   Project @relation("ProjectMaterialDispatches", fields: [projectId], references: [id], onDelete: Cascade)
+
+  vendorId String @map("vendor_id") @db.Uuid
+  vendor   Vendor @relation("VendorDispatches", fields: [vendorId], references: [id], onDelete: Cascade)
+
+  materialRequestId String?          @map("material_request_id") @db.Uuid
+  materialRequest   MaterialRequest? @relation("MaterialRequestDispatches", fields: [materialRequestId], references: [id], onDelete: SetNull)
+
+  quotationId String?          @map("quotation_id") @db.Uuid
+  quotation   VendorQuotation? @relation("QuotationDispatches", fields: [quotationId], references: [id], onDelete: SetNull)
+
+  dispatchNumber  String                 @map("dispatch_number") // e.g. "DSP-2026-001"
+  dispatchDate    DateTime               @default(now()) @map("dispatch_date")
+  expectedArrival DateTime               @map("expected_arrival")
+  actualArrival   DateTime?              @map("actual_arrival")
+  status          MaterialDispatchStatus @default(IN_TRANSIT) @map("status")
+
+  destinationAddress String? @map("destination_address") @db.Text
+
+  // Logistics & Transporter Details
+  transporterName String? @map("transporter_name")
+  vehicleNumber   String? @map("vehicle_number")
+  driverContact   String? @map("driver_contact")
+  challanNumber   String? @map("challan_number")
+  eWayBillNumber  String? @map("eway_bill_number")
+  freightAmount   Decimal @default(0) @map("freight_amount") @db.Decimal(12, 2)
+
+  // Verification & Signatures
+  deliveryProofUrl        Json?   @map("delivery_proof_url") // ImageType JSON
+  siteSupervisorSignature Json?   @map("site_supervisor_signature") // ImageType JSON
+  siteInspectionNotes     String? @map("site_inspection_notes") @db.Text
+
+  receivedById String? @map("received_by_id") @db.Uuid
+  receivedBy   User?   @relation("UserReceivedDispatches", fields: [receivedById], references: [id], onDelete: SetNull)
+
+  // Dynamic Custom Fields Standard
+  additionalInformation Json? @map("additional_information")
+
+  // Relations
+  items MaterialDispatchItem[] @relation("DispatchItems")
+
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@unique([organizationId, dispatchNumber])
+  @@index([organizationId, projectId])
+  @@index([organizationId, vendorId])
+  @@index([organizationId, status])
+  @@map("material_dispatches")
+}
+
+/**
+ * MaterialDispatchItem
+ * Dispatched quantities and on-site QA condition verification.
+ */
+model MaterialDispatchItem {
+  id             String           @id @default(uuid()) @db.Uuid
+  organizationId String           @map("organization_id") @db.Uuid
+  organization   Organization     @relation("OrganizationDispatchItems", fields: [organizationId], references: [id], onDelete: Cascade)
+  dispatchId     String           @map("dispatch_id") @db.Uuid
+  dispatch       MaterialDispatch @relation("DispatchItems", fields: [dispatchId], references: [id], onDelete: Cascade)
+
+  materialProductId String?          @map("material_product_id") @db.Uuid
+  materialProduct   MaterialProduct? @relation("CatalogDispatchItems", fields: [materialProductId], references: [id], onDelete: SetNull)
+
+  name               String                @map("name")
+  unit               String                @map("unit")
+  dispatchedQuantity Decimal               @map("dispatched_quantity") @db.Decimal(12, 3)
+  receivedQuantity   Decimal               @default(0) @map("received_quantity") @db.Decimal(12, 3)
+  acceptedQuantity   Decimal               @default(0) @map("accepted_quantity") @db.Decimal(12, 3)
+  rejectedQuantity   Decimal               @default(0) @map("rejected_quantity") @db.Decimal(12, 3)
+  condition          MaterialItemCondition @default(GOOD) @map("condition")
+  batchLot           String?               @map("batch_lot")
+  remarks            String?               @map("remarks") @db.Text
+
+  // Dynamic Custom Fields Standard
+  additionalInformation Json? @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([organizationId, dispatchId])
+  @@map("material_dispatch_items")
+}

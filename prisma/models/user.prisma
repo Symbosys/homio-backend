@@ -79,6 +79,11 @@ model User {
   complaintComments         ComplaintComment[]      @relation("ComplaintCommentUser")
   designApprovals           DesignVersionApproval[] @relation("UserDesignApprovals")
   requestedDesignChanges    DesignChangeRequest[]   @relation("DesignChangeRequestedBy")
+  requestedMaterialRequests MaterialRequest[]       @relation("UserRequestedMaterialRequests")
+  approvedMaterialRequests  MaterialRequest[]       @relation("UserApprovedMaterialRequests")
+  createdRfqs               VendorRfq[]             @relation("UserCreatedRfqs")
+  reviewedQuotations        VendorQuotation[]       @relation("UserReviewedQuotations")
+  receivedDispatches        MaterialDispatch[]      @relation("UserReceivedDispatches")
 
   @@index([organizationId])
   @@index([email])
