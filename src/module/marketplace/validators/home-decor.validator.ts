@@ -20,12 +20,68 @@ const imageTypeSchema = z.object({
   provider: z.enum(["CLOUDINARY", "AWS_S3", "AZURE_BLOB", "LOCAL"]),
 });
 
+/**
+ * Validator schema for creating a Home Decor vendor offering (supplier mapping)
+ */
+export const createHomeDecorVendorOfferingBodySchema = z.object({
+  vendorId: z.string().uuid("Invalid vendor ID format"),
+  commissionRate: z.number().min(0, "Commission rate must be >= 0").max(100, "Commission rate must be <= 100").optional(),
+  supplyPrice: z.number().min(0, "Supply price cannot be negative").optional().nullable(),
+  sellingPrice: z.number().min(0, "Selling price cannot be negative").optional().nullable(),
+  vendorSku: z.string().trim().optional().nullable(),
+  stockCount: z.number().int().min(0).optional().default(0),
+  inStock: z.boolean().optional().default(true),
+  minOrderQuantity: z.number().int().positive().optional().default(1),
+  leadTimeDays: z.number().int().min(0).optional().default(3),
+  isPrimary: z.boolean().optional().default(false),
+  additionalInformation: z.record(z.string(), z.any()).nullable().optional(),
+});
+
+export const createHomeDecorVendorOfferingSchema = z.object({
+  params: z.object({
+    productId: z.string().uuid("Invalid product ID format"),
+  }),
+  body: createHomeDecorVendorOfferingBodySchema,
+});
+
+/**
+ * Validator schema for updating a Home Decor vendor offering
+ */
+export const updateHomeDecorVendorOfferingSchema = z.object({
+  params: z.object({
+    productId: z.string().uuid("Invalid product ID format"),
+    vendorOfferingId: z.string().uuid("Invalid vendor offering ID format"),
+  }),
+  body: z.object({
+    commissionRate: z.number().min(0).max(100).optional(),
+    supplyPrice: z.number().min(0).optional().nullable(),
+    sellingPrice: z.number().min(0).optional().nullable(),
+    vendorSku: z.string().trim().optional().nullable(),
+    stockCount: z.number().int().min(0).optional(),
+    inStock: z.boolean().optional(),
+    minOrderQuantity: z.number().int().positive().optional(),
+    leadTimeDays: z.number().int().min(0).optional(),
+    isPrimary: z.boolean().optional(),
+    isActive: z.boolean().optional(),
+    additionalInformation: z.record(z.string(), z.any()).nullable().optional(),
+  }),
+});
+
+/**
+ * Route parameter validator for vendor offering routes
+ */
+export const homeDecorVendorParamSchema = z.object({
+  params: z.object({
+    productId: z.string().uuid("Invalid product ID format"),
+    vendorOfferingId: z.string().uuid("Invalid vendor offering ID format").optional(),
+  }),
+});
+
 export const createHomeDecorSchema = z.object({
   body: z.object({
     categoryId: z.string().uuid("Invalid category ID format"),
     ownershipType: productOwnershipTypeEnum.optional().default("SELF_OWNED"),
-    vendorId: z.string().uuid("Invalid vendor ID format").nullable().optional(),
-    ownerCommissionRate: z.number().min(0).max(100).nullable().optional(),
+    vendorOfferings: z.array(createHomeDecorVendorOfferingBodySchema).optional().default([]),
 
     name: z.string().trim().min(1, "Product name is required"),
     sku: z.string().trim().min(1, "SKU is required"),
@@ -74,8 +130,6 @@ export const updateHomeDecorSchema = z.object({
   body: z.object({
     categoryId: z.string().uuid("Invalid category ID format").optional(),
     ownershipType: productOwnershipTypeEnum.optional(),
-    vendorId: z.string().uuid("Invalid vendor ID format").nullable().optional(),
-    ownerCommissionRate: z.number().min(0).max(100).nullable().optional(),
 
     name: z.string().trim().min(1).optional(),
     sku: z.string().trim().min(1).optional(),

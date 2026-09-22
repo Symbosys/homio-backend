@@ -4,7 +4,7 @@ import { statusCode } from "../../../types/types.js";
 import { sellerCategoryService } from "../services/seller-category.service.js";
 import {
   registerSellerCategorySchema,
-  approveSellerCategorySchema,
+  updateSellerCategoryCommissionSchema,
   getSellerCategoriesQuerySchema,
   sellerCategoryIdParamSchema,
 } from "../validators/seller-category.validator.js";
@@ -48,16 +48,23 @@ export const getSellerCategoryById = asyncHandler(async (req, res) => {
 });
 
 /**
- * Platform Admin: Review & approve/reject seller category with commission rate
+ * Platform Admin: Manually edit commission rate of OrganizationMarketplaceCategory.
+ * Only platform admin can edit the OrganizationMarketplaceCategory commission.
  */
-export const approveSellerCategory = asyncHandler(async (req, res) => {
-  const parsed = approveSellerCategorySchema.parse({ params: req.params, body: req.body });
-  const updated = await sellerCategoryService.approveSellerCategory(
+export const updateSellerCategoryCommission = asyncHandler(async (req, res) => {
+  if (req.user?.userType !== "PLATFORM_ADMIN") {
+    throw new ErrorResponse(
+      "Forbidden: Only platform admin can edit organization category commission",
+      statusCode.Forbidden
+    );
+  }
+
+  const parsed = updateSellerCategoryCommissionSchema.parse({ params: req.params, body: req.body });
+  const updated = await sellerCategoryService.updateSellerCategoryCommission(
     parsed.params.id,
-    parsed.body.isApproved,
     parsed.body.commissionRate
   );
-  return SuccessResponse(res, "Seller category approval updated successfully", updated, statusCode.OK);
+  return SuccessResponse(res, "Seller category commission updated successfully", updated, statusCode.OK);
 });
 
 /**

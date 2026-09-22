@@ -28,6 +28,7 @@ export const createCategorySchema = z.object({
     sortOrder: z.coerce.number().int().optional().default(0),
     parentId: z.string().uuid("Invalid parent category ID").nullable().optional(),
     isActive: z.coerce.boolean().optional().default(true),
+    commissionRate: z.coerce.number().min(0, "Commission rate must be >= 0").max(100, "Commission rate must be <= 100").optional().default(5),
   }),
 });
 
@@ -46,6 +47,7 @@ export const updateCategorySchema = z.object({
     sortOrder: z.coerce.number().int().optional(),
     parentId: z.string().uuid("Invalid parent category ID").nullable().optional(),
     isActive: z.coerce.boolean().optional(),
+    commissionRate: z.coerce.number().min(0, "Commission rate must be >= 0").max(100, "Commission rate must be <= 100").optional(),
   }),
 });
 

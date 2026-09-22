@@ -116,6 +116,7 @@ model MarketplaceCategory {
   imageUrl        Json?           @map("image_url")
   sortOrder       Int             @default(0) @map("sort_order")
   isActive        Boolean         @default(true) @map("is_active")
+  commissionRate  Decimal         @default(5)  @map("commission_rate") @db.Decimal(5, 2) // Default 5% platform gets on product sale
 
   // Parent-Child Hierarchy
   parentId String?               @map("parent_id") @db.Uuid
@@ -198,9 +199,9 @@ model Vendor {
   isActive              Boolean  @default(true) @map("is_active")
 
   // Associated Relations
-  homeDecorProducts HomeDecorProduct[] @relation("VendorHomeDecorProducts")
-  materialProducts  MaterialProduct[]  @relation("VendorMaterialProducts")
-  expenses          Expense[]          @relation("VendorExpenses")
+  homeDecorOfferings HomeDecorProductVendor[] @relation("VendorHomeDecorOfferings")
+  materialOfferings  MaterialProductVendor[]  @relation("VendorMaterialOfferings")
+  expenses           Expense[]                @relation("VendorExpenses")
 
   isDeleted Boolean   @default(false) @map("is_deleted")
   deletedAt DateTime? @map("deleted_at")
@@ -278,11 +279,11 @@ model HomeDecorProduct {
   categoryId     String              @map("category_id") @db.Uuid
   category       MarketplaceCategory @relation("CategoryHomeDecorProducts", fields: [categoryId], references: [id], onDelete: Restrict)
 
-  // Ownership & Vendor Association
-  ownershipType       ProductOwnershipType @default(SELF_OWNED) @map("ownership_type")
-  vendorId            String?              @map("vendor_id") @db.Uuid
-  vendor              Vendor?              @relation("VendorHomeDecorProducts", fields: [vendorId], references: [id], onDelete: SetNull)
-  ownerCommissionRate Decimal?             @map("owner_commission_rate") @db.Decimal(5, 2)
+  // Ownership & Sourcing
+  ownershipType ProductOwnershipType @default(SELF_OWNED) @map("ownership_type")
+
+  // Multi-Vendor Offerings
+  vendorOfferings HomeDecorProductVendor[] @relation("HomeDecorVendorOfferings")
 
   name        String   @map("name")
   sku         String   @map("sku")
@@ -332,7 +333,6 @@ model HomeDecorProduct {
   @@unique([organizationId, sku])
   @@index([organizationId, status])
   @@index([categoryId])
-  @@index([vendorId])
   @@map("home_decor_products")
 }
 
@@ -425,11 +425,11 @@ model MaterialProduct {
   categoryId     String              @map("category_id") @db.Uuid
   category       MarketplaceCategory @relation("CategoryMaterialProducts", fields: [categoryId], references: [id], onDelete: Restrict)
 
-  // Ownership & Vendor Association
-  ownershipType       ProductOwnershipType @default(SELF_OWNED) @map("ownership_type")
-  vendorId            String?              @map("vendor_id") @db.Uuid
-  vendor              Vendor?              @relation("VendorMaterialProducts", fields: [vendorId], references: [id], onDelete: SetNull)
-  ownerCommissionRate Decimal?             @map("owner_commission_rate") @db.Decimal(5, 2)
+  // Ownership & Sourcing
+  ownershipType ProductOwnershipType @default(SELF_OWNED) @map("ownership_type")
+
+  // Multi-Vendor Offerings
+  vendorOfferings MaterialProductVendor[] @relation("MaterialVendorOfferings")
 
   name        String   @map("name")
   sku         String   @map("sku")
@@ -472,7 +472,89 @@ model MaterialProduct {
   @@unique([organizationId, sku])
   @@index([organizationId, status])
   @@index([categoryId])
-  @@index([vendorId])
   @@index([unitOfMeasure])
   @@map("material_products")
+}
+
+// =============================================================================
+// 5. MULTI-VENDOR PRODUCT OFFERINGS & COMMISSION RATES
+// =============================================================================
+
+model HomeDecorProductVendor {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationHomeDecorProductVendors", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  productId String           @map("product_id") @db.Uuid
+  product   HomeDecorProduct @relation("HomeDecorVendorOfferings", fields: [productId], references: [id], onDelete: Cascade)
+
+  vendorId String @map("vendor_id") @db.Uuid
+  vendor   Vendor @relation("VendorHomeDecorOfferings", fields: [vendorId], references: [id], onDelete: Cascade)
+
+  // Vendor Specific Cataloging & Pricing
+  vendorSku      String?  @map("vendor_sku")
+  supplyPrice    Decimal? @map("supply_price") @db.Decimal(12, 2)
+  sellingPrice   Decimal? @map("selling_price") @db.Decimal(12, 2)
+  commissionRate Decimal  @map("commission_rate") @db.Decimal(5, 2) // % Commission org earns on sales from this vendor
+
+  // Stock & Fulfillment
+  stockCount       Int     @default(0) @map("stock_count")
+  inStock          Boolean @default(true) @map("in_stock")
+  minOrderQuantity Int     @default(1) @map("min_order_quantity")
+  leadTimeDays     Int?    @default(3) @map("lead_time_days")
+
+  // Flags
+  isPrimary Boolean @default(false) @map("is_primary")
+  isActive  Boolean @default(true) @map("is_active")
+
+  // Universal Custom Fields Standard
+  additionalInformation Json? @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([productId, vendorId])
+  @@index([organizationId])
+  @@index([productId])
+  @@index([vendorId])
+  @@map("home_decor_product_vendors")
+}
+
+model MaterialProductVendor {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationMaterialProductVendors", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  productId String          @map("product_id") @db.Uuid
+  product   MaterialProduct @relation("MaterialVendorOfferings", fields: [productId], references: [id], onDelete: Cascade)
+
+  vendorId String @map("vendor_id") @db.Uuid
+  vendor   Vendor @relation("VendorMaterialOfferings", fields: [vendorId], references: [id], onDelete: Cascade)
+
+  // Vendor Specific Wholesale & Retail
+  vendorSku      String?  @map("vendor_sku")
+  wholesalePrice Decimal? @map("wholesale_price") @db.Decimal(12, 2)
+  retailPrice    Decimal? @map("retail_price") @db.Decimal(12, 2)
+  commissionRate Decimal  @map("commission_rate") @db.Decimal(5, 2) // % Commission org earns on material order
+
+  // Inventory & Logistics
+  stockAvailableUnits Int  @default(0) @map("stock_available_units")
+  minOrderQuantity    Int  @default(1) @map("min_order_quantity")
+  leadTimeDays        Int? @default(7) @map("lead_time_days")
+
+  // Flags
+  isPrimary Boolean @default(false) @map("is_primary")
+  isActive  Boolean @default(true) @map("is_active")
+
+  // Universal Custom Fields Standard
+  additionalInformation Json? @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([productId, vendorId])
+  @@index([organizationId])
+  @@index([productId])
+  @@index([vendorId])
+  @@map("material_product_vendors")
 }

@@ -7,13 +7,18 @@ export const registerSellerCategorySchema = z.object({
   }),
 });
 
-export const approveSellerCategorySchema = z.object({
+/**
+ * Validator schema for platform admin manually updating organization category commission rate
+ */
+export const updateSellerCategoryCommissionSchema = z.object({
   params: z.object({
     id: z.string().uuid("Invalid seller category assignment ID"),
   }),
   body: z.object({
-    isApproved: z.boolean({ message: "isApproved must be a boolean" }),
-    commissionRate: z.number().min(0).max(100).optional().nullable(),
+    commissionRate: z
+      .number({ message: "Commission rate must be a number" })
+      .min(0, "Commission rate must be at least 0%")
+      .max(100, "Commission rate cannot exceed 100%"),
   }),
 });
 

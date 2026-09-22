@@ -1,14 +1,20 @@
 import { prisma } from "../../../lib/prisma.js";
-import type { MarketplaceType } from "../../../types/types.js";
+import type { MarketplaceType, Prisma } from "../../../types/types.js";
 
+/**
+ * Repository for managing tenant-level category seller registrations and commission rates
+ */
 export class SellerCategoryRepository {
+  /**
+   * Create an organization marketplace category mapping with optional custom commission rate
+   */
   async create(data: {
     organizationId: string;
     categoryId: string;
     marketplaceType: MarketplaceType;
     isApproved?: boolean;
     isActive?: boolean;
-    commissionRate?: number | null;
+    commissionRate?: number | string | Prisma.Decimal | null;
   }) {
     return prisma.organizationMarketplaceCategory.create({
       data,
@@ -79,10 +85,13 @@ export class SellerCategoryRepository {
     return { items, total };
   }
 
+  /**
+   * Update seller category status or custom platform commission rate
+   */
   async update(id: string, data: {
     isApproved?: boolean;
     isActive?: boolean;
-    commissionRate?: number | null;
+    commissionRate?: number | string | Prisma.Decimal | null;
   }) {
     return prisma.organizationMarketplaceCategory.update({
       where: { id },

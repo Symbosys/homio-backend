@@ -1,5 +1,6 @@
 import { digitalProductRepo } from "../repos/digital-product.repo.js";
 import { categoryRepo } from "../repos/category.repo.js";
+import { sellerCategoryService } from "./seller-category.service.js";
 import { ErrorResponse } from "../../../utils/response.util.js";
 import { statusCode } from "../../../types/types.js";
 import type { ImageType } from "../../../types/types.js";
@@ -23,6 +24,9 @@ export class DigitalProductService {
     if (category.marketplaceType !== "DIGITAL_ASSET") {
       throw new ErrorResponse("Category must belong to the DIGITAL_ASSET vertical", statusCode.Bad_Request);
     }
+
+    // Automatically ensure organization category registration and inherit commission rate
+    await sellerCategoryService.ensureOrganizationCategoryCommission(organizationId, category.id);
 
     // Check SKU Uniqueness per organization
     const existingSku = await digitalProductRepo.findBySku(data.sku, organizationId);

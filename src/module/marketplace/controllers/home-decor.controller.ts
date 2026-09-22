@@ -7,6 +7,9 @@ import {
   updateHomeDecorSchema,
   getHomeDecorQuerySchema,
   homeDecorIdParamSchema,
+  createHomeDecorVendorOfferingSchema,
+  updateHomeDecorVendorOfferingSchema,
+  homeDecorVendorParamSchema,
 } from "../validators/home-decor.validator.js";
 
 /**
@@ -73,4 +76,145 @@ export const deleteHomeDecor = asyncHandler(async (req, res) => {
   const parsed = homeDecorIdParamSchema.parse({ params: req.params });
   await homeDecorService.deleteProduct(parsed.params.id, organizationId);
   return SuccessResponse(res, "Home decor product deleted successfully", {}, statusCode.OK);
+});
+
+// ===========================================================================
+// MULTI-VENDOR OFFERINGS CONTROLLER HANDLERS
+// ===========================================================================
+
+/**
+ * @route   POST /api/v1/marketplace/home-decor/:productId/vendors
+ * @desc    Attach a vendor offering / supplier to a Home Decor product
+ */
+export const addHomeDecorVendorOffering = asyncHandler(async (req, res) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new ErrorResponse("Organization context is required", statusCode.Forbidden);
+  }
+
+  const parsed = createHomeDecorVendorOfferingSchema.parse({
+    params: req.params,
+    body: req.body,
+  });
+
+  const offering = await homeDecorService.addVendorOffering(
+    organizationId,
+    parsed.params.productId,
+    parsed.body
+  );
+
+  return SuccessResponse(res, "Vendor offering attached to product successfully", offering, statusCode.Created);
+});
+
+/**
+ * @route   GET /api/v1/marketplace/home-decor/:productId/vendors
+ * @desc    List all vendor offerings for a Home Decor product
+ */
+export const getHomeDecorVendorOfferings = asyncHandler(async (req, res) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new ErrorResponse("Organization context is required", statusCode.Forbidden);
+  }
+
+  const parsed = homeDecorVendorParamSchema.parse({ params: req.params });
+  const offerings = await homeDecorService.getVendorOfferings(organizationId, parsed.params.productId);
+
+  return SuccessResponse(res, "Product vendor offerings retrieved successfully", offerings, statusCode.OK);
+});
+
+/**
+ * @route   GET /api/v1/marketplace/home-decor/:productId/vendors/:vendorOfferingId
+ * @desc    Retrieve single vendor offering details
+ */
+export const getHomeDecorVendorOfferingById = asyncHandler(async (req, res) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new ErrorResponse("Organization context is required", statusCode.Forbidden);
+  }
+
+  const parsed = homeDecorVendorParamSchema.parse({ params: req.params });
+  if (!parsed.params.vendorOfferingId) {
+    throw new ErrorResponse("Vendor offering ID is required", statusCode.Bad_Request);
+  }
+
+  const offering = await homeDecorService.getVendorOfferingById(
+    organizationId,
+    parsed.params.productId,
+    parsed.params.vendorOfferingId
+  );
+
+  return SuccessResponse(res, "Vendor offering retrieved successfully", offering, statusCode.OK);
+});
+
+/**
+ * @route   PATCH /api/v1/marketplace/home-decor/:productId/vendors/:vendorOfferingId
+ * @desc    Update a vendor offering (commission rate, pricing, stock, lead time)
+ */
+export const updateHomeDecorVendorOffering = asyncHandler(async (req, res) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new ErrorResponse("Organization context is required", statusCode.Forbidden);
+  }
+
+  const parsed = updateHomeDecorVendorOfferingSchema.parse({
+    params: req.params,
+    body: req.body,
+  });
+
+  const updatedOffering = await homeDecorService.updateVendorOffering(
+    organizationId,
+    parsed.params.productId,
+    parsed.params.vendorOfferingId,
+    parsed.body
+  );
+
+  return SuccessResponse(res, "Vendor offering updated successfully", updatedOffering, statusCode.OK);
+});
+
+/**
+ * @route   DELETE /api/v1/marketplace/home-decor/:productId/vendors/:vendorOfferingId
+ * @desc    Detach / remove vendor offering from a Home Decor product
+ */
+export const removeHomeDecorVendorOffering = asyncHandler(async (req, res) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new ErrorResponse("Organization context is required", statusCode.Forbidden);
+  }
+
+  const parsed = homeDecorVendorParamSchema.parse({ params: req.params });
+  if (!parsed.params.vendorOfferingId) {
+    throw new ErrorResponse("Vendor offering ID is required", statusCode.Bad_Request);
+  }
+
+  await homeDecorService.removeVendorOffering(
+    organizationId,
+    parsed.params.productId,
+    parsed.params.vendorOfferingId
+  );
+
+  return SuccessResponse(res, "Vendor offering removed from product successfully", {}, statusCode.OK);
+});
+
+/**
+ * @route   PATCH /api/v1/marketplace/home-decor/:productId/vendors/:vendorOfferingId/primary
+ * @desc    Set vendor offering as primary supplier for a product
+ */
+export const setPrimaryHomeDecorVendorOffering = asyncHandler(async (req, res) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new ErrorResponse("Organization context is required", statusCode.Forbidden);
+  }
+
+  const parsed = homeDecorVendorParamSchema.parse({ params: req.params });
+  if (!parsed.params.vendorOfferingId) {
+    throw new ErrorResponse("Vendor offering ID is required", statusCode.Bad_Request);
+  }
+
+  const updatedOffering = await homeDecorService.setPrimaryVendorOffering(
+    organizationId,
+    parsed.params.productId,
+    parsed.params.vendorOfferingId
+  );
+
+  return SuccessResponse(res, "Primary vendor offering updated successfully", updatedOffering, statusCode.OK);
 });

@@ -14,12 +14,14 @@ export class CategoryRepository {
     sortOrder?: number;
     parentId?: string | null;
     isActive?: boolean;
+    commissionRate?: number | string | Prisma.Decimal;
   }) {
-    const { imageUrl, parentId, ...rest } = data;
+    const { imageUrl, parentId, commissionRate, ...rest } = data;
     return prisma.marketplaceCategory.create({
       data: {
         ...rest,
-        parentId: parentId || undefined,
+        ...(parentId ? { parentId } : {}),
+        ...(commissionRate !== undefined ? { commissionRate } : {}),
         ...(imageUrl !== undefined && imageUrl !== null
           ? { imageUrl: imageUrl as Prisma.InputJsonValue }
           : {}),

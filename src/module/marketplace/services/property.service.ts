@@ -1,5 +1,6 @@
 import { propertyRepo } from "../repos/property.repo.js";
 import { categoryRepo } from "../repos/category.repo.js";
+import { sellerCategoryService } from "./seller-category.service.js";
 import { ErrorResponse } from "../../../utils/response.util.js";
 import { statusCode } from "../../../types/types.js";
 import type { ImageType } from "../../../types/types.js";
@@ -23,6 +24,9 @@ export class PropertyService {
       if (category.marketplaceType !== "PROPERTIES") {
         throw new ErrorResponse("Category must belong to the PROPERTIES vertical", statusCode.Bad_Request);
       }
+
+      // Automatically ensure organization category registration and inherit commission rate
+      await sellerCategoryService.ensureOrganizationCategoryCommission(organizationId, category.id);
     }
 
     const slug = data.slug ? slugify(data.slug) : slugify(`${data.title}-${data.city}-${Date.now().toString().slice(-4)}`);

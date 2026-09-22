@@ -45,6 +45,8 @@ model Organization {
   homeDecorProducts       HomeDecorProduct[]                @relation("OrganizationHomeDecorProducts")
   propertyListings        PropertyListing[]                 @relation("OrganizationPropertyListings")
   materialProducts        MaterialProduct[]                 @relation("OrganizationMaterialProducts")
+  homeDecorProductVendors HomeDecorProductVendor[]          @relation("OrganizationHomeDecorProductVendors")
+  materialProductVendors  MaterialProductVendor[]           @relation("OrganizationMaterialProductVendors")
   sellerCategories        OrganizationMarketplaceCategory[] @relation("OrganizationMarketplaceCategories")
   vendors                 Vendor[]                          @relation("OrganizationVendors")
   employees               Employee[]                        @relation("OrganizationEmployees")

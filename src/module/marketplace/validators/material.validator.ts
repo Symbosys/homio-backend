@@ -66,12 +66,66 @@ const imageTypeSchema = z.object({
   provider: z.enum(["CLOUDINARY", "AWS_S3", "AZURE_BLOB", "LOCAL"]),
 });
 
+/**
+ * Validator schema for creating a Material vendor offering (supplier mapping)
+ */
+export const createMaterialVendorOfferingBodySchema = z.object({
+  vendorId: z.string().uuid("Invalid vendor ID format"),
+  commissionRate: z.number().min(0, "Commission rate must be >= 0").max(100, "Commission rate must be <= 100").optional(),
+  wholesalePrice: stringToNullableNumber,
+  retailPrice: stringToNullableNumber,
+  vendorSku: z.string().trim().optional().nullable(),
+  stockAvailableUnits: z.number().int().min(0).optional().default(0),
+  minOrderQuantity: z.number().int().positive().optional().default(1),
+  leadTimeDays: z.number().int().min(0).optional().default(7),
+  isPrimary: z.boolean().optional().default(false),
+  additionalInformation: z.record(z.string(), z.any()).nullable().optional(),
+});
+
+export const createMaterialVendorOfferingSchema = z.object({
+  params: z.object({
+    productId: z.string().uuid("Invalid product ID format"),
+  }),
+  body: createMaterialVendorOfferingBodySchema,
+});
+
+/**
+ * Validator schema for updating a Material vendor offering
+ */
+export const updateMaterialVendorOfferingSchema = z.object({
+  params: z.object({
+    productId: z.string().uuid("Invalid product ID format"),
+    vendorOfferingId: z.string().uuid("Invalid vendor offering ID format"),
+  }),
+  body: z.object({
+    commissionRate: z.number().min(0).max(100).optional(),
+    wholesalePrice: z.number().min(0).optional().nullable(),
+    retailPrice: z.number().min(0).optional().nullable(),
+    vendorSku: z.string().trim().optional().nullable(),
+    stockAvailableUnits: z.number().int().min(0).optional(),
+    minOrderQuantity: z.number().int().positive().optional(),
+    leadTimeDays: z.number().int().min(0).optional(),
+    isPrimary: z.boolean().optional(),
+    isActive: z.boolean().optional(),
+    additionalInformation: z.record(z.string(), z.any()).nullable().optional(),
+  }),
+});
+
+/**
+ * Route parameter validator for material vendor offering routes
+ */
+export const materialVendorParamSchema = z.object({
+  params: z.object({
+    productId: z.string().uuid("Invalid product ID format"),
+    vendorOfferingId: z.string().uuid("Invalid vendor offering ID format").optional(),
+  }),
+});
+
 export const createMaterialSchema = z.object({
   body: z.object({
     categoryId: z.string().uuid("Invalid category ID format"),
     ownershipType: productOwnershipTypeEnum.optional().default("SELF_OWNED"),
-    vendorId: z.string().uuid("Invalid vendor ID format").nullable().optional(),
-    ownerCommissionRate: stringToNullableNumber,
+    vendorOfferings: z.array(createMaterialVendorOfferingBodySchema).optional().default([]),
 
     name: z.string().trim().min(1, "Material product name is required"),
     sku: z.string().trim().min(1, "SKU is required"),
@@ -113,8 +167,6 @@ export const updateMaterialSchema = z.object({
   body: z.object({
     categoryId: z.string().uuid("Invalid category ID format").optional(),
     ownershipType: productOwnershipTypeEnum.optional(),
-    vendorId: z.string().uuid("Invalid vendor ID format").nullable().optional(),
-    ownerCommissionRate: stringToNullableNumber,
 
     name: z.string().trim().min(1).optional(),
     sku: z.string().trim().min(1).optional(),
@@ -149,6 +201,7 @@ export const getMaterialsQuerySchema = z.object({
   query: z.object({
     organizationId: z.string().uuid().optional(),
     categoryId: z.string().uuid().optional(),
+    vendorId: z.string().uuid().optional(),
     materialType: z.string().trim().optional(),
     unitOfMeasure: materialUnitEnum.optional(),
     status: productStatusEnum.optional(),

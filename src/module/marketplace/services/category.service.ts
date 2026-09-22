@@ -24,6 +24,7 @@ export class CategoryService {
       sortOrder?: number;
       parentId?: string | null;
       isActive?: boolean;
+      commissionRate?: number;
     },
     file?: Express.Multer.File
   ) {
