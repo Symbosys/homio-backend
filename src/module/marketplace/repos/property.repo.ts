@@ -159,7 +159,10 @@ export class PropertyRepository {
     });
   }
 
-  async updateVerification(id: string, verificationStatus: PropertyVerificationStatus) {
+  async updateVerification(
+    id: string,
+    verificationStatus: PropertyVerificationStatus,
+  ) {
     return prisma.propertyListing.update({
       where: { id },
       data: { verificationStatus },

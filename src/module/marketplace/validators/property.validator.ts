@@ -26,7 +26,8 @@ const stringToNumber = (defaultVal = 0) =>
   }, z.number().optional().default(defaultVal));
 
 const stringToNullableNumber = z.preprocess((val) => {
-  if (val === undefined || val === null || val === "" || val === "null") return null;
+  if (val === undefined || val === null || val === "" || val === "null")
+    return null;
   const num = Number(val);
   return isNaN(num) ? null : num;
 }, z.number().nullable().optional());
@@ -44,7 +45,10 @@ const stringToArray = z.preprocess((val) => {
       const parsed = JSON.parse(val);
       if (Array.isArray(parsed)) return parsed;
     } catch {
-      return val.split(",").map((s) => s.trim()).filter(Boolean);
+      return val
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
     }
   }
   return val;
@@ -60,12 +64,18 @@ const imageTypeSchema = z.object({
 
 export const createPropertySchema = z.object({
   body: z.object({
-    categoryId: z.string().uuid("Invalid category ID format").optional().nullable(),
+    categoryId: z
+      .string()
+      .uuid("Invalid category ID format")
+      .optional()
+      .nullable(),
     title: z.string().trim().min(1, "Property title is required"),
     slug: z.string().trim().optional(),
     propertyType: propertyTypeEnum.optional().default("APARTMENT"),
     intent: listingIntentEnum.optional().default("SALE"),
-    verificationStatus: propertyVerificationStatusEnum.optional().default("DRAFT"),
+    verificationStatus: propertyVerificationStatusEnum
+      .optional()
+      .default("DRAFT"),
 
     // Specifications
     bhk: z.string().trim().min(1, "BHK configuration is required (e.g. 3 BHK)"),
@@ -79,7 +89,8 @@ export const createPropertySchema = z.object({
     furnishingStatus: z.string().trim().optional().default("Unfurnished"),
     coveredParkingSlots: stringToNumber(0),
     availableFrom: z.preprocess((val) => {
-      if (val === undefined || val === null || val === "" || val === "null") return null;
+      if (val === undefined || val === null || val === "" || val === "null")
+        return null;
       return new Date(val as string);
     }, z.date().nullable().optional()),
 
@@ -105,12 +116,20 @@ export const createPropertySchema = z.object({
     // Owner Contact Details
     ownerName: z.string().trim().min(1, "Owner name is required"),
     ownerPhone: z.string().trim().min(1, "Owner phone number is required"),
-    ownerEmail: z.string().trim().email("Invalid owner email").optional().nullable(),
+    ownerEmail: z
+      .string()
+      .trim()
+      .email("Invalid owner email")
+      .optional()
+      .nullable(),
 
     // Amenities & Media
     amenities: stringToArray,
     description: z.string().trim().nullable().optional(),
-    coverImageUrl: z.union([z.string().trim(), imageTypeSchema, z.any()]).nullable().optional(),
+    coverImageUrl: z
+      .union([z.string().trim(), imageTypeSchema, z.any()])
+      .nullable()
+      .optional(),
     images: z.any().optional().default([]),
 
     status: productStatusEnum.optional().default("DRAFT"),
@@ -123,7 +142,11 @@ export const updatePropertySchema = z.object({
     id: z.string().uuid("Invalid property listing ID format"),
   }),
   body: z.object({
-    categoryId: z.string().uuid("Invalid category ID format").optional().nullable(),
+    categoryId: z
+      .string()
+      .uuid("Invalid category ID format")
+      .optional()
+      .nullable(),
     title: z.string().trim().min(1).optional(),
     slug: z.string().trim().optional(),
     propertyType: propertyTypeEnum.optional(),
@@ -131,17 +154,33 @@ export const updatePropertySchema = z.object({
     verificationStatus: propertyVerificationStatusEnum.optional(),
 
     bhk: z.string().trim().min(1).optional(),
-    bedrooms: z.preprocess((val) => (val !== undefined && val !== "" ? Number(val) : undefined), z.number().int().min(0).optional()),
-    bathrooms: z.preprocess((val) => (val !== undefined && val !== "" ? Number(val) : undefined), z.number().int().min(0).optional()),
-    balconies: z.preprocess((val) => (val !== undefined && val !== "" ? Number(val) : undefined), z.number().int().min(0).optional()),
-    carpetAreaSqft: z.preprocess((val) => (val !== undefined && val !== "" ? Number(val) : undefined), z.number().int().positive().optional()),
+    bedrooms: z.preprocess(
+      (val) => (val !== undefined && val !== "" ? Number(val) : undefined),
+      z.number().int().min(0).optional(),
+    ),
+    bathrooms: z.preprocess(
+      (val) => (val !== undefined && val !== "" ? Number(val) : undefined),
+      z.number().int().min(0).optional(),
+    ),
+    balconies: z.preprocess(
+      (val) => (val !== undefined && val !== "" ? Number(val) : undefined),
+      z.number().int().min(0).optional(),
+    ),
+    carpetAreaSqft: z.preprocess(
+      (val) => (val !== undefined && val !== "" ? Number(val) : undefined),
+      z.number().int().positive().optional(),
+    ),
     superBuiltUpSqft: stringToNullableNumber,
     floorNumber: stringToNullableNumber,
     totalFloors: stringToNullableNumber,
     furnishingStatus: z.string().trim().optional(),
-    coveredParkingSlots: z.preprocess((val) => (val !== undefined && val !== "" ? Number(val) : undefined), z.number().int().min(0).optional()),
+    coveredParkingSlots: z.preprocess(
+      (val) => (val !== undefined && val !== "" ? Number(val) : undefined),
+      z.number().int().min(0).optional(),
+    ),
     availableFrom: z.preprocess((val) => {
-      if (val === undefined || val === null || val === "" || val === "null") return null;
+      if (val === undefined || val === null || val === "" || val === "null")
+        return null;
       return new Date(val as string);
     }, z.date().nullable().optional()),
 
@@ -153,25 +192,64 @@ export const updatePropertySchema = z.object({
     latitude: stringToNullableNumber,
     longitude: stringToNullableNumber,
 
-    price: z.preprocess((val) => (val !== undefined && val !== "" ? Number(val) : undefined), z.number().min(0).optional()),
-    maintenanceMonthly: z.preprocess((val) => (val !== undefined && val !== "" ? Number(val) : undefined), z.number().min(0).optional()),
-    isNegotiable: z.preprocess((val) => (val === "true" || val === true ? true : val === "false" || val === false ? false : undefined), z.boolean().optional()),
+    price: z.preprocess(
+      (val) => (val !== undefined && val !== "" ? Number(val) : undefined),
+      z.number().min(0).optional(),
+    ),
+    maintenanceMonthly: z.preprocess(
+      (val) => (val !== undefined && val !== "" ? Number(val) : undefined),
+      z.number().min(0).optional(),
+    ),
+    isNegotiable: z.preprocess(
+      (val) =>
+        val === "true" || val === true
+          ? true
+          : val === "false" || val === false
+            ? false
+            : undefined,
+      z.boolean().optional(),
+    ),
 
-    contactUnlockFee: z.preprocess((val) => (val !== undefined && val !== "" ? Number(val) : undefined), z.number().min(0).optional()),
-    contactUnlockDurationDays: z.preprocess((val) => (val !== undefined && val !== "" ? Number(val) : undefined), z.number().int().positive().optional()),
-    totalContactUnlocks: z.preprocess((val) => (val !== undefined && val !== "" ? Number(val) : undefined), z.number().int().min(0).optional()),
+    contactUnlockFee: z.preprocess(
+      (val) => (val !== undefined && val !== "" ? Number(val) : undefined),
+      z.number().min(0).optional(),
+    ),
+    contactUnlockDurationDays: z.preprocess(
+      (val) => (val !== undefined && val !== "" ? Number(val) : undefined),
+      z.number().int().positive().optional(),
+    ),
+    totalContactUnlocks: z.preprocess(
+      (val) => (val !== undefined && val !== "" ? Number(val) : undefined),
+      z.number().int().min(0).optional(),
+    ),
 
     ownerName: z.string().trim().min(1).optional(),
     ownerPhone: z.string().trim().min(1).optional(),
-    ownerEmail: z.string().trim().email("Invalid owner email").optional().nullable(),
+    ownerEmail: z
+      .string()
+      .trim()
+      .email("Invalid owner email")
+      .optional()
+      .nullable(),
 
     amenities: stringToArray.optional(),
     description: z.string().trim().optional().nullable(),
-    coverImageUrl: z.union([z.string().trim(), imageTypeSchema, z.any()]).nullable().optional(),
+    coverImageUrl: z
+      .union([z.string().trim(), imageTypeSchema, z.any()])
+      .nullable()
+      .optional(),
     images: z.any().optional(),
 
     status: productStatusEnum.optional(),
-    isFeatured: z.preprocess((val) => (val === "true" || val === true ? true : val === "false" || val === false ? false : undefined), z.boolean().optional()),
+    isFeatured: z.preprocess(
+      (val) =>
+        val === "true" || val === true
+          ? true
+          : val === "false" || val === false
+            ? false
+            : undefined,
+      z.boolean().optional(),
+    ),
   }),
 });
 
@@ -214,7 +292,9 @@ export const getPropertiesQuerySchema = z.object({
     limit: z
       .string()
       .optional()
-      .transform((val) => (val ? Math.min(100, Math.max(1, parseInt(val, 10))) : 20)),
+      .transform((val) =>
+        val ? Math.min(100, Math.max(1, parseInt(val, 10))) : 20,
+      ),
   }),
 });
 

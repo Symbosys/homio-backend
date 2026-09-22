@@ -47,21 +47,30 @@ export interface JwtUserPayload {
 export const authenticate = async (
   req: Request,
   _res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      throw new ErrorResponse("Authentication token required", statusCode.Unauthorized);
+      throw new ErrorResponse(
+        "Authentication token required",
+        statusCode.Unauthorized,
+      );
     }
 
     const token = authHeader.split(" ")[1];
     if (!token) {
-      throw new ErrorResponse("Invalid authorization format", statusCode.Unauthorized);
+      throw new ErrorResponse(
+        "Invalid authorization format",
+        statusCode.Unauthorized,
+      );
     }
 
     if (!ENV.JWT_SECRET) {
-      throw new ErrorResponse("JWT secret is not configured on server", statusCode.Internal_Server_Error);
+      throw new ErrorResponse(
+        "JWT secret is not configured on server",
+        statusCode.Internal_Server_Error,
+      );
     }
 
     let decoded: JwtUserPayload;
@@ -69,9 +78,15 @@ export const authenticate = async (
       decoded = jwt.verify(token, ENV.JWT_SECRET) as JwtUserPayload;
     } catch (err: any) {
       if (err.name === "TokenExpiredError") {
-        throw new ErrorResponse("Token has expired. Please log in again", statusCode.Unauthorized);
+        throw new ErrorResponse(
+          "Token has expired. Please log in again",
+          statusCode.Unauthorized,
+        );
       }
-      throw new ErrorResponse("Invalid authentication token", statusCode.Unauthorized);
+      throw new ErrorResponse(
+        "Invalid authentication token",
+        statusCode.Unauthorized,
+      );
     }
 
     const user = await prisma.user.findUnique({
@@ -99,15 +114,24 @@ export const authenticate = async (
     });
 
     if (!user || user.isDeleted) {
-      throw new ErrorResponse("User account not found or deactivated", statusCode.Unauthorized);
+      throw new ErrorResponse(
+        "User account not found or deactivated",
+        statusCode.Unauthorized,
+      );
     }
 
     if (user.status !== "ACTIVE") {
-      throw new ErrorResponse(`Account is ${user.status.toLowerCase()}. Please contact support.`, statusCode.Forbidden);
+      throw new ErrorResponse(
+        `Account is ${user.status.toLowerCase()}. Please contact support.`,
+        statusCode.Forbidden,
+      );
     }
 
     if (user.lockedUntil && user.lockedUntil > new Date()) {
-      throw new ErrorResponse("Account is temporarily locked due to multiple failed attempts. Try again later.", statusCode.Forbidden);
+      throw new ErrorResponse(
+        "Account is temporarily locked due to multiple failed attempts. Try again later.",
+        statusCode.Forbidden,
+      );
     }
 
     // Resolve permissions:
@@ -163,18 +187,25 @@ export const authenticate = async (
  * Ensures the authenticated user belongs to the required userType
  * (e.g. 'PLATFORM_ADMIN', 'ADMIN' for CRM Admin Panel vs 'USER' for Customer App).
  */
-export const authorize = (...allowedTypes: Array<"PLATFORM_ADMIN" | "ADMIN" | "USER">) => {
+export const authorize = (
+  ...allowedTypes: Array<"PLATFORM_ADMIN" | "ADMIN" | "USER">
+) => {
   return (req: Request, _res: Response, next: NextFunction) => {
     if (!req.user) {
-      return next(new ErrorResponse("Unauthorized: Login required", statusCode.Unauthorized));
+      return next(
+        new ErrorResponse(
+          "Unauthorized: Login required",
+          statusCode.Unauthorized,
+        ),
+      );
     }
 
     if (!allowedTypes.includes(req.user.userType)) {
       return next(
         new ErrorResponse(
           `Forbidden: This portal is restricted to ${allowedTypes.join(" or ")} accounts`,
-          statusCode.Forbidden
-        )
+          statusCode.Forbidden,
+        ),
       );
     }
 
@@ -190,21 +221,28 @@ export const authorize = (...allowedTypes: Array<"PLATFORM_ADMIN" | "ADMIN" | "U
 export const requirePermission = (permission: Permission) => {
   return (req: Request, _res: Response, next: NextFunction) => {
     if (!req.user) {
-      return next(new ErrorResponse("Unauthorized: Login required", statusCode.Unauthorized));
+      return next(
+        new ErrorResponse(
+          "Unauthorized: Login required",
+          statusCode.Unauthorized,
+        ),
+      );
     }
 
     // Admin userType accounts have full master privileges across administrative modules
-    if (req.user.userType === "ADMIN" || req.user.userType === "PLATFORM_ADMIN" || req.user.permissions.has(permission)) {
+    if (
+      req.user.userType === "ADMIN" ||
+      req.user.userType === "PLATFORM_ADMIN" ||
+      req.user.permissions.has(permission)
+    ) {
       return next();
     }
 
     return next(
       new ErrorResponse(
         `Forbidden: You lack permission '${permission}' to perform this action`,
-        statusCode.Forbidden
-      )
+        statusCode.Forbidden,
+      ),
     );
   };
 };
-
-
