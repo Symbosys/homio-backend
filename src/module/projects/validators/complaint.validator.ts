@@ -81,6 +81,7 @@ export const createComplaintSchema = z.object({
       .min(1, "Complaint description is required")
       .max(5000),
     type: ComplaintTypeEnum.default("QUALITY").optional(),
+    categoryId: z.string().uuid("Invalid complaint category ID format").optional().nullable(),
     status: ComplaintStatusEnum.default("OPEN").optional(),
     severity: ComplaintSeverityEnum.default("MEDIUM").optional(),
     priority: ProjectPriorityEnum.default("MEDIUM").optional(),
@@ -112,6 +113,7 @@ export const createComplaintSchema = z.object({
       .nullable(),
 
     attachments: z.array(imageTypeSchema).optional().nullable(),
+    additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
   }),
 });
 
@@ -133,6 +135,7 @@ export const updateComplaintSchema = z.object({
       .max(5000)
       .optional(),
     type: ComplaintTypeEnum.optional(),
+    categoryId: z.string().uuid("Invalid complaint category ID format").optional().nullable(),
     status: ComplaintStatusEnum.optional(),
     severity: ComplaintSeverityEnum.optional(),
     priority: ProjectPriorityEnum.optional(),
@@ -154,6 +157,7 @@ export const updateComplaintSchema = z.object({
       .nullable(),
 
     attachments: z.array(imageTypeSchema).optional().nullable(),
+    additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
   }),
 });
 

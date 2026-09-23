@@ -267,4 +267,55 @@ describe("Tasks API Quality Test Suite (Areas 6 - 9)", () => {
       expect(result.success).toBe(false);
     });
   });
+
+  // =========================================================================
+  // Area 10: Task Category (Master Data) & Universal Additional Information
+  // =========================================================================
+  describe("Task Category (Master Data) & Universal Additional Information", () => {
+    const MOCK_TASK_CATEGORY_ID = "55556666-7777-8888-9999-000011112222";
+
+    it("should validate task creation with categoryId and additionalInformation", () => {
+      const payload = {
+        body: {
+          ...sampleTaskPayload,
+          categoryId: MOCK_TASK_CATEGORY_ID,
+          additionalInformation: {
+            customFieldTemplate: "InteriorDesignReview",
+            siteCoordinatesVerified: true,
+            cadVersionRequired: "2026",
+          },
+        },
+      };
+
+      const result = createCustomTaskSchema.safeParse(payload);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.body.categoryId).toBe(MOCK_TASK_CATEGORY_ID);
+        expect(result.data.body.additionalInformation?.cadVersionRequired).toBe("2026");
+        expect(result.data.body.additionalInformation?.siteCoordinatesVerified).toBe(true);
+      }
+    });
+
+    it("should validate partial task updates including categoryId and additionalInformation", () => {
+      const updatePayload = {
+        params: { id: MOCK_TASK_ID_1 },
+        body: {
+          categoryId: MOCK_TASK_CATEGORY_ID,
+          additionalInformation: {
+            revisedDeadlineReason: "Client requested additional revision",
+          },
+        },
+      };
+
+      const result = updateTaskSchema.safeParse(updatePayload);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.body.categoryId).toBe(MOCK_TASK_CATEGORY_ID);
+        expect(result.data.body.additionalInformation?.revisedDeadlineReason).toBe(
+          "Client requested additional revision"
+        );
+      }
+    });
+  });
 });
+

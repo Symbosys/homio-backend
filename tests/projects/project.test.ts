@@ -42,6 +42,7 @@ describe("Projects Module Tests", () => {
           name: "Villa Grandeur 4BHK Turnkey Interior",
           description: "End-to-end interior execution for 4BHK duplex luxury villa.",
           category: "Residential Luxury",
+          serviceCategoryId: "c0000000-0000-4000-8000-000000000003",
           type: "TURNKEY" as const,
           status: "PLANNED" as const,
           health: "HEALTHY" as const,
@@ -174,6 +175,7 @@ describe("Projects Module Tests", () => {
       const parsed = createProjectSchema.parse(payload);
       expect(parsed.body.name).toBe("Villa Grandeur 4BHK Turnkey Interior");
       expect(parsed.body.customerId).toBe(MOCK_CUSTOMER_ID);
+      expect(parsed.body.serviceCategoryId).toBe("c0000000-0000-4000-8000-000000000003");
       expect(parsed.body.additionalInformation?.clientTier).toBe("VIP");
       expect(parsed.body.site?.city).toBe("Bangalore");
       expect(parsed.body.site?.additionalInformation?.parkingSlots).toBe(2);

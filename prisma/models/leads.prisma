@@ -109,9 +109,17 @@ model Lead {
   convertedBy        User?     @relation("LeadConvertedBy", fields: [convertedById], references: [id], onDelete: SetNull)
   convertedProjectId String?   @map("converted_project_id") @db.Uuid
 
-  lostReason  String?   @map("lost_reason")
-  lostRemarks String?   @map("lost_remarks")
-  lostAt      DateTime? @map("lost_at")
+  // Service Required Category Master
+  serviceCategoryId String?          @map("service_category_id") @db.Uuid
+  serviceCategory   ServiceCategory? @relation("LeadServiceCategory", fields: [serviceCategoryId], references: [id], onDelete: SetNull)
+
+  // Lost Outcome Details & Master Reason
+  lostReasonId      String?          @map("lost_reason_id") @db.Uuid
+  lostReasonRef     LeadLostReason?  @relation("LeadLostReasonRelation", fields: [lostReasonId], references: [id], onDelete: SetNull)
+  lostReason        String?          @map("lost_reason") // Text fallback / snapshot
+  lostRemarks       String?          @map("lost_remarks")
+  lostCompetitor    String?          @map("lost_competitor") // Competitor name if reason requires competitor
+  lostAt            DateTime?        @map("lost_at")
 
   // Metadata & Custom Attributes
   tags                  String[] @default([]) @map("tags")
@@ -138,6 +146,8 @@ model Lead {
   @@index([organizationId])
   @@index([customerId])
   @@index([assignedToId])
+  @@index([serviceCategoryId])
+  @@index([lostReasonId])
   @@index([status])
   @@index([source])
   @@index([priority])

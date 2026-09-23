@@ -390,12 +390,24 @@ export class LeadService {
         throw new ErrorResponse("Lead not found", statusCode.Not_Found);
       }
 
+      let resolvedLostReason = input.lostReason || null;
+      if (input.lostReasonId) {
+        const reasonRecord = await tx.leadLostReason.findFirst({
+          where: { id: input.lostReasonId, organizationId, isDeleted: false },
+        });
+        if (reasonRecord) {
+          resolvedLostReason = resolvedLostReason || reasonRecord.name;
+        }
+      }
+
       const updatedLead = await tx.lead.update({
         where: { id },
         data: {
           status: "LOST",
-          lostReason: input.lostReason,
+          lostReasonId: input.lostReasonId || null,
+          lostReason: resolvedLostReason,
           lostRemarks: input.lostRemarks || null,
+          lostCompetitor: input.lostCompetitor || null,
           lostAt: new Date(),
         },
       });
@@ -407,7 +419,7 @@ export class LeadService {
           fromStage: existing.status,
           toStage: "LOST",
           changedById: userId || null,
-          remarks: `Reason: ${input.lostReason}. ${input.lostRemarks || ""}`.trim(),
+          remarks: `Reason: ${resolvedLostReason || "Not specified"}. ${input.lostRemarks || ""}`.trim(),
         },
       });
 
@@ -417,10 +429,12 @@ export class LeadService {
           leadId: id,
           type: "NOTE",
           title: "Lead Marked Lost",
-          description: `Reason: ${input.lostReason}. Remarks: ${input.lostRemarks || "None"}`,
+          description: `Reason: ${resolvedLostReason || "Not specified"}. Remarks: ${input.lostRemarks || "None"}`,
           metadata: {
-            lostReason: input.lostReason,
+            lostReasonId: input.lostReasonId || null,
+            lostReason: resolvedLostReason,
             lostRemarks: input.lostRemarks || null,
+            lostCompetitor: input.lostCompetitor || null,
           },
         },
       });

@@ -118,6 +118,7 @@ export const bulkHandoverItemsSchema = z.object({
 
 export const createHandoverSnagSchema = z.object({
   complaintId: z.string().uuid("Invalid Complaint ID").optional().nullable(),
+  categoryId: z.string().uuid("Invalid Snag Category ID format").optional().nullable(),
   areaRoom: z.string().max(255).optional().nullable(),
   title: z.string().min(1, "Snag title is required").max(255),
   description: z.string().optional().nullable(),

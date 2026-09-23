@@ -1,0 +1,286 @@
+// ============================================================================
+// HOMIO CRM - MASTER DATA CATALOG SCHEMA
+// Multi-Tenant Configurable Masters: Measurement Units, Lead Lost Reasons,
+// Service Categories, Complaint & Snag Categories, Task Categories
+// ============================================================================
+
+// ==========================================
+// MASTER DATA ENUMS
+// ==========================================
+
+enum MeasurementUnitType {
+  AREA        // Sq.Ft, Sq.Meter, Sq.Yard, Acre
+  LENGTH      // Running Feet, Meter, Centimeter, Inch, Millimeter
+  VOLUME      // Liter, Milliliter, Cubic Meter, Cubic Feet, Gallon
+  WEIGHT      // Kilogram, Gram, Metric Ton, Quintal, Pound
+  QUANTITY    // Piece, Nos, Box, Packet, Set, Bundle, Roll, Sheet, Pair
+  TIME        // Hour, Day, Week, Month
+}
+
+enum LeadLostReasonGroup {
+  PRICING           // Budget too high, out of price range, discount refused
+  COMPETITOR        // Chose another interior designer/firm
+  TIMELINE          // Project postponed, delayed possession, urgent timeline
+  LOCATION          // Outside service territory / out of reach
+  SCOPE_MISMATCH    // Commercial vs residential, civil scope rejected
+  COMMUNICATION     // Unresponsive client, dropped contact, fake inquiry
+  OTHER             // Miscellaneous / uncategorized
+}
+
+enum ComplaintSnagScope {
+  SNAG              // Punch-list items during execution or pre-handover
+  COMPLAINT         // Customer grievances and escalations during project lifecycle
+  BOTH              // Applicable to both snags and client complaints
+}
+
+enum TaskCategoryScope {
+  LEAD              // Applicable to Lead nurturing & sales tasks
+  PROJECT           // Applicable to Project execution, site visits, milestones
+  CUSTOMER          // Applicable to general client relations
+  GENERAL           // Organization-wide administrative tasks
+  ALL               // Available across all modules
+}
+
+// ==========================================
+// 1. MEASUREMENT UNIT (UOM MASTER)
+// ==========================================
+
+model MeasurementUnit {
+  id                    String              @id @default(uuid()) @db.Uuid
+  organizationId        String              @map("organization_id") @db.Uuid
+  organization          Organization        @relation("OrganizationMeasurementUnits", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Unit Identity
+  name                  String              @db.VarChar(100) // e.g. "Square Feet", "Running Feet", "Pieces"
+  symbol                String              @db.VarChar(20)  // e.g. "sq.ft", "RFT", "PCS", "KG", "SQM"
+  code                  String?             @db.VarChar(50)  // e.g. "UOM-SQFT", "UOM-RFT"
+  type                  MeasurementUnitType @default(QUANTITY) @map("type") // AREA, LENGTH, VOLUME, WEIGHT, QUANTITY, TIME
+  description           String?             @db.Text
+
+  // Conversion & Calculations
+  precision             Int                 @default(2) @map("precision") // Decimal display precision (e.g. 2 for 15.50 sqft, 0 for 5 pcs)
+  conversionFactor      Decimal?            @default(1.0) @map("conversion_factor") @db.Decimal(12, 6) // Conversion multiplier to base unit
+  baseUnitSymbol        String?             @map("base_unit_symbol") @db.VarChar(20) // e.g. "sq.m" if converting to square meters
+
+  // Organization Governance & Controls
+  isDefault             Boolean             @default(false) @map("is_default") // System default vs custom created
+  isSystem              Boolean             @default(false) @map("is_system")  // Core locked unit (protected from hard deletion)
+  isActive              Boolean             @default(true) @map("is_active")   // Active in dropdowns
+  sortOrder             Int                 @default(0) @map("sort_order")     // Display order
+
+  // Universal Custom Fields & Metadata
+  additionalInformation Json?               @map("additional_information")
+
+  // Soft Delete & Timestamps
+  isDeleted             Boolean             @default(false) @map("is_deleted")
+  deletedAt             DateTime?           @map("deleted_at")
+  createdAt             DateTime            @default(now()) @map("created_at")
+  updatedAt             DateTime            @updatedAt @map("updated_at")
+
+  @@unique([organizationId, name])
+  @@unique([organizationId, symbol])
+  @@index([organizationId, type])
+  @@index([organizationId, isActive])
+  @@index([isDeleted, deletedAt])
+  @@map("measurement_units")
+}
+
+// ==========================================
+// 2. LEAD LOST REASON MASTER
+// ==========================================
+
+model LeadLostReason {
+  id                    String              @id @default(uuid()) @db.Uuid
+  organizationId        String              @map("organization_id") @db.Uuid
+  organization          Organization        @relation("OrganizationLeadLostReasons", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Reason Identity
+  name                  String              @db.VarChar(150) // e.g. "Budget Too High / Pricing Issue", "Chose Competitor", "Unresponsive"
+  slug                  String              @db.VarChar(180)
+  code                  String?             @db.VarChar(50)  // e.g. "LOST-BUDGET", "LOST-COMPETITOR"
+  group                 LeadLostReasonGroup @default(OTHER) @map("group") // PRICING, COMPETITOR, TIMELINE, LOCATION, etc.
+  description           String?             @db.Text
+
+  // UI Badging
+  color                 String?             @db.VarChar(50)  // Hex color for lost badges e.g. "#EF4444"
+  icon                  String?             @db.VarChar(50)  // Lucide icon e.g. "DollarSign", "Users", "MapPin"
+
+  // Workflow Control Rules (Enforced in Lead Forms)
+  requiresRemarks       Boolean             @default(false) @map("requires_remarks")       // Mandates sales rep to enter notes
+  requiresCompetitor    Boolean             @default(false) @map("requires_competitor")    // Mandates entering competitor name
+
+  // Organization Governance & Controls
+  isDefault             Boolean             @default(false) @map("is_default")
+  isSystem              Boolean             @default(false) @map("is_system")
+  isActive              Boolean             @default(true) @map("is_active")
+  sortOrder             Int                 @default(0) @map("sort_order")
+
+  // Universal Custom Fields & Metadata
+  additionalInformation Json?               @map("additional_information")
+
+  // Soft Delete & Timestamps
+  isDeleted             Boolean             @default(false) @map("is_deleted")
+  deletedAt             DateTime?           @map("deleted_at")
+  createdAt             DateTime            @default(now()) @map("created_at")
+  updatedAt             DateTime            @updatedAt @map("updated_at")
+
+  // Relations
+  leads                 Lead[]              @relation("LeadLostReasonRelation")
+
+  @@unique([organizationId, name])
+  @@unique([organizationId, slug])
+  @@index([organizationId, group])
+  @@index([organizationId, isActive])
+  @@index([isDeleted, deletedAt])
+  @@map("lead_lost_reasons")
+}
+
+// ==========================================
+// 3. SERVICE CATEGORY MASTER
+// ==========================================
+
+model ServiceCategory {
+  id                    String                     @id @default(uuid()) @db.Uuid
+  organizationId        String                     @map("organization_id") @db.Uuid
+  organization          Organization               @relation("OrganizationServiceCategories", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Category Identity
+  name                  String                     @db.VarChar(100) // e.g. "Modular Kitchen & Wardrobes", "Full Turnkey Interior", "Civil & Structural"
+  slug                  String                     @db.VarChar(120)
+  code                  String?                    @db.VarChar(50)  // e.g. "SRV-INT", "SRV-KIT", "SRV-CIVIL"
+  description           String?                    @db.Text
+
+  // UI Theming & Visuals
+  icon                  String?                    @db.VarChar(50)  // e.g. "Home", "Hammer", "Paintbrush"
+  color                 String?                    @db.VarChar(50)  // e.g. "#3B82F6"
+
+  // Service Level Agreement
+  defaultSlaHours       Int?                       @default(48) @map("default_sla_hours")
+
+  // Organization Governance & Controls
+  isDefault             Boolean                    @default(false) @map("is_default")
+  isSystem              Boolean                    @default(false) @map("is_system")
+  isActive              Boolean                    @default(true) @map("is_active")
+  sortOrder             Int                        @default(0) @map("sort_order")
+
+  // Universal Custom Fields & Metadata
+  additionalInformation Json?                      @map("additional_information")
+
+  // Soft Delete & Timestamps
+  isDeleted             Boolean                    @default(false) @map("is_deleted")
+  deletedAt             DateTime?                  @map("deleted_at")
+  createdAt             DateTime                   @default(now()) @map("created_at")
+  updatedAt             DateTime                   @updatedAt @map("updated_at")
+
+  // Relations Across Modules
+  serviceRequests       AfterSalesServiceRequest[] @relation("CategoryServiceRequests")
+  leads                 Lead[]                     @relation("LeadServiceCategory")
+  projects              Project[]                  @relation("ProjectServiceCategory")
+
+  @@unique([organizationId, name])
+  @@unique([organizationId, slug])
+  @@index([organizationId, isActive])
+  @@index([isDeleted, deletedAt])
+  @@map("service_categories")
+}
+
+// ==========================================
+// 4. COMPLAINT & SNAG CATEGORY MASTER
+// ==========================================
+
+model ComplaintSnagCategory {
+  id                    String                  @id @default(uuid()) @db.Uuid
+  organizationId        String                  @map("organization_id") @db.Uuid
+  organization          Organization            @relation("OrganizationComplaintSnagCategories", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Category Identity
+  name                  String                  @db.VarChar(120) // e.g. "Tile Alignment & Grouting", "Plumbing & Leakage", "Carpentry & Joinery"
+  slug                  String                  @db.VarChar(150)
+  code                  String?                 @db.VarChar(50)  // e.g. "SNAG-PLUMB", "SNAG-WOOD"
+  scope                 ComplaintSnagScope      @default(BOTH) @map("scope") // SNAG, COMPLAINT, BOTH
+  description           String?                 @db.Text
+
+  // UI Badging & Theming
+  color                 String?                 @db.VarChar(50)  // Hex color e.g. "#F59E0B"
+  icon                  String?                 @db.VarChar(50)  // Lucide icon e.g. "AlertTriangle", "Droplet", "Flame"
+
+  // SLA & Severity Defaults
+  defaultSeverity       ComplaintSeverity       @default(MEDIUM) @map("default_severity")
+  defaultResolutionDays Int                     @default(3) @map("default_resolution_days") // Default turnaround SLA in days
+
+  // Organization Governance & Controls
+  isDefault             Boolean                 @default(false) @map("is_default")
+  isSystem              Boolean                 @default(false) @map("is_system")
+  isActive              Boolean                 @default(true) @map("is_active")
+  sortOrder             Int                     @default(0) @map("sort_order")
+
+  // Universal Custom Fields & Metadata
+  additionalInformation Json?                   @map("additional_information")
+
+  // Soft Delete & Timestamps
+  isDeleted             Boolean                 @default(false) @map("is_deleted")
+  deletedAt             DateTime?               @map("deleted_at")
+  createdAt             DateTime                @default(now()) @map("created_at")
+  updatedAt             DateTime                @updatedAt @map("updated_at")
+
+  // Relations to Project Snags and Complaints
+  projectComplaints     ProjectComplaint[]      @relation("ComplaintCategoryRelation")
+  handoverSnags         ProjectHandoverSnag[]   @relation("SnagCategoryRelation")
+
+  @@unique([organizationId, name])
+  @@unique([organizationId, slug])
+  @@index([organizationId, scope])
+  @@index([organizationId, isActive])
+  @@index([isDeleted, deletedAt])
+  @@map("complaint_snag_categories")
+}
+
+// ==========================================
+// 5. TASK CATEGORY MASTER
+// ==========================================
+
+model TaskCategory {
+  id                    String            @id @default(uuid()) @db.Uuid
+  organizationId        String            @map("organization_id") @db.Uuid
+  organization          Organization      @relation("OrganizationTaskCategories", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Category Identity
+  name                  String            @db.VarChar(100) // e.g. "Site Measurement", "Drawing Revision", "Material Selection", "Client Follow-up"
+  slug                  String            @db.VarChar(120)
+  code                  String?           @db.VarChar(50)  // e.g. "TSK-SURVEY", "TSK-DESIGN", "TSK-FOLLOWUP"
+  scope                 TaskCategoryScope @default(ALL) @map("scope") // LEAD, PROJECT, CUSTOMER, GENERAL, ALL
+  description           String?           @db.Text
+
+  // UI Badging & Theming
+  color                 String?           @db.VarChar(50)  // Hex color e.g. "#8B5CF6"
+  icon                  String?           @db.VarChar(50)  // Lucide icon e.g. "Calendar", "Ruler", "Palette"
+
+  // Workflow Defaults
+  defaultPriority       TaskPriority      @default(MEDIUM) @map("default_priority")
+  defaultEstimatedHours Float?            @map("default_estimated_hours") // Estimated hours default for planning
+
+  // Organization Governance & Controls
+  isDefault             Boolean           @default(false) @map("is_default")
+  isSystem              Boolean           @default(false) @map("is_system")
+  isActive              Boolean           @default(true) @map("is_active")
+  sortOrder             Int               @default(0) @map("sort_order")
+
+  // Universal Custom Fields & Metadata
+  additionalInformation Json?             @map("additional_information")
+
+  // Soft Delete & Timestamps
+  isDeleted             Boolean           @default(false) @map("is_deleted")
+  deletedAt             DateTime?         @map("deleted_at")
+  createdAt             DateTime          @default(now()) @map("created_at")
+  updatedAt             DateTime          @updatedAt @map("updated_at")
+
+  // Relations
+  tasks                 Task[]            @relation("TaskCategoryRelation")
+
+  @@unique([organizationId, name])
+  @@unique([organizationId, slug])
+  @@index([organizationId, scope])
+  @@index([organizationId, isActive])
+  @@index([isDeleted, deletedAt])
+  @@map("task_categories")
+}

@@ -219,6 +219,8 @@ export const createProjectSchema = z.object({
     customerId: z.string().uuid("Invalid customer ID format"),
     leadId: z.string().uuid("Invalid lead ID format").optional().nullable(),
     projectCode: z.string().max(50).optional().nullable(), // If omitted, auto-generated PRJ-YYYY-NNNN
+    // Service Category Master Link
+    serviceCategoryId: z.string().uuid("Invalid service category ID format").optional().nullable(),
     name: z.string().min(1, "Project name is required").max(200),
     description: z.string().max(5000).optional().nullable(),
     category: z.string().max(100).optional().nullable(),
@@ -257,6 +259,7 @@ export const updateProjectSchema = z.object({
     // Core Links & Identity
     customerId: z.string().uuid("Invalid customer ID format").optional(),
     leadId: z.string().uuid("Invalid lead ID format").optional().nullable(),
+    serviceCategoryId: z.string().uuid("Invalid service category ID format").optional().nullable(),
     projectCode: z.string().max(50).optional(),
     name: z.string().min(1, "Project name is required").max(200).optional(),
     description: z.string().max(5000).optional().nullable(),

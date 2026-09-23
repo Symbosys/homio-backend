@@ -690,6 +690,7 @@ export class HandoverService {
     return this.repo.createSnag({
       handoverId,
       complaintId: input.complaintId ?? null,
+      categoryId: input.categoryId ?? null,
       areaRoom: input.areaRoom ?? null,
       title: input.title,
       description: input.description ?? null,
@@ -718,6 +719,7 @@ export class HandoverService {
     const updateData: Prisma.ProjectHandoverSnagUncheckedUpdateInput = {};
 
     if (input.complaintId !== undefined) updateData.complaintId = input.complaintId;
+    if (input.categoryId !== undefined) updateData.categoryId = input.categoryId;
     if (input.areaRoom !== undefined) updateData.areaRoom = input.areaRoom;
     if (input.title !== undefined) updateData.title = input.title;
     if (input.description !== undefined) updateData.description = input.description;

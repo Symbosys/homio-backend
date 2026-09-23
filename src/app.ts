@@ -14,6 +14,7 @@ import crmRouter from "./module/leads-crm/routes/index.js";
 import projectsRouter from "./module/projects/routes/index.js";
 import procurementRouter from "./module/procurement/routes/index.js";
 import afterSalesRouter from "./module/after-sales/routes/index.js";
+import masterDataRouter from "./module/master-data/routes/index.js";
 
 const app = express();
 
@@ -80,6 +81,11 @@ app.use("/api/v1/procurement", procurementRouter);
  * After-Sales Services, Warranties, Claims, Field Visits, CSAT & Retention Routes
  */
 app.use("/api/v1/after-sales", afterSalesRouter);
+
+/**
+ * Master Data Module Routes (Units, Lost Reasons, Service Categories, Snags, Tasks)
+ */
+app.use("/api/v1/master-data", masterDataRouter);
 
 app.use(errorMiddleware);
 

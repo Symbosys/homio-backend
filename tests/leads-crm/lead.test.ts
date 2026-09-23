@@ -5,6 +5,7 @@ import {
   getLeadsQuerySchema,
   leadIdParamSchema,
   updateLeadStatusSchema,
+  markLeadLostSchema,
 } from "../../src/module/leads-crm/validators/lead.validator";
 import {
   MOCK_CUSTOMER_ID,
@@ -171,4 +172,64 @@ describe("Lead CRM Module Tests", () => {
       }
     });
   });
+
+  // =========================================================================
+  // 5. Master Data Links & Mark Lost Workflow Validation
+  // =========================================================================
+  describe("Lead Master Data & Lost Workflow Validation", () => {
+    const MOCK_SERVICE_CATEGORY_ID = "c0000000-0000-4000-8000-000000000003";
+    const MOCK_LOST_REASON_ID = "b0000000-0000-4000-8000-000000000002";
+
+    it("should validate lead creation with serviceCategoryId link", () => {
+      const payload = {
+        body: {
+          customerId: MOCK_CUSTOMER_ID,
+          title: "Full Home Interior - Master Data Linked",
+          estimatedBudget: 2500000,
+          serviceCategoryId: MOCK_SERVICE_CATEGORY_ID,
+          additionalInformation: {
+            architectConsultationRequired: true,
+          },
+        },
+      };
+
+      const result = createLeadSchema.safeParse(payload);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.body.serviceCategoryId).toBe(MOCK_SERVICE_CATEGORY_ID);
+        expect(result.data.body.additionalInformation?.architectConsultationRequired).toBe(true);
+      }
+    });
+
+    it("should validate mark lead lost schema with lostReasonId, competitor, and remarks", () => {
+      const payload = {
+        params: { id: MOCK_LEAD_ID },
+        body: {
+          lostReasonId: MOCK_LOST_REASON_ID,
+          lostCompetitor: "HomeLane",
+          lostRemarks: "Client decided to go with competitor offering immediate delivery guarantee.",
+        },
+      };
+
+      const result = markLeadLostSchema.safeParse(payload);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.body.lostReasonId).toBe(MOCK_LOST_REASON_ID);
+        expect(result.data.body.lostCompetitor).toBe("HomeLane");
+      }
+    });
+
+    it("should reject mark lead lost schema when neither lostReasonId nor lostReason is provided", () => {
+      const payload = {
+        params: { id: MOCK_LEAD_ID },
+        body: {
+          lostRemarks: "Missing reason",
+        },
+      };
+
+      const result = markLeadLostSchema.safeParse(payload);
+      expect(result.success).toBe(false);
+    });
+  });
 });
+

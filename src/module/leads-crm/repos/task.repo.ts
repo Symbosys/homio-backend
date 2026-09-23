@@ -32,6 +32,7 @@ export class TaskRepository {
       remindAt,
       tags,
       customFields,
+      additionalInformation,
       ...directFields
     } = data;
 
@@ -44,6 +45,7 @@ export class TaskRepository {
         remindAt: remindAt ? new Date(remindAt) : null,
         tags: tags || [],
         customFields: customFields ? (customFields as Prisma.InputJsonValue) : Prisma.JsonNull,
+        additionalInformation: additionalInformation ? (additionalInformation as Prisma.InputJsonValue) : Prisma.JsonNull,
         ...(assignees && assignees.length > 0
           ? {
               assignees: {
@@ -94,6 +96,7 @@ export class TaskRepository {
         },
         lead: { select: { id: true, leadCode: true, title: true, status: true } },
         customer: { select: { id: true, customerCode: true, firstName: true, lastName: true } },
+        category: { select: { id: true, name: true, slug: true, code: true, color: true, icon: true } },
         checklistItems: { orderBy: { sortOrder: "asc" } },
       },
     });
@@ -158,6 +161,7 @@ export class TaskRepository {
             priority: true,
           },
         },
+        category: { select: { id: true, name: true, slug: true, code: true, color: true, icon: true } },
         customer: {
           select: {
             id: true,
@@ -315,6 +319,7 @@ export class TaskRepository {
           },
           lead: { select: { id: true, leadCode: true, title: true, status: true } },
           customer: { select: { id: true, customerCode: true, firstName: true, lastName: true } },
+          category: { select: { id: true, name: true, slug: true, code: true, color: true, icon: true } },
           _count: {
             select: {
               checklistItems: true,
@@ -388,6 +393,7 @@ export class TaskRepository {
         },
         lead: { select: { id: true, leadCode: true, title: true } },
         customer: { select: { id: true, customerCode: true, firstName: true, lastName: true } },
+        category: { select: { id: true, name: true, slug: true, code: true, color: true, icon: true } },
         _count: {
           select: {
             checklistItems: true,
@@ -422,7 +428,7 @@ export class TaskRepository {
    */
   async update(id: string, organizationId: string, data: UpdateTaskInput, tx?: Prisma.TransactionClient) {
     const db = tx || prisma;
-    const { startDate, dueDate, completedAt, remindAt, customFields, assignees, ...directFields } = data;
+    const { startDate, dueDate, completedAt, remindAt, customFields, additionalInformation, assignees, ...directFields } = data;
 
     if (assignees !== undefined) {
       await db.taskAssignee.deleteMany({
@@ -452,9 +458,13 @@ export class TaskRepository {
         ...(customFields !== undefined
           ? { customFields: customFields ? (customFields as Prisma.InputJsonValue) : Prisma.JsonNull }
           : {}),
+        ...(additionalInformation !== undefined
+          ? { additionalInformation: additionalInformation ? (additionalInformation as Prisma.InputJsonValue) : Prisma.JsonNull }
+          : {}),
       },
       include: {
         assignedTo: { select: { id: true, employeeCode: true, firstName: true, lastName: true } },
+        category: { select: { id: true, name: true, slug: true, code: true, color: true, icon: true } },
         assignees: {
           include: {
             employee: { select: { id: true, employeeCode: true, firstName: true, lastName: true } },

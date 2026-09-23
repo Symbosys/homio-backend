@@ -351,13 +351,16 @@ describe("Project Handover & Possession Management Tests", () => {
   // 7. Pre-Handover Punch-List Snags Validation
   // =========================================================================
   describe("Pre-Handover Punch-List Snags Validation", () => {
-    it("should validate snag creation with severity and assigned technician", () => {
+    const MOCK_SNAG_CATEGORY_ID = "d0000000-0000-4000-8000-000000000004";
+
+    it("should validate snag creation with severity, categoryId, and assigned technician", () => {
       const snagPayload = {
         areaRoom: "Kitchen Island",
         title: "Quartz countertop corner has 2mm sealant gap",
         description: "Silicone sealant along the breakfast counter edge is discontinuous.",
         severity: "MEDIUM" as const,
         status: "REPORTED" as const,
+        categoryId: MOCK_SNAG_CATEGORY_ID,
         assignedToId: MOCK_EMPLOYEE_ID_2,
         targetResolutionDate: "2026-10-12",
         additionalInformation: {
@@ -369,6 +372,7 @@ describe("Project Handover & Possession Management Tests", () => {
       expect(parsed.areaRoom).toBe("Kitchen Island");
       expect(parsed.severity).toBe("MEDIUM");
       expect(parsed.status).toBe("REPORTED");
+      expect(parsed.categoryId).toBe(MOCK_SNAG_CATEGORY_ID);
       expect(parsed.assignedToId).toBe(MOCK_EMPLOYEE_ID_2);
       expect((parsed.additionalInformation as Record<string, any>)?.subcontractorTrade).toBe("Stonework & Countertops");
     });

@@ -14,7 +14,7 @@ export class ComplaintRepository {
    */
   async create(projectId: string, data: CreateComplaintInput, tx?: Prisma.TransactionClient) {
     const db = tx || prisma;
-    const { targetResolutionDate, attachments, ...directFields } = data;
+    const { targetResolutionDate, attachments, additionalInformation, ...directFields } = data;
 
     return db.projectComplaint.create({
       data: {
@@ -22,8 +22,19 @@ export class ComplaintRepository {
         projectId,
         targetResolutionDate: targetResolutionDate ? new Date(targetResolutionDate) : null,
         attachments: attachments ? (attachments as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
+        additionalInformation: additionalInformation ? (additionalInformation as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
       },
       include: {
+        categoryRef: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            code: true,
+            color: true,
+            icon: true,
+          },
+        },
         reportedByCustomer: {
           select: {
             id: true,
@@ -143,6 +154,16 @@ export class ComplaintRepository {
               name: true,
             },
           },
+          categoryRef: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              code: true,
+              color: true,
+              icon: true,
+            },
+          },
           _count: {
             select: {
               comments: true,
@@ -256,7 +277,7 @@ export class ComplaintRepository {
    */
   async update(id: string, projectId: string, data: UpdateComplaintInput, tx?: Prisma.TransactionClient) {
     const db = tx || prisma;
-    const { targetResolutionDate, attachments, ...directFields } = data;
+    const { targetResolutionDate, attachments, additionalInformation, ...directFields } = data;
 
     const updateData: Prisma.ProjectComplaintUpdateInput = {
       ...directFields,
@@ -269,11 +290,24 @@ export class ComplaintRepository {
     if (attachments !== undefined) {
       updateData.attachments = attachments ? (attachments as unknown as Prisma.InputJsonValue) : Prisma.JsonNull;
     }
+    if (additionalInformation !== undefined) {
+      updateData.additionalInformation = additionalInformation ? (additionalInformation as unknown as Prisma.InputJsonValue) : Prisma.JsonNull;
+    }
 
     return db.projectComplaint.update({
       where: { id, projectId },
       data: updateData,
       include: {
+        categoryRef: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            code: true,
+            color: true,
+            icon: true,
+          },
+        },
         assignedTo: {
           select: {
             id: true,

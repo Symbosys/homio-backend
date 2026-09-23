@@ -215,6 +215,16 @@ export class ProjectRepository {
             status: true,
           },
         },
+        serviceCategory: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            code: true,
+            color: true,
+            icon: true,
+          },
+        },
         site: true,
         schedule: true,
         metric: true,
@@ -275,6 +285,16 @@ export class ProjectRepository {
             status: true,
             source: true,
             priority: true,
+          },
+        },
+        serviceCategory: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            code: true,
+            color: true,
+            icon: true,
           },
         },
         createdBy: {
@@ -396,6 +416,16 @@ export class ProjectRepository {
               leadCode: true,
               title: true,
               status: true,
+            },
+          },
+          serviceCategory: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              code: true,
+              color: true,
+              icon: true,
             },
           },
           site: true,

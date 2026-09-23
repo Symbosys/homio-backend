@@ -91,6 +91,10 @@ model Organization {
   dispatchItems           MaterialDispatchItem[]            @relation("OrganizationDispatchItems")
   projectHandovers        ProjectHandover[]                 @relation("OrganizationProjectHandovers")
   serviceCategories       ServiceCategory[]                 @relation("OrganizationServiceCategories")
+  measurementUnits        MeasurementUnit[]                 @relation("OrganizationMeasurementUnits")
+  leadLostReasons         LeadLostReason[]                  @relation("OrganizationLeadLostReasons")
+  complaintSnagCategories ComplaintSnagCategory[]           @relation("OrganizationComplaintSnagCategories")
+  taskCategories          TaskCategory[]                    @relation("OrganizationTaskCategories")
 
   @@index([slug])
   @@index([status])

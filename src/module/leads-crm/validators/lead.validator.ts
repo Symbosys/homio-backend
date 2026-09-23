@@ -82,6 +82,11 @@ export const createLeadSchema = z.object({
     // Assignment
     assignedToId: z.string().uuid("Invalid employee ID").optional().nullable(),
 
+    // Master Data Links
+    serviceCategoryId: z.string().uuid("Invalid service category ID").optional().nullable(),
+    lostReasonId: z.string().uuid("Invalid lost reason ID").optional().nullable(),
+    lostCompetitor: z.string().max(200).optional().nullable(),
+
     tags: z.array(z.string()).default([]).optional(),
     notes: z.string().max(3000).optional().nullable(),
     customFields: z.record(z.string(), z.any()).optional().nullable(),
@@ -102,6 +107,11 @@ export const updateLeadSchema = z.object({
     status: LeadStatusEnum.optional(),
     source: LeadSourceEnum.optional(),
     priority: LeadPriorityEnum.optional(),
+
+    // Master Data Links
+    serviceCategoryId: z.string().uuid("Invalid service category ID").optional().nullable(),
+    lostReasonId: z.string().uuid("Invalid lost reason ID").optional().nullable(),
+    lostCompetitor: z.string().max(200).optional().nullable(),
 
     propertyType: z.string().max(100).optional().nullable(),
     propertySizeSqft: z.coerce.number().positive().optional().nullable(),
@@ -161,8 +171,13 @@ export const markLeadLostSchema = z.object({
     id: z.string().uuid("Invalid lead ID format"),
   }),
   body: z.object({
-    lostReason: z.string().min(1, "Lost reason is required").max(200),
+    lostReasonId: z.string().uuid("Invalid lost reason ID").optional().nullable(),
+    lostReason: z.string().max(200).optional().nullable(),
     lostRemarks: z.string().max(2000).optional().nullable(),
+    lostCompetitor: z.string().max(200).optional().nullable(),
+  }).refine((data) => data.lostReasonId || data.lostReason, {
+    message: "Either lostReasonId or lostReason must be provided",
+    path: ["lostReasonId"],
   }),
 });
 

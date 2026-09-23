@@ -90,10 +90,14 @@ export const createCustomTaskSchema = z.object({
     // Subtasks / Checklist
     checklistItems: z.array(createChecklistItemInputSchema).default([]).optional(),
 
+    // Master Data Category Link
+    categoryId: z.string().uuid("Invalid task category ID").optional().nullable(),
+
     remindAt: z.string().datetime().optional().nullable(),
     tags: z.array(z.string()).default([]).optional(),
     notes: z.string().max(2000).optional().nullable(),
     customFields: z.record(z.string(), z.any()).optional().nullable(),
+    additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
   }),
 });
 
@@ -112,6 +116,9 @@ export const updateTaskSchema = z.object({
     priority: TaskPriorityEnum.optional(),
     status: TaskStatusEnum.optional(),
 
+    // Master Data Category Link
+    categoryId: z.string().uuid("Invalid task category ID").optional().nullable(),
+
     startDate: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional().nullable(),
     dueDate: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional().nullable(),
     completedAt: z.string().datetime().optional().nullable(),
@@ -126,6 +133,7 @@ export const updateTaskSchema = z.object({
     tags: z.array(z.string()).optional(),
     notes: z.string().max(2000).optional().nullable(),
     customFields: z.record(z.string(), z.any()).optional().nullable(),
+    additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
   }),
 });
 

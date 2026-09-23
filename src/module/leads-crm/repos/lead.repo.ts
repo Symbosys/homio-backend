@@ -60,6 +60,27 @@ export class LeadRepository {
             workEmail: true,
           },
         },
+        serviceCategory: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            code: true,
+            color: true,
+            icon: true,
+          },
+        },
+        lostReasonRef: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            code: true,
+            group: true,
+            color: true,
+            icon: true,
+          },
+        },
       },
     });
   }
@@ -129,6 +150,27 @@ export class LeadRepository {
             firstName: true,
             lastName: true,
             email: true,
+          },
+        },
+        serviceCategory: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            code: true,
+            color: true,
+            icon: true,
+          },
+        },
+        lostReasonRef: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            code: true,
+            group: true,
+            color: true,
+            icon: true,
           },
         },
         followUps: {
@@ -293,6 +335,27 @@ export class LeadRepository {
               designation: true,
             },
           },
+          serviceCategory: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              code: true,
+              color: true,
+              icon: true,
+            },
+          },
+          lostReasonRef: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              code: true,
+              group: true,
+              color: true,
+              icon: true,
+            },
+          },
           _count: {
             select: {
               followUps: true,
@@ -364,6 +427,27 @@ export class LeadRepository {
             firstName: true,
             lastName: true,
             designation: true,
+          },
+        },
+        serviceCategory: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            code: true,
+            color: true,
+            icon: true,
+          },
+        },
+        lostReasonRef: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            code: true,
+            group: true,
+            color: true,
+            icon: true,
           },
         },
       },

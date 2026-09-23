@@ -308,6 +308,10 @@ model Project {
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
 
+  // Service Category Master Scope
+  serviceCategoryId String?          @map("service_category_id") @db.Uuid
+  serviceCategory   ServiceCategory? @relation("ProjectServiceCategory", fields: [serviceCategoryId], references: [id], onDelete: SetNull)
+
   // 1-to-1 & 1-to-Many Segregated Relations
   site            ProjectSite?
   schedule        ProjectSchedule?
@@ -338,6 +342,7 @@ model Project {
   @@index([organizationId])
   @@index([customerId])
   @@index([leadId])
+  @@index([serviceCategoryId])
   @@index([status])
   @@index([health])
   @@index([currentStage])
@@ -782,12 +787,14 @@ model ProjectComplaint {
   milestone   ProjectMilestone? @relation("MilestoneComplaints", fields: [milestoneId], references: [id], onDelete: SetNull)
 
   // Identity & Classification
-  title       String            @map("title") // e.g. "Misaligned tile grout in master bathroom"
-  description String            @map("description") @db.Text
-  type        ComplaintType     @default(QUALITY) @map("type")
-  status      ComplaintStatus   @default(OPEN) @map("status")
-  severity    ComplaintSeverity @default(MEDIUM) @map("severity")
-  priority    ProjectPriority   @default(MEDIUM) @map("priority")
+  title       String                  @map("title") // e.g. "Misaligned tile grout in master bathroom"
+  description String                  @map("description") @db.Text
+  type        ComplaintType           @default(QUALITY) @map("type")
+  categoryId  String?                 @map("category_id") @db.Uuid
+  categoryRef ComplaintSnagCategory?  @relation("ComplaintCategoryRelation", fields: [categoryId], references: [id], onDelete: SetNull)
+  status      ComplaintStatus         @default(OPEN) @map("status")
+  severity    ComplaintSeverity       @default(MEDIUM) @map("severity")
+  priority    ProjectPriority         @default(MEDIUM) @map("priority")
 
   // Site Location Context
   areaRoom String? @map("area_room") // e.g. "Master Bedroom", "Kitchen"
@@ -815,7 +822,8 @@ model ProjectComplaint {
   rejectionReason String?   @map("rejection_reason") @db.Text
 
   // Cloud Attachments (Photos/Videos of defect & proof of rectification: ImageType JSON array)
-  attachments Json? @map("attachments")
+  attachments           Json? @map("attachments")
+  additionalInformation Json? @map("additional_information")
 
   // Soft Delete & Timestamps
   isDeleted Boolean   @default(false) @map("is_deleted")
@@ -828,6 +836,7 @@ model ProjectComplaint {
   handoverSnags ProjectHandoverSnag[] @relation("ComplaintHandoverSnags")
 
   @@index([projectId])
+  @@index([categoryId])
   @@index([milestoneId])
   @@index([status])
   @@index([type])
@@ -1165,6 +1174,10 @@ model ProjectHandoverSnag {
   complaintId String?           @map("complaint_id") @db.Uuid
   complaint   ProjectComplaint? @relation("ComplaintHandoverSnags", fields: [complaintId], references: [id], onDelete: SetNull)
 
+  // Linkage to Master Snag Category
+  categoryId  String?                 @map("category_id") @db.Uuid
+  categoryRef ComplaintSnagCategory?  @relation("SnagCategoryRelation", fields: [categoryId], references: [id], onDelete: SetNull)
+
   areaRoom    String?              @map("area_room")   // e.g. "Living Room", "Master Bathroom"
   title       String               @map("title")       // e.g. "Touch-up paint behind sofa wall"
   description String?              @map("description") @db.Text
@@ -1192,6 +1205,7 @@ model ProjectHandoverSnag {
 
   @@index([handoverId])
   @@index([complaintId])
+  @@index([categoryId])
   @@index([status])
   @@index([severity])
   @@index([assignedToId])

@@ -415,6 +415,16 @@ export class HandoverRepository {
     return prisma.projectHandoverSnag.create({
       data,
       include: {
+        categoryRef: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            code: true,
+            color: true,
+            icon: true,
+          },
+        },
         assignedTo: {
           select: {
             id: true,
@@ -432,6 +442,16 @@ export class HandoverRepository {
     return prisma.projectHandoverSnag.findFirst({
       where: { id, handoverId },
       include: {
+        categoryRef: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            code: true,
+            color: true,
+            icon: true,
+          },
+        },
         assignedTo: {
           select: {
             id: true,
@@ -464,6 +484,16 @@ export class HandoverRepository {
     return prisma.projectHandoverSnag.findMany({
       where,
       include: {
+        categoryRef: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            code: true,
+            color: true,
+            icon: true,
+          },
+        },
         assignedTo: {
           select: {
             id: true,
@@ -483,6 +513,16 @@ export class HandoverRepository {
       where: { id },
       data,
       include: {
+        categoryRef: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            code: true,
+            color: true,
+            icon: true,
+          },
+        },
         assignedTo: {
           select: {
             id: true,

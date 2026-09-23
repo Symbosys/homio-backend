@@ -80,14 +80,19 @@ model Task {
   createdById String? @map("created_by_id") @db.Uuid
   createdBy   User?   @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
+  // Dynamic Task Category Master
+  categoryId   String?       @map("category_id") @db.Uuid
+  category     TaskCategory? @relation("TaskCategoryRelation", fields: [categoryId], references: [id], onDelete: SetNull)
+
   // Reminders
   remindAt       DateTime? @map("remind_at")
   isReminderSent Boolean   @default(false) @map("is_reminder_sent")
 
   // Metadata & Custom Attributes
-  tags         String[] @default([]) @map("tags")
-  notes        String?  @map("notes")
-  customFields Json?    @map("custom_fields")
+  tags                  String[] @default([]) @map("tags")
+  notes                 String?  @map("notes")
+  customFields          Json?    @map("custom_fields")
+  additionalInformation Json?    @map("additional_information")
 
   // Soft Delete & Timestamps
   isDeleted Boolean   @default(false) @map("is_deleted")
@@ -107,6 +112,7 @@ model Task {
   @@index([customerId])
   @@index([projectId])
   @@index([assignedToId])
+  @@index([categoryId])
   @@index([status])
   @@index([priority])
   @@index([dueDate])
