@@ -8,6 +8,7 @@ import type {
   UpdateComplaintStatusInput,
   AddComplaintCommentInput,
   GetComplaintsQueryInput,
+  GetOrgComplaintsQueryInput,
 } from "../validators/complaint.validator.js";
 
 export class ComplaintService {
@@ -242,6 +243,26 @@ export class ComplaintService {
     }
 
     return complaintRepo.findComments(complaintId);
+  }
+
+  // ==========================================
+  // SEPARATE ORGANIZATION-WIDE APIS
+  // ==========================================
+
+  /**
+   * List all complaints across the organization with optional project filter
+   */
+  async getComplaintsByOrganization(organizationId: string, query: GetOrgComplaintsQueryInput) {
+    if (query.projectId) {
+      const project = await prisma.project.findFirst({
+        where: { id: query.projectId, organizationId, isDeleted: false },
+      });
+      if (!project) {
+        throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
+      }
+    }
+
+    return complaintRepo.findAllByOrganization(organizationId, query);
   }
 }
 

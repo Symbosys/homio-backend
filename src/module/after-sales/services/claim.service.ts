@@ -139,7 +139,7 @@ export class ClaimService {
   async reviewClaim(
     organizationId: string,
     id: string,
-    reviewedById: string,
+    userId: string,
     input: ReviewWarrantyClaimInput
   ) {
     const claim = await this.getClaimById(organizationId, id);
@@ -148,7 +148,26 @@ export class ClaimService {
       throw new ErrorResponse("Rejection reason is required when rejecting a claim", statusCode.Bad_Request);
     }
 
-    return this.repo.review(organizationId, id, reviewedById, input);
+    // Safely lookup reviewer employee in organization to avoid foreign key violations
+    let reviewerEmployeeId: string | null = null;
+    if (userId) {
+      const employee = await prisma.employee.findFirst({
+        where: {
+          organizationId,
+          OR: [
+            { userId },
+            { id: userId },
+          ],
+          isDeleted: false,
+        },
+        select: { id: true },
+      });
+      if (employee) {
+        reviewerEmployeeId = employee.id;
+      }
+    }
+
+    return this.repo.review(organizationId, id, reviewerEmployeeId, input);
   }
 
   /**

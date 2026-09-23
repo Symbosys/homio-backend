@@ -39,7 +39,9 @@ export const updateWarrantyClaimSchema = z.object({
 export const reviewWarrantyClaimSchema = z.object({
   status: z.enum(["APPROVED", "REJECTED", "UNDER_REVIEW", "INSPECTION_SCHEDULED", "WORK_IN_PROGRESS", "RESOLVED", "SETTLED"]),
   approvedCoverageAmount: z.coerce.number().min(0).optional().nullable(),
+  coveredAmount: z.coerce.number().min(0).optional().nullable(),
   rejectionReason: z.string().optional().nullable(),
+  reviewNotes: z.string().optional().nullable(),
 });
 
 /**

@@ -213,17 +213,19 @@ export class ClaimRepository {
   async review(
     organizationId: string,
     id: string,
-    reviewedById: string,
+    reviewedById: string | null,
     data: ReviewWarrantyClaimInput
   ) {
+    const amount = data.approvedCoverageAmount ?? data.coveredAmount;
+
     return prisma.warrantyClaim.update({
       where: { id },
       data: {
         status: data.status,
-        reviewedById,
+        reviewedById: reviewedById || null,
         reviewedAt: new Date(),
-        ...(data.approvedCoverageAmount !== undefined && {
-          approvedCoverageAmount: data.approvedCoverageAmount !== null ? new Prisma.Decimal(data.approvedCoverageAmount) : null,
+        ...(amount !== undefined && {
+          approvedCoverageAmount: amount !== null ? new Prisma.Decimal(amount) : null,
         }),
         ...(data.rejectionReason !== undefined && { rejectionReason: data.rejectionReason }),
       },

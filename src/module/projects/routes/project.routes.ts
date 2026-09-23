@@ -17,6 +17,7 @@ import expenseCategoryRoutes from "./expense-category.routes.js";
 import designFolderRoutes from "./design-folder.routes.js";
 import designRoutes from "./design.routes.js";
 import handoverRoutes from "./handover.routes.js";
+import orgComplaintRoutes from "./org-complaint.routes.js";
 
 const projectRoutes = Router();
 
@@ -28,6 +29,7 @@ projectRoutes.use("/expense-categories", expenseCategoryRoutes);
 projectRoutes.use("/expenses", expenseRoutes);
 projectRoutes.use("/site-visits", siteVisitRoutes);
 projectRoutes.use("/handovers", handoverRoutes);
+projectRoutes.use("/complaints", orgComplaintRoutes);
 
 // Sub-routes for Milestones, Progress, Approvals, Complaints, Site Visits, Expenses, Designs & Handovers per Project
 projectRoutes.use("/:projectId/milestones", milestoneRoutes);

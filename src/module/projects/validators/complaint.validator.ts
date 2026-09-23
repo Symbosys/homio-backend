@@ -247,3 +247,40 @@ export type AddComplaintCommentInput = z.infer<
 export type GetComplaintsQueryInput = z.infer<
   typeof getComplaintsQuerySchema
 >["query"];
+
+// ==========================================
+// SEPARATE ORGANIZATION-WIDE COMPLAINT SCHEMAS
+// ==========================================
+
+export const getOrgComplaintsQuerySchema = z.object({
+  query: z.object({
+    projectId: z.string().uuid("Invalid project ID format").optional(),
+    categoryId: z.string().uuid("Invalid complaint category ID format").optional(),
+    status: ComplaintStatusEnum.optional(),
+    type: ComplaintTypeEnum.optional(),
+    severity: ComplaintSeverityEnum.optional(),
+    priority: ProjectPriorityEnum.optional(),
+    milestoneId: z.string().uuid().optional(),
+    assignedToId: z.string().uuid().optional(),
+    reportedByCustomerId: z.string().uuid().optional(),
+    reportedByEmployeeId: z.string().uuid().optional(),
+    search: z.string().optional(),
+    page: z.coerce.number().int().positive().default(1).optional(),
+    limit: z.coerce.number().int().positive().max(100).default(20).optional(),
+    sortBy: z
+      .enum([
+        "createdAt",
+        "targetResolutionDate",
+        "resolvedAt",
+        "priority",
+        "severity",
+      ])
+      .default("createdAt")
+      .optional(),
+    sortOrder: z.enum(["asc", "desc"]).default("desc").optional(),
+  }),
+});
+
+export type GetOrgComplaintsQueryInput = z.infer<
+  typeof getOrgComplaintsQuerySchema
+>["query"];

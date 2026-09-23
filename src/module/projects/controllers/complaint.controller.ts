@@ -11,6 +11,7 @@ import {
   complaintIdParamSchema,
   complaintCommentsParamSchema,
   addComplaintCommentSchema,
+  getOrgComplaintsQuerySchema,
 } from "../validators/complaint.validator.js";
 
 /**
@@ -180,4 +181,27 @@ export const getComplaintComments = asyncHandler(async (req, res) => {
     organizationId
   );
   return SuccessResponse(res, "Comments retrieved successfully", result, statusCode.OK);
+});
+
+// ==========================================
+// SEPARATE ORGANIZATION-WIDE COMPLAINT CONTROLLERS
+// ==========================================
+
+/**
+ * @route   GET /api/v1/projects/complaints
+ * @desc    Fetch paginated list of complaints across organization with optional project filter
+ * @access  Private (Authenticated Tenant User)
+ */
+export const getOrganizationComplaints = asyncHandler(async (req, res) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+  }
+
+  const parsedQuery = getOrgComplaintsQuerySchema.parse({ query: req.query });
+  const result = await complaintService.getComplaintsByOrganization(
+    organizationId,
+    parsedQuery.query
+  );
+  return SuccessResponse(res, "Organization complaints retrieved successfully", result, statusCode.OK);
 });

@@ -6,6 +6,7 @@ import type {
   UpdateComplaintStatusInput,
   AddComplaintCommentInput,
   GetComplaintsQueryInput,
+  GetOrgComplaintsQueryInput,
 } from "../validators/complaint.validator.js";
 
 export class ComplaintRepository {
@@ -456,6 +457,135 @@ export class ComplaintRepository {
         },
       },
     });
+  }
+
+  // ==========================================
+  // SEPARATE ORGANIZATION-WIDE APIS
+  // ==========================================
+
+  /**
+   * Find paginated list of complaints across the entire organization with optional project filter
+   */
+  async findAllByOrganization(organizationId: string, query: GetOrgComplaintsQueryInput, tx?: Prisma.TransactionClient) {
+    const db = tx || prisma;
+    const {
+      projectId,
+      categoryId,
+      status,
+      type,
+      severity,
+      priority,
+      milestoneId,
+      assignedToId,
+      reportedByCustomerId,
+      reportedByEmployeeId,
+      search,
+      page = 1,
+      limit = 20,
+      sortBy = "createdAt",
+      sortOrder = "desc",
+    } = query;
+
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.ProjectComplaintWhereInput = {
+      isDeleted: false,
+      project: {
+        organizationId,
+        isDeleted: false,
+      },
+      ...(projectId ? { projectId } : {}),
+      ...(categoryId ? { categoryId } : {}),
+      ...(status ? { status } : {}),
+      ...(type ? { type } : {}),
+      ...(severity ? { severity } : {}),
+      ...(priority ? { priority } : {}),
+      ...(milestoneId ? { milestoneId } : {}),
+      ...(assignedToId ? { assignedToId } : {}),
+      ...(reportedByCustomerId ? { reportedByCustomerId } : {}),
+      ...(reportedByEmployeeId ? { reportedByEmployeeId } : {}),
+      ...(search
+        ? {
+            OR: [
+              { title: { contains: search, mode: "insensitive" } },
+              { description: { contains: search, mode: "insensitive" } },
+              { areaRoom: { contains: search, mode: "insensitive" } },
+              { project: { name: { contains: search, mode: "insensitive" } } },
+              { project: { projectCode: { contains: search, mode: "insensitive" } } },
+            ],
+          }
+        : {}),
+    };
+
+    const [total, data] = await Promise.all([
+      db.projectComplaint.count({ where }),
+      db.projectComplaint.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { [sortBy]: sortOrder },
+        include: {
+          project: {
+            select: {
+              id: true,
+              projectCode: true,
+              name: true,
+              status: true,
+            },
+          },
+          reportedByCustomer: {
+            select: {
+              id: true,
+              customerCode: true,
+              displayName: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+          assignedTo: {
+            select: {
+              id: true,
+              employeeCode: true,
+              displayName: true,
+              avatarUrl: true,
+              designation: true,
+            },
+          },
+          milestone: {
+            select: {
+              id: true,
+              milestoneCode: true,
+              name: true,
+            },
+          },
+          categoryRef: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              code: true,
+              color: true,
+              icon: true,
+            },
+          },
+          _count: {
+            select: {
+              comments: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      data,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    };
   }
 }
 

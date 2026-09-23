@@ -5,6 +5,7 @@ import {
   updateComplaintStatusSchema,
   addComplaintCommentSchema,
   getComplaintsQuerySchema,
+  getOrgComplaintsQuerySchema,
 } from "../../src/module/projects/validators/complaint.validator";
 import {
   MOCK_PROJECT_ID,
@@ -254,6 +255,46 @@ describe("Project Complaints & Issue Tracking Module Tests", () => {
       const parsed = updateComplaintSchema.parse(payload);
       expect(parsed.body.categoryId).toBe(MOCK_SNAG_CATEGORY_ID);
       expect(parsed.body.additionalInformation?.rectificationCost).toBe(450);
+    });
+  });
+
+  // =========================================================================
+  // 7. Separate Organization-Wide Complaints API
+  // =========================================================================
+  describe("Separate Organization-Wide Complaints Validation", () => {
+    it("should validate organization-wide querying with optional projectId and categoryId filters", () => {
+      const query = {
+        projectId: MOCK_PROJECT_ID,
+        status: "OPEN" as const,
+        priority: "URGENT" as const,
+        search: "electrical panel",
+        page: "2",
+        limit: "15",
+        sortBy: "createdAt" as const,
+        sortOrder: "desc" as const,
+      };
+
+      const parsed = getOrgComplaintsQuerySchema.parse({ query });
+      expect(parsed.query.projectId).toBe(MOCK_PROJECT_ID);
+      expect(parsed.query.status).toBe("OPEN");
+      expect(parsed.query.priority).toBe("URGENT");
+      expect(parsed.query.search).toBe("electrical panel");
+      expect(parsed.query.page).toBe(2);
+      expect(parsed.query.limit).toBe(15);
+    });
+
+    it("should validate organization-wide querying across ALL projects when projectId is omitted", () => {
+      const query = {
+        status: "ASSIGNED" as const,
+        severity: "HIGH" as const,
+      };
+
+      const parsed = getOrgComplaintsQuerySchema.parse({ query });
+      expect(parsed.query.projectId).toBeUndefined();
+      expect(parsed.query.status).toBe("ASSIGNED");
+      expect(parsed.query.severity).toBe("HIGH");
+      expect(parsed.query.page).toBe(1);
+      expect(parsed.query.limit).toBe(20);
     });
   });
 });

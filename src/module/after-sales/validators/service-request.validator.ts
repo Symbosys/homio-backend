@@ -73,12 +73,23 @@ export const updateServiceRequestStatusSchema = z.object({
 /**
  * Validator schema for resolving a service request
  */
-export const resolveServiceRequestSchema = z.object({
-  resolvedNotes: z.string().min(2, "Resolution notes required"),
-  finalCost: z.coerce.number().min(0).optional().nullable(),
-  billingStatus: serviceBillingStatusEnum.optional(),
-  isPaid: z.coerce.boolean().optional(),
-});
+export const resolveServiceRequestSchema = z
+  .object({
+    resolvedNotes: z.string().optional(),
+    resolutionNotes: z.string().optional(),
+    partsReplacedNotes: z.string().optional().nullable(),
+    finalCost: z.coerce.number().min(0).optional().nullable(),
+    billingStatus: serviceBillingStatusEnum.optional(),
+    isPaid: z.coerce.boolean().optional(),
+  })
+  .transform((data) => ({
+    ...data,
+    resolvedNotes: (data.resolvedNotes || data.resolutionNotes || "").trim(),
+  }))
+  .refine((data) => data.resolvedNotes.length >= 2, {
+    message: "Resolution notes required (minimum 2 characters)",
+    path: ["resolvedNotes"],
+  });
 
 /**
  * Validator schema for reopening a service request
