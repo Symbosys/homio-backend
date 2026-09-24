@@ -40,12 +40,44 @@ export class FeedbackRepository {
   }
 
   /**
+   * Helper to format Decimal ratings and guarantee alias fields for UI
+   */
+  private formatFeedback<T extends Record<string, any>>(feedback: T | null): T | null {
+    if (!feedback) return feedback;
+    return {
+      ...feedback,
+      overallRating:
+        feedback.overallRating !== null && feedback.overallRating !== undefined
+          ? Number(feedback.overallRating)
+          : 5,
+      speedOfServiceRating:
+        feedback.timelinessRating !== null && feedback.timelinessRating !== undefined
+          ? Number(feedback.timelinessRating)
+          : null,
+      technicianBehaviorRating:
+        feedback.professionalismRating !== null && feedback.professionalismRating !== undefined
+          ? Number(feedback.professionalismRating)
+          : null,
+      cleanlinessRating:
+        feedback.communicationRating !== null && feedback.communicationRating !== undefined
+          ? Number(feedback.communicationRating)
+          : null,
+      workQualityRating:
+        feedback.qualityRating !== null && feedback.qualityRating !== undefined
+          ? Number(feedback.qualityRating)
+          : null,
+      comments: feedback.customerComments ?? null,
+      isIssueFullyResolved: feedback.issueResolvedAnswer ?? "YES",
+    };
+  }
+
+  /**
    * Create customer feedback
    */
   async create(organizationId: string, data: CreateCustomerFeedbackInput) {
     const feedbackNumber = await this.generateNextFeedbackNumber(organizationId);
 
-    return prisma.customerFeedback.create({
+    const record = await prisma.customerFeedback.create({
       data: {
         projectId: data.projectId,
         serviceRequestId: data.serviceRequestId,
@@ -75,13 +107,15 @@ export class FeedbackRepository {
         },
       },
     });
+
+    return this.formatFeedback(record);
   }
 
   /**
    * Find feedback by ID with tenant verification
    */
   async findById(organizationId: string, id: string) {
-    return prisma.customerFeedback.findFirst({
+    const record = await prisma.customerFeedback.findFirst({
       where: {
         id,
         project: { organizationId },
@@ -95,6 +129,8 @@ export class FeedbackRepository {
         serviceVisit: true,
       },
     });
+
+    return this.formatFeedback(record);
   }
 
   /**
@@ -149,7 +185,7 @@ export class FeedbackRepository {
     ]);
 
     return {
-      items,
+      items: items.map((item) => this.formatFeedback(item)),
       total,
       page,
       limit,
@@ -161,7 +197,7 @@ export class FeedbackRepository {
    * Update feedback details
    */
   async update(organizationId: string, id: string, data: UpdateCustomerFeedbackInput) {
-    return prisma.customerFeedback.update({
+    const record = await prisma.customerFeedback.update({
       where: { id },
       data: {
         ...(data.overallRating !== undefined && { overallRating: new Prisma.Decimal(data.overallRating) }),
@@ -186,13 +222,15 @@ export class FeedbackRepository {
         }),
       },
     });
+
+    return this.formatFeedback(record);
   }
 
   /**
    * Escalate feedback to management
    */
   async escalate(organizationId: string, id: string, data: EscalateFeedbackInput) {
-    return prisma.customerFeedback.update({
+    const record = await prisma.customerFeedback.update({
       where: { id },
       data: {
         isEscalated: true,
@@ -200,19 +238,24 @@ export class FeedbackRepository {
         isResolved: false,
       },
     });
+
+    return this.formatFeedback(record);
   }
 
   /**
    * Resolve escalated feedback with manager notes
    */
   async resolveEscalation(organizationId: string, id: string, data: ResolveEscalationInput) {
-    return prisma.customerFeedback.update({
+    const record = await prisma.customerFeedback.update({
       where: { id },
       data: {
         isResolved: true,
+        isEscalated: false,
         managerNotes: data.managerNotes,
       },
     });
+
+    return this.formatFeedback(record);
   }
 
   /**

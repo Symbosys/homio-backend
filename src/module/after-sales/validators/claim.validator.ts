@@ -19,17 +19,23 @@ export const createWarrantyClaimSchema = z.object({
   title: z.string().min(2, "Title must be at least 2 characters").max(255),
   description: z.string().min(5, "Description must be at least 5 characters"),
   areaRoom: z.string().max(100).optional().nullable(),
+  locationArea: z.string().max(100).optional().nullable(),
   claimDate: z.string().refine((val) => !isNaN(Date.parse(val)), "Invalid claimDate format").optional(),
+  reportedDate: z.string().refine((val) => !isNaN(Date.parse(val)), "Invalid reportedDate format").optional(),
   additionalInformation: z.any().optional(),
 });
 
 /**
- * Validator schema for updating a warranty claim
+ * Validator schema for updating a warranty claim (Rule 19 Symmetrical Editability)
  */
 export const updateWarrantyClaimSchema = z.object({
+  warrantyId: z.string().uuid("Invalid warranty ID format").optional(),
   title: z.string().min(2).max(255).optional(),
   description: z.string().min(5).optional(),
   areaRoom: z.string().max(100).optional().nullable(),
+  locationArea: z.string().max(100).optional().nullable(),
+  claimDate: z.string().refine((val) => !isNaN(Date.parse(val)), "Invalid claimDate format").optional(),
+  reportedDate: z.string().refine((val) => !isNaN(Date.parse(val)), "Invalid reportedDate format").optional(),
   additionalInformation: z.any().optional(),
 });
 

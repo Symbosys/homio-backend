@@ -43,7 +43,7 @@ export class ServiceVisitRepository {
   /**
    * Create field service visit
    */
-  async create(organizationId: string, data: CreateServiceVisitInput) {
+  async create(organizationId: string, data: CreateServiceVisitInput & { projectId: string }) {
     const visitNumber = await this.generateNextVisitNumber(organizationId);
 
     return prisma.afterSalesServiceVisit.create({
@@ -171,6 +171,8 @@ export class ServiceVisitRepository {
     return prisma.afterSalesServiceVisit.update({
       where: { id },
       data: {
+        ...(data.serviceRequestId !== undefined && { serviceRequestId: data.serviceRequestId }),
+        ...(data.projectId !== undefined && { projectId: data.projectId }),
         ...(data.visitType !== undefined && { visitType: data.visitType }),
         ...(data.status !== undefined && { status: data.status }),
         ...(data.scheduledDate !== undefined && { scheduledDate: new Date(data.scheduledDate) }),

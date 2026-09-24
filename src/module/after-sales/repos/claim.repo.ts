@@ -49,6 +49,8 @@ export class ClaimRepository {
     evidencePhotos?: ImageType[]
   ) {
     const claimNumber = await this.generateNextClaimNumber(organizationId);
+    const dateVal = data.claimDate || data.reportedDate;
+    const roomVal = data.areaRoom ?? data.locationArea;
 
     return prisma.warrantyClaim.create({
       data: {
@@ -56,8 +58,8 @@ export class ClaimRepository {
         claimNumber,
         title: data.title,
         description: data.description,
-        areaRoom: data.areaRoom,
-        claimDate: data.claimDate ? new Date(data.claimDate) : new Date(),
+        areaRoom: roomVal,
+        claimDate: dateVal ? new Date(dateVal) : new Date(),
         status: "SUBMITTED",
         evidencePhotos: evidencePhotos ? (evidencePhotos as unknown as Prisma.InputJsonValue) : Prisma.DbNull,
         additionalInformation: data.additionalInformation !== undefined ? (data.additionalInformation as Prisma.InputJsonValue) : undefined,
@@ -183,7 +185,7 @@ export class ClaimRepository {
   }
 
   /**
-   * Update claim details & evidence photos
+   * Update claim details & evidence photos (Rule 19 Symmetrical Editability)
    */
   async update(
     organizationId: string,
@@ -191,18 +193,40 @@ export class ClaimRepository {
     data: UpdateWarrantyClaimInput,
     evidencePhotos?: ImageType[]
   ) {
+    const dateVal = data.claimDate || data.reportedDate;
+    const roomVal = data.areaRoom ?? data.locationArea;
+
     return prisma.warrantyClaim.update({
       where: { id },
       data: {
+        ...(data.warrantyId !== undefined && { warrantyId: data.warrantyId }),
         ...(data.title !== undefined && { title: data.title }),
         ...(data.description !== undefined && { description: data.description }),
-        ...(data.areaRoom !== undefined && { areaRoom: data.areaRoom }),
+        ...(roomVal !== undefined && { areaRoom: roomVal }),
+        ...(dateVal !== undefined && { claimDate: new Date(dateVal) }),
         ...(evidencePhotos !== undefined && {
           evidencePhotos: evidencePhotos as unknown as Prisma.InputJsonValue,
         }),
         ...(data.additionalInformation !== undefined && {
           additionalInformation: data.additionalInformation as Prisma.InputJsonValue,
         }),
+      },
+      include: {
+        warranty: {
+          select: {
+            id: true,
+            warrantyNumber: true,
+            category: true,
+            title: true,
+            project: { select: { id: true, name: true, projectCode: true } },
+          },
+        },
+        reviewedBy: {
+          select: { id: true, firstName: true, lastName: true, employeeCode: true },
+        },
+        serviceRequest: {
+          select: { id: true, requestNumber: true, status: true },
+        },
       },
     });
   }

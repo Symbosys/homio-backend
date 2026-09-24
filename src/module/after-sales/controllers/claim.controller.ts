@@ -22,7 +22,16 @@ export const createClaim = asyncHandler(async (req: Request, res: Response) => {
     throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
   }
 
-  const validatedBody = createWarrantyClaimSchema.parse(req.body);
+  let bodyData = req.body;
+  if (typeof bodyData?.additionalInformation === "string") {
+    try {
+      bodyData = { ...bodyData, additionalInformation: JSON.parse(bodyData.additionalInformation) };
+    } catch {
+      // ignore JSON parse error and keep as is
+    }
+  }
+
+  const validatedBody = createWarrantyClaimSchema.parse(bodyData);
 
   const files = req.files as { evidencePhotos?: Express.Multer.File[] } | Express.Multer.File[] | undefined;
   const photoFiles = Array.isArray(files) ? files : files?.evidencePhotos;
@@ -78,7 +87,17 @@ export const updateClaim = asyncHandler(async (req: Request, res: Response) => {
   }
 
   const { id } = claimIdParamSchema.parse(req.params);
-  const validatedBody = updateWarrantyClaimSchema.parse(req.body);
+
+  let bodyData = req.body;
+  if (typeof bodyData?.additionalInformation === "string") {
+    try {
+      bodyData = { ...bodyData, additionalInformation: JSON.parse(bodyData.additionalInformation) };
+    } catch {
+      // ignore JSON parse error and keep as is
+    }
+  }
+
+  const validatedBody = updateWarrantyClaimSchema.parse(bodyData);
 
   const files = req.files as { evidencePhotos?: Express.Multer.File[] } | Express.Multer.File[] | undefined;
   const photoFiles = Array.isArray(files) ? files : files?.evidencePhotos;

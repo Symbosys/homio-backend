@@ -177,6 +177,7 @@ export class RetentionRepository {
     return prisma.retentionFollowUp.update({
       where: { id },
       data: {
+        ...(data.projectId !== undefined && { projectId: data.projectId }),
         ...(data.followUpType !== undefined && {
           followUpType: data.followUpType,
         }),

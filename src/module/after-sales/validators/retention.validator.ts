@@ -46,9 +46,7 @@ export const createRetentionFollowUpSchema = z.object({
 /**
  * Validator schema for updating a retention follow-up
  */
-export const updateRetentionFollowUpSchema = createRetentionFollowUpSchema
-  .omit({ projectId: true })
-  .partial();
+export const updateRetentionFollowUpSchema = createRetentionFollowUpSchema.partial();
 
 /**
  * Validator schema for logging a completed retention call
@@ -76,6 +74,7 @@ export const getRetentionFollowUpsQuerySchema = z.object({
   channel: followUpChannelEnum.optional(),
   outcome: retentionOutcomeEnum.optional(),
   scheduledDate: z.string().optional(),
+  search: z.string().optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
   page: z.coerce.number().int().positive().optional().default(1),

@@ -17,7 +17,9 @@ afterSalesRouter.use("/claims", claimRoutes);
 afterSalesRouter.use("/requests", serviceRequestRoutes);
 afterSalesRouter.use("/visits", serviceVisitRoutes);
 afterSalesRouter.use("/feedbacks", feedbackRoutes);
+afterSalesRouter.use("/feedback", feedbackRoutes);
 afterSalesRouter.use("/retentions", retentionRoutes);
+afterSalesRouter.use("/retention", retentionRoutes);
 afterSalesRouter.use("/analytics", analyticsRoutes);
 
 export default afterSalesRouter;

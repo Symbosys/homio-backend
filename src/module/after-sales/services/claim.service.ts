@@ -103,7 +103,7 @@ export class ClaimService {
   }
 
   /**
-   * Update claim details & evidence photos
+   * Update claim details & evidence photos (Rule 19 Symmetrical Editability)
    */
   async updateClaim(
     organizationId: string,
@@ -113,11 +113,17 @@ export class ClaimService {
   ) {
     const claim = await this.getClaimById(organizationId, id);
 
-    if (claim.status !== "SUBMITTED" && claim.status !== "UNDER_REVIEW") {
-      throw new ErrorResponse(
-        `Cannot update claim in status "${claim.status}"`,
-        statusCode.Bad_Request
-      );
+    if (input.warrantyId && input.warrantyId !== claim.warrantyId) {
+      const warranty = await prisma.projectWarranty.findFirst({
+        where: {
+          id: input.warrantyId,
+          project: { organizationId },
+          isDeleted: false,
+        },
+      });
+      if (!warranty) {
+        throw new ErrorResponse("Target warranty not found within organization", statusCode.Not_Found);
+      }
     }
 
     let evidencePhotos: ImageType[] | undefined = undefined;

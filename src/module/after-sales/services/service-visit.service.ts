@@ -59,9 +59,22 @@ export class ServiceVisitService {
    * Schedule a technician field visit
    */
   async createVisit(organizationId: string, input: CreateServiceVisitInput) {
+    let resolvedProjectId = input.projectId;
+
+    if (!resolvedProjectId) {
+      const requestRecord = await prisma.afterSalesServiceRequest.findFirst({
+        where: { id: input.serviceRequestId, isDeleted: false },
+        select: { projectId: true },
+      });
+      if (!requestRecord) {
+        throw new ErrorResponse("Service request not found", statusCode.Not_Found);
+      }
+      resolvedProjectId = requestRecord.projectId;
+    }
+
     // Verify project belongs to organization
     const project = await prisma.project.findFirst({
-      where: { id: input.projectId, organizationId, isDeleted: false },
+      where: { id: resolvedProjectId, organizationId, isDeleted: false },
     });
     if (!project) {
       throw new ErrorResponse("Project not found within organization", statusCode.Not_Found);
@@ -69,7 +82,7 @@ export class ServiceVisitService {
 
     // Verify service request belongs to this project
     const request = await prisma.afterSalesServiceRequest.findFirst({
-      where: { id: input.serviceRequestId, projectId: input.projectId, isDeleted: false },
+      where: { id: input.serviceRequestId, projectId: resolvedProjectId, isDeleted: false },
     });
     if (!request) {
       throw new ErrorResponse(
@@ -87,7 +100,10 @@ export class ServiceVisitService {
       }
     }
 
-    return this.repo.create(organizationId, input);
+    return this.repo.create(organizationId, {
+      ...input,
+      projectId: resolvedProjectId,
+    });
   }
 
   /**
