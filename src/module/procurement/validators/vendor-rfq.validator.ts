@@ -26,6 +26,15 @@ export const rfqInviteStatusEnum = z.enum([
 ]);
 
 /**
+ * Reusable schema for Date or Datetime string (ISO datetime or YYYY-MM-DD)
+ */
+export const dateOrDatetimeSchema = z
+  .string()
+  .refine((val) => !isNaN(Date.parse(val)), {
+    message: "Must be a valid date or datetime string",
+  });
+
+/**
  * Schema for single RFQ Item creation
  */
 export const createRfqItemSchema = z.object({
@@ -37,7 +46,7 @@ export const createRfqItemSchema = z.object({
   quantity: z.number().positive("Quantity must be greater than 0"),
   unit: z.string().min(1, "Unit is required").max(50),
   targetRate: z.number().nonnegative().optional().nullable(),
-  requiredDate: z.string().datetime("Required date must be a valid ISO datetime"),
+  requiredDate: dateOrDatetimeSchema,
   notes: z.string().optional().nullable(),
   additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
 });
@@ -61,7 +70,7 @@ export const createRfqInviteSchema = z.object({
  */
 export const updateRfqInviteSchema = z.object({
   status: rfqInviteStatusEnum.optional(),
-  respondedAt: z.string().datetime().optional().nullable(),
+  respondedAt: dateOrDatetimeSchema.optional().nullable(),
   notes: z.string().optional().nullable(),
   additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
 });
@@ -74,8 +83,8 @@ export const createVendorRfqSchema = z.object({
   materialRequestId: z.string().uuid("Invalid Material Request ID").optional().nullable(),
   rfqNumber: z.string().max(50).optional(),
   title: z.string().min(1, "Title is required").max(255),
-  rfqDate: z.string().datetime().optional(),
-  deadline: z.string().datetime("Deadline must be a valid ISO datetime"),
+  rfqDate: dateOrDatetimeSchema.optional(),
+  deadline: dateOrDatetimeSchema,
   priority: materialRequestPriorityEnum.optional().default(MaterialRequestPriority.NORMAL),
   status: vendorRfqStatusEnum.optional().default(VendorRfqStatus.SENT),
   deliveryLocation: z.string().optional().nullable(),

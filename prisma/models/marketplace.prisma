@@ -116,7 +116,7 @@ model MarketplaceCategory {
   imageUrl        Json?           @map("image_url")
   sortOrder       Int             @default(0) @map("sort_order")
   isActive        Boolean         @default(true) @map("is_active")
-  commissionRate  Decimal         @default(5)  @map("commission_rate") @db.Decimal(5, 2) // Default 5% platform gets on product sale
+  commissionRate  Decimal         @default(5) @map("commission_rate") @db.Decimal(5, 2) // Default 5% platform gets on product sale
 
   // Parent-Child Hierarchy
   parentId String?               @map("parent_id") @db.Uuid

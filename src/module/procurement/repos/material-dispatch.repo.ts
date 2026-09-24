@@ -15,7 +15,7 @@ const dispatchItemInclude = {
       id: true,
       name: true,
       sku: true,
-      unit: true,
+      unitOfMeasure: true,
       coverImageUrl: true,
       category: {
         select: {
@@ -36,7 +36,8 @@ const materialDispatchDetailInclude = {
       status: true,
       site: {
         select: {
-          siteAddress: true,
+          siteName: true,
+          address: true,
           city: true,
           state: true,
           pincode: true,
@@ -121,6 +122,40 @@ export class MaterialDispatchRepository {
   }
 
   /**
+   * Safely resolve User ID from either a User ID or an Employee ID
+   */
+  private async resolveUserId(
+    id: string | null | undefined,
+    organizationId: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<string | null> {
+    if (!id) return null;
+    const db = tx || prisma;
+
+    // 1. Direct User lookup
+    const user = await db.user.findFirst({
+      where: { id, organizationId, isDeleted: false },
+      select: { id: true },
+    });
+    if (user) return user.id;
+
+    // 2. Employee with linked User lookup
+    const emp = await db.employee.findFirst({
+      where: { id, organizationId, isDeleted: false },
+      select: { userId: true },
+    });
+    if (emp && emp.userId) {
+      const linkedUser = await db.user.findFirst({
+        where: { id: emp.userId, organizationId, isDeleted: false },
+        select: { id: true },
+      });
+      if (linkedUser) return linkedUser.id;
+    }
+
+    return null;
+  }
+
+  /**
    * Create a new Material Dispatch with items in an atomic transaction
    */
   async create(organizationId: string, data: CreateMaterialDispatchInput) {
@@ -129,6 +164,7 @@ export class MaterialDispatchRepository {
         data.dispatchNumber || (await this.generateDispatchNumber(organizationId, tx));
 
       const { items, ...headerData } = data;
+      const resolvedReceivedById = await this.resolveUserId(headerData.receivedById, organizationId, tx);
 
       const createData: Prisma.MaterialDispatchUncheckedCreateInput = {
         organizationId,
@@ -151,7 +187,7 @@ export class MaterialDispatchRepository {
         deliveryProofUrl: (headerData.deliveryProofUrl as Prisma.InputJsonValue) ?? Prisma.JsonNull,
         siteSupervisorSignature: (headerData.siteSupervisorSignature as Prisma.InputJsonValue) ?? Prisma.JsonNull,
         siteInspectionNotes: headerData.siteInspectionNotes || null,
-        receivedById: headerData.receivedById || null,
+        receivedById: resolvedReceivedById,
         additionalInformation: (headerData.additionalInformation as Prisma.InputJsonValue) ?? Prisma.JsonNull,
         items: items && items.length > 0
           ? {
@@ -305,6 +341,11 @@ export class MaterialDispatchRepository {
    * Update Dispatch header
    */
   async update(id: string, organizationId: string, data: UpdateMaterialDispatchInput) {
+    const resolvedReceivedById =
+      data.receivedById !== undefined
+        ? await this.resolveUserId(data.receivedById, organizationId)
+        : undefined;
+
     const updateData: Prisma.MaterialDispatchUncheckedUpdateInput = {
       ...(data.dispatchNumber ? { dispatchNumber: data.dispatchNumber } : {}),
       ...(data.materialRequestId !== undefined ? { materialRequestId: data.materialRequestId || null } : {}),
@@ -329,7 +370,7 @@ export class MaterialDispatchRepository {
         ? { siteSupervisorSignature: (data.siteSupervisorSignature as Prisma.InputJsonValue) ?? Prisma.JsonNull }
         : {}),
       ...(data.siteInspectionNotes !== undefined ? { siteInspectionNotes: data.siteInspectionNotes } : {}),
-      ...(data.receivedById !== undefined ? { receivedById: data.receivedById || null } : {}),
+      ...(data.receivedById !== undefined ? { receivedById: resolvedReceivedById } : {}),
       ...(data.additionalInformation !== undefined
         ? { additionalInformation: (data.additionalInformation as Prisma.InputJsonValue) ?? Prisma.JsonNull }
         : {}),
@@ -465,11 +506,16 @@ export class MaterialDispatchRepository {
       }
 
       // 2. Update dispatch header
+      const resolvedReceivedById =
+        receivedById !== undefined
+          ? await this.resolveUserId(receivedById, organizationId, tx)
+          : undefined;
+
       const updateData: Prisma.MaterialDispatchUncheckedUpdateInput = {
         status: data.status || "RECEIVED",
         actualArrival: data.actualArrival ? new Date(data.actualArrival) : new Date(),
         siteInspectionNotes: data.siteInspectionNotes || null,
-        ...(receivedById !== undefined ? { receivedById: receivedById || null } : {}),
+        ...(receivedById !== undefined ? { receivedById: resolvedReceivedById } : {}),
       };
 
       const updatedDispatch = await tx.materialDispatch.update({

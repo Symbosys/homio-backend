@@ -12,6 +12,15 @@ export const vendorQuotationStatusEnum = z.enum([
 ]);
 
 /**
+ * Reusable schema for Date or Datetime string (ISO datetime or YYYY-MM-DD)
+ */
+export const dateOrDatetimeSchema = z
+  .string()
+  .refine((val) => !isNaN(Date.parse(val)), {
+    message: "Must be a valid date or datetime string",
+  });
+
+/**
  * Schema for single Vendor Quotation Item creation
  */
 export const createQuotationItemSchema = z.object({
@@ -45,8 +54,8 @@ export const createVendorQuotationSchema = z.object({
   rfqId: z.string().uuid("Invalid RFQ ID").optional().nullable(),
   materialRequestId: z.string().uuid("Invalid Material Request ID").optional().nullable(),
   quotationNumber: z.string().max(50).optional(),
-  quoteDate: z.string().datetime().optional(),
-  validUntil: z.string().datetime("Valid until date must be a valid ISO datetime"),
+  quoteDate: dateOrDatetimeSchema.optional(),
+  validUntil: dateOrDatetimeSchema,
   currency: z.string().max(10).optional().default("INR"),
   status: vendorQuotationStatusEnum.optional().default(VendorQuotationStatus.RECEIVED),
   subtotal: z.number().nonnegative().optional(),

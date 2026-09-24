@@ -3,45 +3,45 @@
 // ==========================================
 
 enum ProjectType {
-  TURNKEY          // End-to-end design & build execution
-  CONSULTING       // Advisory / design-only consulting
-  FORM_BASED       // Simple / templated form-based project
-  INTERIOR_DESIGN  // Custom interior designing & 3D styling
-  RENOVATION       // Remodeling & civil restoration
-  COMMERCIAL       // Commercial workspace / retail fit-out
-  RESIDENTIAL      // Residential home / villa
+  TURNKEY // End-to-end design & build execution
+  CONSULTING // Advisory / design-only consulting
+  FORM_BASED // Simple / templated form-based project
+  INTERIOR_DESIGN // Custom interior designing & 3D styling
+  RENOVATION // Remodeling & civil restoration
+  COMMERCIAL // Commercial workspace / retail fit-out
+  RESIDENTIAL // Residential home / villa
 }
 
 enum ProjectStatus {
-  DRAFT            // Initial onboarding & scope definition
-  PLANNED          // Kickoff planned, awaiting resource allocation
-  DESIGN           // 2D/3D design & moodboard phase
+  DRAFT // Initial onboarding & scope definition
+  PLANNED // Kickoff planned, awaiting resource allocation
+  DESIGN // 2D/3D design & moodboard phase
   APPROVAL_PENDING // Client / management signoff pending
-  EXECUTION        // Active on-site procurement & construction
-  ON_HOLD          // Temporarily paused by client/contractor
-  DELAYED          // Critical path blocked / timeline breached
-  COMPLETED        // Work finished, pending final handover
-  HANDOVER         // Formal site & key handover to client
-  CLOSED           // Final settlement completed & archived
-  CANCELLED        // Project terminated
+  EXECUTION // Active on-site procurement & construction
+  ON_HOLD // Temporarily paused by client/contractor
+  DELAYED // Critical path blocked / timeline breached
+  COMPLETED // Work finished, pending final handover
+  HANDOVER // Formal site & key handover to client
+  CLOSED // Final settlement completed & archived
+  CANCELLED // Project terminated
 }
 
 enum ProjectHealth {
-  HEALTHY          // On schedule, within budget
-  AT_RISK          // Minor timeline or material risk detected
-  DELAYED          // Behind schedule
-  CRITICAL         // Severe delays, escalation or dispute
-  COMPLETED        // Successfully delivered
+  HEALTHY // On schedule, within budget
+  AT_RISK // Minor timeline or material risk detected
+  DELAYED // Behind schedule
+  CRITICAL // Severe delays, escalation or dispute
+  COMPLETED // Successfully delivered
 }
 
 enum ProjectStage {
-  PLANNING         // Scope of work & preliminary estimate
-  DESIGN           // Architectural, structural & interior design
-  APPROVAL         // Client drawing & estimate signoff
-  EXECUTION        // Site civil, electrical, carpentry & painting
-  PROCUREMENT      // Material sourcing & vendor purchase orders
-  HANDOVER         // Snag list resolution & key handover
-  AFTER_SALES      // Warranty & maintenance support
+  PLANNING // Scope of work & preliminary estimate
+  DESIGN // Architectural, structural & interior design
+  APPROVAL // Client drawing & estimate signoff
+  EXECUTION // Site civil, electrical, carpentry & painting
+  PROCUREMENT // Material sourcing & vendor purchase orders
+  HANDOVER // Snag list resolution & key handover
+  AFTER_SALES // Warranty & maintenance support
 }
 
 enum ProjectPriority {
@@ -66,69 +66,69 @@ enum ProjectMemberRole {
 }
 
 enum MilestoneStatus {
-  NOT_STARTED        // Milestone scheduled but not active
-  IN_PROGRESS        // Execution actively ongoing
-  PENDING_APPROVAL   // Work submitted for client/QA approval
-  COMPLETED          // Milestone verified and signed off
-  DELAYED            // Critical deadline breached
-  BLOCKED            // Impeded by external dependency / dispute
-  CANCELLED          // Dropped from scope
+  NOT_STARTED // Milestone scheduled but not active
+  IN_PROGRESS // Execution actively ongoing
+  PENDING_APPROVAL // Work submitted for client/QA approval
+  COMPLETED // Milestone verified and signed off
+  DELAYED // Critical deadline breached
+  BLOCKED // Impeded by external dependency / dispute
+  CANCELLED // Dropped from scope
 }
 
 enum ProgressVisibility {
-  INTERNAL           // Visible only to internal organization team
-  CLIENT_VISIBLE     // Displayed on Client Portal & customer reports
+  INTERNAL // Visible only to internal organization team
+  CLIENT_VISIBLE // Displayed on Client Portal & customer reports
 }
 
 enum ProgressApprovalStatus {
-  DRAFT              // Work log being drafted by site engineer
-  SUBMITTED          // Submitted for Project Manager review
-  APPROVED           // Approved by PM / Lead Architect
-  REJECTED           // Rejected due to defects/snags
+  DRAFT // Work log being drafted by site engineer
+  SUBMITTED // Submitted for Project Manager review
+  APPROVED // Approved by PM / Lead Architect
+  REJECTED // Rejected due to defects/snags
   REVISION_REQUESTED // Minor fixes requested
 }
 
 enum ApprovalType {
-  DESIGN           // 2D/3D Floor plans, elevations, moodboards, 3D renders
-  MATERIAL         // Tile, laminate, veneer, fabric, hardware, sanitaryware
-  EXECUTION_STAGE  // Civil work, false ceiling, MEP rough-in
-  WORK_COMPLETION  // Milestone or phase completion verification
-  PAYMENT          // Milestone or variation payment signoff
-  FINAL_HANDOVER   // Final site handover & possession
-  OTHER            // Custom signoff
+  DESIGN // 2D/3D Floor plans, elevations, moodboards, 3D renders
+  MATERIAL // Tile, laminate, veneer, fabric, hardware, sanitaryware
+  EXECUTION_STAGE // Civil work, false ceiling, MEP rough-in
+  WORK_COMPLETION // Milestone or phase completion verification
+  PAYMENT // Milestone or variation payment signoff
+  FINAL_HANDOVER // Final site handover & possession
+  OTHER // Custom signoff
 }
 
 enum ApprovalStatus {
-  PENDING             // Awaiting client review
-  APPROVED            // Approved by client
-  REJECTED            // Rejected by client
-  REVISION_REQUESTED  // Client requested changes / alterations
-  RESUBMITTED         // Resubmitted after implementing revisions
+  PENDING // Awaiting client review
+  APPROVED // Approved by client
+  REJECTED // Rejected by client
+  REVISION_REQUESTED // Client requested changes / alterations
+  RESUBMITTED // Resubmitted after implementing revisions
 }
 
 enum ComplaintType {
-  DESIGN        // Design discrepancy or aesthetic flaw
-  QUALITY       // Workmanship or finish defect
-  MATERIAL      // Substandard or damaged material
-  EXECUTION     // Structural, plumbing, or electrical issue
-  TIMELINE      // Timeline or delay issue
-  BEHAVIOUR     // On-site personnel or contractor conduct
-  PAYMENT       // Commercial or invoice dispute
+  DESIGN // Design discrepancy or aesthetic flaw
+  QUALITY // Workmanship or finish defect
+  MATERIAL // Substandard or damaged material
+  EXECUTION // Structural, plumbing, or electrical issue
+  TIMELINE // Timeline or delay issue
+  BEHAVIOUR // On-site personnel or contractor conduct
+  PAYMENT // Commercial or invoice dispute
   COMMUNICATION // Lack of communication or updates
-  WARRANTY      // Post-handover defect
-  OTHER         // Miscellaneous grievance
+  WARRANTY // Post-handover defect
+  OTHER // Miscellaneous grievance
 }
 
 enum ComplaintStatus {
-  OPEN          // Ticket raised
-  ACKNOWLEDGED  // Acknowledged by team
-  ASSIGNED      // Assigned to site engineer / vendor
-  IN_PROGRESS   // Rectification underway
-  WAITING       // Awaiting client confirmation or replacement materials
-  RESOLVED      // Rectified and internally verified
-  CLOSED        // Client verified and closed
-  REJECTED      // Invalid / out of warranty / out of scope
-  REOPENED      // Reopened if unresolved
+  OPEN // Ticket raised
+  ACKNOWLEDGED // Acknowledged by team
+  ASSIGNED // Assigned to site engineer / vendor
+  IN_PROGRESS // Rectification underway
+  WAITING // Awaiting client confirmation or replacement materials
+  RESOLVED // Rectified and internally verified
+  CLOSED // Client verified and closed
+  REJECTED // Invalid / out of warranty / out of scope
+  REOPENED // Reopened if unresolved
 }
 
 enum ComplaintSeverity {
@@ -139,10 +139,10 @@ enum ComplaintSeverity {
 }
 
 enum ChangeRequestStatus {
-  PENDING     // Submitted by client, awaiting organization review
-  IN_REVIEW   // Under evaluation by design / project team
-  ACCEPTED    // Accepted by team, actively incorporating revisions
-  REJECTED    // Rejected / infeasible / out of scope
+  PENDING // Submitted by client, awaiting organization review
+  IN_REVIEW // Under evaluation by design / project team
+  ACCEPTED // Accepted by team, actively incorporating revisions
+  REJECTED // Rejected / infeasible / out of scope
   IMPLEMENTED // Completed & resubmitted for client sign-off
 }
 
@@ -151,15 +151,15 @@ enum ChangeRequestStatus {
 // ==========================================
 
 enum SiteVisitType {
-  MEASUREMENT         // Initial site survey, laser dimensions, as-built mapping
-  DESIGN              // Design & moodboard validation at site
-  EXECUTION           // Active construction / installation oversight
-  INSPECTION          // Quality & safety audit inspection
-  SUPERVISOR          // Routine supervisor daily site round
-  CLIENT              // Client walkthrough & physical site review
+  MEASUREMENT // Initial site survey, laser dimensions, as-built mapping
+  DESIGN // Design & moodboard validation at site
+  EXECUTION // Active construction / installation oversight
+  INSPECTION // Quality & safety audit inspection
+  SUPERVISOR // Routine supervisor daily site round
+  CLIENT // Client walkthrough & physical site review
   MATERIAL_INSPECTION // Inflow material delivery check & verification
-  FINAL_INSPECTION    // Snaglist & pre-handover final inspection
-  OTHER               // Custom visit
+  FINAL_INSPECTION // Snaglist & pre-handover final inspection
+  OTHER // Custom visit
 }
 
 enum SiteVisitStatus {
@@ -171,10 +171,10 @@ enum SiteVisitStatus {
 }
 
 enum SiteVisitOutcome {
-  COMPLETED           // Successfully completed with all points addressed
-  ISSUES_FOUND        // Defects, snags, or non-compliance detected
-  FOLLOW_UP_REQUIRED  // Additional visit or engineering action required
-  PENDING_APPROVAL    // Sign-off / drawing revision pending
+  COMPLETED // Successfully completed with all points addressed
+  ISSUES_FOUND // Defects, snags, or non-compliance detected
+  FOLLOW_UP_REQUIRED // Additional visit or engineering action required
+  PENDING_APPROVAL // Sign-off / drawing revision pending
 }
 
 // ==========================================
@@ -182,9 +182,9 @@ enum SiteVisitOutcome {
 // ==========================================
 
 enum ExpenseScope {
-  PROJECT       // Cost directly attributed to a specific project
-  ORGANIZATION  // General company / overhead operational expense
-  BOTH          // Applicable to both project & organization expenses
+  PROJECT // Cost directly attributed to a specific project
+  ORGANIZATION // General company / overhead operational expense
+  BOTH // Applicable to both project & organization expenses
 }
 
 enum ExpensePaymentMethod {
@@ -213,48 +213,48 @@ enum ExpensePaymentStatus {
 // ==========================================
 
 enum ProjectHandoverStatus {
-  DRAFT               // Organization site team drafting handover package
-  SCHEDULED           // Formal handover inspection & possession date scheduled
-  INSPECTION_PENDING  // Joint site inspection walkthrough pending
-  SNAGS_IN_PROGRESS   // Punch-list rectification actively ongoing prior to possession
-  CLIENT_REVIEW       // Deliverables, warranties & documents under client review
-  ACCEPTED            // Client signed acceptance & possession certificate
-  REJECTED            // Handover rejected by client due to critical defects/disputes
-  COMPLETED           // Keys delivered, warranty active, project archived
-  CANCELLED           // Handover cancelled / aborted
+  DRAFT // Organization site team drafting handover package
+  SCHEDULED // Formal handover inspection & possession date scheduled
+  INSPECTION_PENDING // Joint site inspection walkthrough pending
+  SNAGS_IN_PROGRESS // Punch-list rectification actively ongoing prior to possession
+  CLIENT_REVIEW // Deliverables, warranties & documents under client review
+  ACCEPTED // Client signed acceptance & possession certificate
+  REJECTED // Handover rejected by client due to critical defects/disputes
+  COMPLETED // Keys delivered, warranty active, project archived
+  CANCELLED // Handover cancelled / aborted
 }
 
 enum HandoverItemCategory {
-  KEYS                  // Main door, bedrooms, wardrobes, utility, DB box, terrace
+  KEYS // Main door, bedrooms, wardrobes, utility, DB box, terrace
   ACCESS_CARD_OR_REMOTE // Smart lock RFID cards, gate remotes, sensor fobs, automation pads
-  APPLIANCE_MANUAL      // Hob, chimney, microwave, dishwasher, geyser manuals
-  WARRANTY_DOCUMENT     // Manufacturer & contractor warranty cards (woodwork, waterproofing, paint)
-  AS_BUILT_DRAWING      // Final as-built MEP, electrical conduit & plumbing line drawings
-  MAINTENANCE_GUIDE     // Marble polish, veneer care, fabric care instructions
-  SPARE_MATERIAL        // Extra tiles, touch-up paint cans, extra laminate, hardware
-  OTHER                 // Custom hand-off deliverable
+  APPLIANCE_MANUAL // Hob, chimney, microwave, dishwasher, geyser manuals
+  WARRANTY_DOCUMENT // Manufacturer & contractor warranty cards (woodwork, waterproofing, paint)
+  AS_BUILT_DRAWING // Final as-built MEP, electrical conduit & plumbing line drawings
+  MAINTENANCE_GUIDE // Marble polish, veneer care, fabric care instructions
+  SPARE_MATERIAL // Extra tiles, touch-up paint cans, extra laminate, hardware
+  OTHER // Custom hand-off deliverable
 }
 
 enum HandoverItemStatus {
-  PENDING         // Prepared but not yet inspected/handed over
-  VERIFIED        // Verified ready by internal site supervisor
-  HANDED_OVER     // Physically received and acknowledged by client
-  NOT_APPLICABLE  // Waived or not applicable for this project
+  PENDING // Prepared but not yet inspected/handed over
+  VERIFIED // Verified ready by internal site supervisor
+  HANDED_OVER // Physically received and acknowledged by client
+  NOT_APPLICABLE // Waived or not applicable for this project
 }
 
 enum HandoverSnagSeverity {
-  LOW       // Cosmetic flaw (minor scuff mark, paint smudge, uneven silicone bead)
-  MEDIUM    // Functional defect (stiff latch, loose hinge, misaligned switch plate)
-  HIGH      // Significant defect (cracked tile, plumbing drip, deep veneer scratch)
-  CRITICAL  // Safety or handover blocker (short circuit, active water seepage)
+  LOW // Cosmetic flaw (minor scuff mark, paint smudge, uneven silicone bead)
+  MEDIUM // Functional defect (stiff latch, loose hinge, misaligned switch plate)
+  HIGH // Significant defect (cracked tile, plumbing drip, deep veneer scratch)
+  CRITICAL // Safety or handover blocker (short circuit, active water seepage)
 }
 
 enum HandoverSnagStatus {
-  REPORTED            // Snag identified during joint walkthrough
-  IN_PROGRESS         // Work assigned to vendor / trade contractor
-  RESOLVED            // Work rectified and checked by site engineer
-  ACCEPTED_BY_CLIENT  // Client verified and cleared the snag
-  WAIVED              // Mutually agreed to waive or deferred to DLP
+  REPORTED // Snag identified during joint walkthrough
+  IN_PROGRESS // Work assigned to vendor / trade contractor
+  RESOLVED // Work rectified and checked by site engineer
+  ACCEPTED_BY_CLIENT // Client verified and cleared the snag
+  WAIVED // Mutually agreed to waive or deferred to DLP
 }
 
 // ==========================================
@@ -313,30 +313,31 @@ model Project {
   serviceCategory   ServiceCategory? @relation("ProjectServiceCategory", fields: [serviceCategoryId], references: [id], onDelete: SetNull)
 
   // 1-to-1 & 1-to-Many Segregated Relations
-  site            ProjectSite?
-  schedule        ProjectSchedule?
-  metric          ProjectMetric?
-  commercial      ProjectCommercial?
-  members         ProjectMember[]
-  milestones      ProjectMilestone[] @relation("ProjectMilestones")
-  progressEntries ProjectProgress[]  @relation("ProjectProgressEntries")
-  workApprovals   WorkApproval[]     @relation("ProjectWorkApprovals")
-  complaints      ProjectComplaint[] @relation("ProjectComplaints")
-  siteVisits      ProjectSiteVisit[]    @relation("ProjectSiteVisits")
-  expenses        Expense[]             @relation("ProjectExpenses")
-  designFolders   ProjectDesignFolder[]   @relation("ProjectDesignFolders")
-  designs         ProjectDesign[]         @relation("ProjectDesigns")
-  designApprovals    DesignVersionApproval[] @relation("ProjectDesignApprovals")
-  materialRequests   MaterialRequest[]       @relation("ProjectMaterialRequests")
-  vendorRfqs         VendorRfq[]             @relation("ProjectVendorRfqs")
-  vendorQuotations   VendorQuotation[]       @relation("ProjectVendorQuotations")
-  materialDispatches MaterialDispatch[]      @relation("ProjectMaterialDispatches")
-  handovers          ProjectHandover[]       @relation("ProjectHandovers")
-  projectWarranties           ProjectWarranty[]          @relation("ProjectWarranties")
-  afterSalesServiceRequests  AfterSalesServiceRequest[] @relation("ProjectAfterSalesServiceRequests")
-  afterSalesServiceVisits    AfterSalesServiceVisit[]   @relation("ProjectAfterSalesServiceVisits")
-  customerFeedbacks          CustomerFeedback[]         @relation("ProjectCustomerFeedbacks")
-  retentionFollowUps         RetentionFollowUp[]        @relation("ProjectRetentionFollowUps")
+  site                      ProjectSite?
+  schedule                  ProjectSchedule?
+  metric                    ProjectMetric?
+  commercial                ProjectCommercial?
+  members                   ProjectMember[]
+  milestones                ProjectMilestone[]         @relation("ProjectMilestones")
+  progressEntries           ProjectProgress[]          @relation("ProjectProgressEntries")
+  workApprovals             WorkApproval[]             @relation("ProjectWorkApprovals")
+  complaints                ProjectComplaint[]         @relation("ProjectComplaints")
+  siteVisits                ProjectSiteVisit[]         @relation("ProjectSiteVisits")
+  expenses                  Expense[]                  @relation("ProjectExpenses")
+  designFolders             ProjectDesignFolder[]      @relation("ProjectDesignFolders")
+  designs                   ProjectDesign[]            @relation("ProjectDesigns")
+  designApprovals           DesignVersionApproval[]    @relation("ProjectDesignApprovals")
+  materialRequests          MaterialRequest[]          @relation("ProjectMaterialRequests")
+  vendorRfqs                VendorRfq[]                @relation("ProjectVendorRfqs")
+  vendorQuotations          VendorQuotation[]          @relation("ProjectVendorQuotations")
+  materialDispatches        MaterialDispatch[]         @relation("ProjectMaterialDispatches")
+  handovers                 ProjectHandover[]          @relation("ProjectHandovers")
+  projectWarranties         ProjectWarranty[]          @relation("ProjectWarranties")
+  afterSalesServiceRequests AfterSalesServiceRequest[] @relation("ProjectAfterSalesServiceRequests")
+  afterSalesServiceVisits   AfterSalesServiceVisit[]   @relation("ProjectAfterSalesServiceVisits")
+  customerFeedbacks         CustomerFeedback[]         @relation("ProjectCustomerFeedbacks")
+  retentionFollowUps        RetentionFollowUp[]        @relation("ProjectRetentionFollowUps")
+  labourBookings            LabourBooking[]            @relation("ProjectLabourBookings")
 
   @@unique([organizationId, projectCode])
   @@index([organizationId])
@@ -364,11 +365,13 @@ model ProjectSite {
   siteName String? @map("site_name") // e.g. "Prestige Lakeside, Tower 4, Flat 1202"
   address  String? @map("address")
   city     String? @map("city")
-  state    String? @map("state")
-  country  String  @default("IN") @map("country")
-  pincode  String? @map("pincode")
-  gpsLat   Float?  @map("gps_lat")
-  gpsLng   Float?  @map("gps_lng")
+  state                 String?  @map("state")
+  country               String   @default("IN") @map("country")
+  pincode               String?  @map("pincode")
+  gpsLat                Float?   @map("gps_lat")
+  gpsLng                Float?   @map("gps_lng")
+  punchRadiusMeters     Int      @default(200) @map("punch_radius_meters")
+  isPunchGeofenceStrict Boolean  @default(true) @map("is_punch_geofence_strict")
 
   // Physical Specifications
   propertyType   String? @map("property_type") // e.g. "4BHK Villa", "Penthouse", "Commercial Office"
@@ -380,11 +383,12 @@ model ProjectSite {
   contactPerson         String? @map("contact_person")
   contactPhone          String? @map("contact_phone")
   contactEmail          String? @map("contact_email")
-  accessInstructions   String? @map("access_instructions") @db.Text
+  accessInstructions    String? @map("access_instructions") @db.Text
   additionalInformation Json?   @map("additional_information")
 
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  labourAttendances LabourAttendance[] @relation("ProjectSiteLabourAttendances")
 
   @@index([city])
   @@map("project_sites")
@@ -415,9 +419,9 @@ model ProjectMember {
   assignedAt            DateTime  @default(now()) @map("assigned_at")
   unassignedAt          DateTime? @map("unassigned_at")
 
-  assignedById          String?   @map("assigned_by_id") @db.Uuid
-  assignedBy            User?     @relation("ProjectMemberAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
-  additionalInformation Json?     @map("additional_information")
+  assignedById          String? @map("assigned_by_id") @db.Uuid
+  assignedBy            User?   @relation("ProjectMemberAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+  additionalInformation Json?   @map("additional_information")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -453,9 +457,9 @@ model ProjectSchedule {
   extendedWarrantyEndDate DateTime? @map("extended_warranty_end_date") @db.Date
 
   // Duration Estimates
-  estimatedDurationDays Int?   @map("estimated_duration_days")
-  actualDurationDays    Int?   @map("actual_duration_days")
-  additionalInformation Json?  @map("additional_information")
+  estimatedDurationDays Int?  @map("estimated_duration_days")
+  actualDurationDays    Int?  @map("actual_duration_days")
+  additionalInformation Json? @map("additional_information")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -482,7 +486,7 @@ model ProjectMetric {
 
   // Quality & Safety Audit Scores
   qualityScore Float? @map("quality_score") // 0 to 100
-  safetyScore  Float? @map("safety_score")  // 0 to 100
+  safetyScore  Float? @map("safety_score") // 0 to 100
 
   lastEvaluatedAt       DateTime? @map("last_evaluated_at")
   additionalInformation Json?     @map("additional_information")
@@ -704,7 +708,7 @@ model WorkApproval {
   // Client Decision & Change Request Lifecycle
   reviewedAt      DateTime? @map("reviewed_at")
   clientFeedback  String?   @map("client_feedback") @db.Text // Overall client response
-  revisionNotes   String?   @map("revision_notes") @db.Text  // Specific change requests / tweaks requested
+  revisionNotes   String?   @map("revision_notes") @db.Text // Specific change requests / tweaks requested
   revisionCount   Int       @default(0) @map("revision_count") // Tracks revision rounds
   rejectionReason String?   @map("rejection_reason") @db.Text
 
@@ -747,7 +751,7 @@ model WorkApprovalChangeRequest {
 
   // Client Request Details
   requestedChanges String              @map("requested_changes") @db.Text // Specific modifications demanded
-  reason           String?             @map("reason") @db.Text            // Context / rationale
+  reason           String?             @map("reason") @db.Text // Context / rationale
   status           ChangeRequestStatus @default(PENDING) @map("status")
 
   // Client Attribution & Media
@@ -787,14 +791,14 @@ model ProjectComplaint {
   milestone   ProjectMilestone? @relation("MilestoneComplaints", fields: [milestoneId], references: [id], onDelete: SetNull)
 
   // Identity & Classification
-  title       String                  @map("title") // e.g. "Misaligned tile grout in master bathroom"
-  description String                  @map("description") @db.Text
-  type        ComplaintType           @default(QUALITY) @map("type")
-  categoryId  String?                 @map("category_id") @db.Uuid
-  categoryRef ComplaintSnagCategory?  @relation("ComplaintCategoryRelation", fields: [categoryId], references: [id], onDelete: SetNull)
-  status      ComplaintStatus         @default(OPEN) @map("status")
-  severity    ComplaintSeverity       @default(MEDIUM) @map("severity")
-  priority    ProjectPriority         @default(MEDIUM) @map("priority")
+  title       String                 @map("title") // e.g. "Misaligned tile grout in master bathroom"
+  description String                 @map("description") @db.Text
+  type        ComplaintType          @default(QUALITY) @map("type")
+  categoryId  String?                @map("category_id") @db.Uuid
+  categoryRef ComplaintSnagCategory? @relation("ComplaintCategoryRelation", fields: [categoryId], references: [id], onDelete: SetNull)
+  status      ComplaintStatus        @default(OPEN) @map("status")
+  severity    ComplaintSeverity      @default(MEDIUM) @map("severity")
+  priority    ProjectPriority        @default(MEDIUM) @map("priority")
 
   // Site Location Context
   areaRoom String? @map("area_room") // e.g. "Master Bedroom", "Kitchen"
@@ -832,7 +836,7 @@ model ProjectComplaint {
   updatedAt DateTime  @updatedAt @map("updated_at")
 
   // Discussion & Feedback Thread
-  comments ComplaintComment[] @relation("ComplaintComments")
+  comments      ComplaintComment[]    @relation("ComplaintComments")
   handoverSnags ProjectHandoverSnag[] @relation("ComplaintHandoverSnags")
 
   @@index([projectId])
@@ -887,22 +891,22 @@ model ProjectSiteVisit {
   milestone   ProjectMilestone? @relation("MilestoneSiteVisits", fields: [milestoneId], references: [id], onDelete: SetNull)
 
   // Identity & Classification
-  title     String           @map("title") // e.g. "False Ceiling Framing & Electrical Conduit Check"
-  visitType SiteVisitType    @default(EXECUTION) @map("visit_type")
-  status    SiteVisitStatus  @default(SCHEDULED) @map("status")
+  title     String            @map("title") // e.g. "False Ceiling Framing & Electrical Conduit Check"
+  visitType SiteVisitType     @default(EXECUTION) @map("visit_type")
+  status    SiteVisitStatus   @default(SCHEDULED) @map("status")
   outcome   SiteVisitOutcome? @map("outcome")
 
   // Schedule & Timing
   plannedDate DateTime  @map("planned_date") @db.Date
   actualDate  DateTime? @map("actual_date") @db.Date
   startTime   String?   @map("start_time") // e.g. "10:30 AM"
-  endTime     String?   @map("end_time")   // e.g. "12:00 PM"
+  endTime     String?   @map("end_time") // e.g. "12:00 PM"
 
   // Purpose, Observations & Actions
   purpose          String? @map("purpose") @db.Text
-  summary          String? @map("summary") @db.Text           // Observations / work inspected
+  summary          String? @map("summary") @db.Text // Observations / work inspected
   issuesIdentified String? @map("issues_identified") @db.Text // Snags & defects identified
-  actionItems      String? @map("action_items") @db.Text      // Next actions / contractor instructions
+  actionItems      String? @map("action_items") @db.Text // Next actions / contractor instructions
 
   // Attendees & Location
   visitorEmployeeId    String?   @map("visitor_employee_id") @db.Uuid
@@ -951,11 +955,11 @@ model ExpenseCategory {
 
   // UI Theming & Visuals
   color String? @map("color") // Hex badge color (e.g. "#6366F1")
-  icon  String? @map("icon")  // Lucide icon identifier (e.g. "Package", "Wrench", "Building2")
+  icon  String? @map("icon") // Lucide icon identifier (e.g. "Package", "Wrench", "Building2")
 
   // Tax & Accounting Metadata
   isTaxDeductible Boolean @default(true) @map("is_tax_deductible") // Whether this category qualifies for tax deduction
-  isDefault       Boolean @default(false) @map("is_default")       // System pre-seeded default category vs custom created
+  isDefault       Boolean @default(false) @map("is_default") // System pre-seeded default category vs custom created
   isActive        Boolean @default(true) @map("is_active")
 
   // Associated Expenses Relation
@@ -1023,12 +1027,12 @@ model Expense {
   createdBy   Employee? @relation("ExpenseCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
   // Cloud Attachments & Receipts
-  receiptUrl  Json? @map("receipt_url")  // Primary invoice / receipt copy (ImageType JSON)
-  attachments Json? @map("attachments")  // Additional delivery challans / PO slips (ImageType JSON array)
+  receiptUrl  Json? @map("receipt_url") // Primary invoice / receipt copy (ImageType JSON)
+  attachments Json? @map("attachments") // Additional delivery challans / PO slips (ImageType JSON array)
 
   // Billing & Reimbursement Flags
   isBillableToClient Boolean @default(false) @map("is_billable_to_client") // True if billed to client as variation / reimbursable
-  isReimbursable     Boolean @default(false) @map("is_reimbursable")      // True if paid out-of-pocket by employee
+  isReimbursable     Boolean @default(false) @map("is_reimbursable") // True if paid out-of-pocket by employee
   isReimbursed       Boolean @default(false) @map("is_reimbursed")
 
   // Custom Tags & Notes
@@ -1071,14 +1075,14 @@ model ProjectHandover {
 
   // Handover Identity & Status
   handoverNumber String                @map("handover_number") // e.g. "HND-2026-0001"
-  title          String                @map("title")           // e.g. "Villa Grandeur 4BHK Final Handover & Possession"
+  title          String                @map("title") // e.g. "Villa Grandeur 4BHK Final Handover & Possession"
   description    String?               @map("description") @db.Text
   status         ProjectHandoverStatus @default(DRAFT) @map("status")
 
   // Timeline
   scheduledDate DateTime? @map("scheduled_date") @db.Date // Planned client walkthrough & key handover
   inspectedDate DateTime? @map("inspected_date") @db.Date // Actual joint inspection date
-  handoverDate  DateTime? @map("handover_date") @db.Date  // Actual key possession date
+  handoverDate  DateTime? @map("handover_date") @db.Date // Actual key possession date
 
   // Commercial & Financial Settlement Clearance
   isCommercialCleared   Boolean  @default(false) @map("is_commercial_cleared")
@@ -1096,13 +1100,13 @@ model ProjectHandover {
   // Formal Handover Execution & Client Acceptance
   handedOverById         String?   @map("handed_over_by_id") @db.Uuid
   handedOverBy           Employee? @relation("EmployeeHandedOverProjects", fields: [handedOverById], references: [id], onDelete: SetNull)
-  clientSignoffName      String?   @map("client_signoff_name")    // Name of client / authorized POA representative
+  clientSignoffName      String?   @map("client_signoff_name") // Name of client / authorized POA representative
   clientSignedAt         DateTime? @map("client_signed_at")
-  clientSignatureUrl     Json?     @map("client_signature_url")     // Digital touch signature (ImageType JSON)
+  clientSignatureUrl     Json?     @map("client_signature_url") // Digital touch signature (ImageType JSON)
   clientFeedback         String?   @map("client_feedback") @db.Text // Client testimonials / remarks
-  clientRating           Float?    @map("client_rating")           // 1.0 to 5.0 CSAT rating
+  clientRating           Float?    @map("client_rating") // 1.0 to 5.0 CSAT rating
   handoverCertificateUrl Json?     @map("handover_certificate_url") // Final PDF sign-off sheet (ImageType JSON)
-  sitePhotos             Json?     @map("site_photos")             // Finished walkthrough site photos (ImageType JSON array)
+  sitePhotos             Json?     @map("site_photos") // Finished walkthrough site photos (ImageType JSON array)
 
   // Universal Custom Fields & Metadata
   additionalInformation Json? @map("additional_information")
@@ -1139,7 +1143,7 @@ model ProjectHandoverItem {
   handover   ProjectHandover @relation("HandoverItems", fields: [handoverId], references: [id], onDelete: Cascade)
 
   category      HandoverItemCategory @default(KEYS) @map("category")
-  name          String               @map("name")        // e.g. "Main Door Smart Lock RFID Cards (x3)"
+  name          String               @map("name") // e.g. "Main Door Smart Lock RFID Cards (x3)"
   description   String?              @map("description") @db.Text
   quantity      Int                  @default(1) @map("quantity")
   unit          String?              @default("PCS") @map("unit") // PCS, SET, ROLL, CAN, FILE
@@ -1175,11 +1179,11 @@ model ProjectHandoverSnag {
   complaint   ProjectComplaint? @relation("ComplaintHandoverSnags", fields: [complaintId], references: [id], onDelete: SetNull)
 
   // Linkage to Master Snag Category
-  categoryId  String?                 @map("category_id") @db.Uuid
-  categoryRef ComplaintSnagCategory?  @relation("SnagCategoryRelation", fields: [categoryId], references: [id], onDelete: SetNull)
+  categoryId  String?                @map("category_id") @db.Uuid
+  categoryRef ComplaintSnagCategory? @relation("SnagCategoryRelation", fields: [categoryId], references: [id], onDelete: SetNull)
 
-  areaRoom    String?              @map("area_room")   // e.g. "Living Room", "Master Bathroom"
-  title       String               @map("title")       // e.g. "Touch-up paint behind sofa wall"
+  areaRoom    String?              @map("area_room") // e.g. "Living Room", "Master Bathroom"
+  title       String               @map("title") // e.g. "Touch-up paint behind sofa wall"
   description String?              @map("description") @db.Text
   severity    HandoverSnagSeverity @default(LOW) @map("severity")
   status      HandoverSnagStatus   @default(REPORTED) @map("status")
@@ -1211,4 +1215,3 @@ model ProjectHandoverSnag {
   @@index([assignedToId])
   @@map("project_handover_snags")
 }
-

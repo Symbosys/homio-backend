@@ -103,7 +103,7 @@ export const createMaterialRequestSchema = z.object({
  * Schema for Material Request Update
  */
 export const updateMaterialRequestSchema = createMaterialRequestSchema
-  .omit({ projectId: true, items: true })
+  .omit({ items: true })
   .partial();
 
 /**

@@ -24,6 +24,15 @@ export const materialItemConditionEnum = z.enum([
 ]);
 
 /**
+ * Reusable schema for Date or Datetime string (ISO datetime or YYYY-MM-DD)
+ */
+export const dateOrDatetimeSchema = z
+  .string()
+  .refine((val) => !isNaN(Date.parse(val)), {
+    message: "Must be a valid date or datetime string",
+  });
+
+/**
  * Schema for single Material Dispatch Item creation
  */
 export const createDispatchItemSchema = z.object({
@@ -58,7 +67,7 @@ export const bulkReceiveItemSchema = z.object({
 });
 
 export const bulkReceiveDispatchSchema = z.object({
-  actualArrival: z.string().datetime().optional(),
+  actualArrival: dateOrDatetimeSchema.optional(),
   siteInspectionNotes: z.string().optional().nullable(),
   status: materialDispatchStatusEnum.optional().default(MaterialDispatchStatus.RECEIVED),
   items: z.array(bulkReceiveItemSchema).min(1, "At least one item must be verified"),
@@ -73,9 +82,9 @@ export const createMaterialDispatchSchema = z.object({
   materialRequestId: z.string().uuid("Invalid Material Request ID").optional().nullable(),
   quotationId: z.string().uuid("Invalid Quotation ID").optional().nullable(),
   dispatchNumber: z.string().max(50).optional(),
-  dispatchDate: z.string().datetime().optional(),
-  expectedArrival: z.string().datetime("Expected arrival must be a valid ISO datetime"),
-  actualArrival: z.string().datetime().optional().nullable(),
+  dispatchDate: dateOrDatetimeSchema.optional(),
+  expectedArrival: dateOrDatetimeSchema,
+  actualArrival: dateOrDatetimeSchema.optional().nullable(),
   status: materialDispatchStatusEnum.optional().default(MaterialDispatchStatus.IN_TRANSIT),
   destinationAddress: z.string().optional().nullable(),
   transporterName: z.string().max(255).optional().nullable(),
@@ -104,7 +113,7 @@ export const updateMaterialDispatchSchema = createMaterialDispatchSchema
  */
 export const updateMaterialDispatchStatusSchema = z.object({
   status: materialDispatchStatusEnum,
-  actualArrival: z.string().datetime().optional(),
+  actualArrival: dateOrDatetimeSchema.optional(),
   siteInspectionNotes: z.string().optional(),
 });
 

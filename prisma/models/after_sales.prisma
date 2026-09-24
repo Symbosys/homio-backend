@@ -115,32 +115,32 @@ enum RetentionOutcome {
 // ----------------------------------------------------------------------------
 
 model ProjectWarranty {
-  id                    String          @id @default(uuid()) @db.Uuid
-  projectId             String          @map("project_id") @db.Uuid
-  project               Project         @relation("ProjectWarranties", fields: [projectId], references: [id], onDelete: Cascade)
-  handoverId            String?         @map("handover_id") @db.Uuid
+  id                    String           @id @default(uuid()) @db.Uuid
+  projectId             String           @map("project_id") @db.Uuid
+  project               Project          @relation("ProjectWarranties", fields: [projectId], references: [id], onDelete: Cascade)
+  handoverId            String?          @map("handover_id") @db.Uuid
   handover              ProjectHandover? @relation("HandoverWarranties", fields: [handoverId], references: [id], onDelete: SetNull)
-  warrantyNumber        String          @map("warranty_number") @db.VarChar(50) // e.g. "WAR-2026-0001"
-  category              String          @db.VarChar(100) // e.g. "Woodwork", "Waterproofing", "Hardware", "Electrical"
-  title                 String          @db.VarChar(255)
-  description           String?         @db.Text
-  coveredItemWork       String?         @map("covered_item_work") @db.Text
-  startDate             DateTime        @map("start_date") @db.Date
-  endDate               DateTime        @map("end_date") @db.Date
-  status                WarrantyStatus  @default(ACTIVE) @map("status")
-  termsSummary          String?         @map("terms_summary") @db.Text
-  inclusions            String?         @db.Text
-  exclusions            String?         @db.Text
-  policyDocumentUrl     Json?           @map("policy_document_url") // ImageType structured JSON
-  additionalInformation Json?           @map("additional_information")
-  isDeleted             Boolean         @default(false) @map("is_deleted")
-  deletedAt             DateTime?       @map("deleted_at")
-  createdAt             DateTime        @default(now()) @map("created_at")
-  updatedAt             DateTime        @updatedAt @map("updated_at")
+  warrantyNumber        String           @map("warranty_number") @db.VarChar(50) // e.g. "WAR-2026-0001"
+  category              String           @db.VarChar(100) // e.g. "Woodwork", "Waterproofing", "Hardware", "Electrical"
+  title                 String           @db.VarChar(255)
+  description           String?          @db.Text
+  coveredItemWork       String?          @map("covered_item_work") @db.Text
+  startDate             DateTime         @map("start_date") @db.Date
+  endDate               DateTime         @map("end_date") @db.Date
+  status                WarrantyStatus   @default(ACTIVE) @map("status")
+  termsSummary          String?          @map("terms_summary") @db.Text
+  inclusions            String?          @db.Text
+  exclusions            String?          @db.Text
+  policyDocumentUrl     Json?            @map("policy_document_url") // ImageType structured JSON
+  additionalInformation Json?            @map("additional_information")
+  isDeleted             Boolean          @default(false) @map("is_deleted")
+  deletedAt             DateTime?        @map("deleted_at")
+  createdAt             DateTime         @default(now()) @map("created_at")
+  updatedAt             DateTime         @updatedAt @map("updated_at")
 
   // Relations
-  claims                WarrantyClaim[] @relation("WarrantyClaims")
-  serviceRequests       AfterSalesServiceRequest[] @relation("WarrantyServiceRequests")
+  claims          WarrantyClaim[]            @relation("WarrantyClaims")
+  serviceRequests AfterSalesServiceRequest[] @relation("WarrantyServiceRequests")
 
   @@unique([projectId, warrantyNumber])
   @@index([projectId])
@@ -155,29 +155,29 @@ model ProjectWarranty {
 // ----------------------------------------------------------------------------
 
 model WarrantyClaim {
-  id                    String              @id @default(uuid()) @db.Uuid
-  warrantyId            String              @map("warranty_id") @db.Uuid
-  warranty              ProjectWarranty     @relation("WarrantyClaims", fields: [warrantyId], references: [id], onDelete: Cascade)
-  claimNumber           String              @map("claim_number") @db.VarChar(50) // e.g. "CLM-2026-0001"
-  title                 String              @db.VarChar(255)
-  description           String              @db.Text
-  areaRoom              String?             @map("area_room") @db.VarChar(100) // e.g. "Master Bedroom", "Kitchen"
-  claimDate             DateTime            @default(now()) @map("claim_date") @db.Date
-  status                WarrantyClaimStatus @default(SUBMITTED) @map("status")
-  approvedCoverageAmount Decimal?           @map("approved_coverage_amount") @db.Decimal(12, 2)
-  evidencePhotos        Json?               @map("evidence_photos") // ImageType[] structured JSON array
-  rejectionReason       String?             @map("rejection_reason") @db.Text
-  reviewedById          String?             @map("reviewed_by_id") @db.Uuid
-  reviewedBy            Employee?           @relation("EmployeeReviewedWarrantyClaims", fields: [reviewedById], references: [id], onDelete: SetNull)
-  reviewedAt            DateTime?           @map("reviewed_at")
+  id                     String                    @id @default(uuid()) @db.Uuid
+  warrantyId             String                    @map("warranty_id") @db.Uuid
+  warranty               ProjectWarranty           @relation("WarrantyClaims", fields: [warrantyId], references: [id], onDelete: Cascade)
+  claimNumber            String                    @map("claim_number") @db.VarChar(50) // e.g. "CLM-2026-0001"
+  title                  String                    @db.VarChar(255)
+  description            String                    @db.Text
+  areaRoom               String?                   @map("area_room") @db.VarChar(100) // e.g. "Master Bedroom", "Kitchen"
+  claimDate              DateTime                  @default(now()) @map("claim_date") @db.Date
+  status                 WarrantyClaimStatus       @default(SUBMITTED) @map("status")
+  approvedCoverageAmount Decimal?                  @map("approved_coverage_amount") @db.Decimal(12, 2)
+  evidencePhotos         Json?                     @map("evidence_photos") // ImageType[] structured JSON array
+  rejectionReason        String?                   @map("rejection_reason") @db.Text
+  reviewedById           String?                   @map("reviewed_by_id") @db.Uuid
+  reviewedBy             Employee?                 @relation("EmployeeReviewedWarrantyClaims", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt             DateTime?                 @map("reviewed_at")
   // Optional linkage to an spawned Service Request for rectifying this claim
-  serviceRequestId      String?             @unique @map("service_request_id") @db.Uuid
-  serviceRequest        AfterSalesServiceRequest? @relation("ServiceRequestWarrantyClaim", fields: [serviceRequestId], references: [id], onDelete: SetNull)
-  additionalInformation Json?               @map("additional_information")
-  isDeleted             Boolean             @default(false) @map("is_deleted")
-  deletedAt             DateTime?           @map("deleted_at")
-  createdAt             DateTime            @default(now()) @map("created_at")
-  updatedAt             DateTime            @updatedAt @map("updated_at")
+  serviceRequestId       String?                   @unique @map("service_request_id") @db.Uuid
+  serviceRequest         AfterSalesServiceRequest? @relation("ServiceRequestWarrantyClaim", fields: [serviceRequestId], references: [id], onDelete: SetNull)
+  additionalInformation  Json?                     @map("additional_information")
+  isDeleted              Boolean                   @default(false) @map("is_deleted")
+  deletedAt              DateTime?                 @map("deleted_at")
+  createdAt              DateTime                  @default(now()) @map("created_at")
+  updatedAt              DateTime                  @updatedAt @map("updated_at")
 
   @@unique([warrantyId, claimNumber])
   @@index([warrantyId])
@@ -192,49 +192,49 @@ model WarrantyClaim {
 // ----------------------------------------------------------------------------
 
 model AfterSalesServiceRequest {
-  id                    String                @id @default(uuid()) @db.Uuid
-  projectId             String                @map("project_id") @db.Uuid
-  project               Project               @relation("ProjectAfterSalesServiceRequests", fields: [projectId], references: [id], onDelete: Cascade)
-  categoryId            String                @map("category_id") @db.Uuid
-  category              ServiceCategory       @relation("CategoryServiceRequests", fields: [categoryId], references: [id], onDelete: Restrict)
-  warrantyId            String?               @map("warranty_id") @db.Uuid
-  warranty              ProjectWarranty?      @relation("WarrantyServiceRequests", fields: [warrantyId], references: [id], onDelete: SetNull)
-  requestNumber         String                @map("request_number") @db.VarChar(50) // e.g. "SR-2026-0001"
-  priority              ServiceRequestPriority @default(MEDIUM) @map("priority")
-  status                ServiceRequestStatus  @default(OPEN) @map("status")
-  subject               String                @db.VarChar(255)
-  description           String                @db.Text
-  areaRoom              String?               @map("area_room") @db.VarChar(100)
-  specificLocation      String?               @map("specific_location") @db.VarChar(255)
-  preferredServiceDate  DateTime?             @map("preferred_service_date") @db.Date
-  preferredTimeSlot     String?               @map("preferred_time_slot") @db.VarChar(50) // e.g. "10:00 AM - 01:00 PM"
-  customerAvailabilityNotes String?           @map("customer_availability_notes") @db.Text
-  assignedToId          String?               @map("assigned_to_id") @db.Uuid
-  assignedTo            Employee?             @relation("EmployeeAssignedServiceRequests", fields: [assignedToId], references: [id], onDelete: SetNull)
-  assignedAt            DateTime?             @map("assigned_at")
-  isWarrantyCovered     Boolean               @default(false) @map("is_warranty_covered")
-  billingStatus         ServiceBillingStatus  @default(FREE_UNDER_WARRANTY) @map("billing_status")
-  estimatedCost         Decimal?              @map("estimated_cost") @db.Decimal(12, 2)
-  finalCost             Decimal?              @map("final_cost") @db.Decimal(12, 2)
-  isPaid                Boolean               @default(false) @map("is_paid")
-  dueDate               DateTime?             @map("due_date") @db.Date
-  resolvedAt            DateTime?             @map("resolved_at")
-  resolvedNotes         String?               @map("resolved_notes") @db.Text
-  closedAt              DateTime?             @map("closed_at")
-  isReopened            Boolean               @default(false) @map("is_reopened")
-  reopenReason          String?               @map("reopen_reason") @db.Text
-  attachments           Json?                 @map("attachments") // ImageType[] structured JSON array
-  internalNotes         String?               @map("internal_notes") @db.Text
-  additionalInformation Json?                 @map("additional_information")
-  isDeleted             Boolean               @default(false) @map("is_deleted")
-  deletedAt             DateTime?             @map("deleted_at")
-  createdAt             DateTime              @default(now()) @map("created_at")
-  updatedAt             DateTime              @updatedAt @map("updated_at")
+  id                        String                 @id @default(uuid()) @db.Uuid
+  projectId                 String                 @map("project_id") @db.Uuid
+  project                   Project                @relation("ProjectAfterSalesServiceRequests", fields: [projectId], references: [id], onDelete: Cascade)
+  categoryId                String                 @map("category_id") @db.Uuid
+  category                  ServiceCategory        @relation("CategoryServiceRequests", fields: [categoryId], references: [id], onDelete: Restrict)
+  warrantyId                String?                @map("warranty_id") @db.Uuid
+  warranty                  ProjectWarranty?       @relation("WarrantyServiceRequests", fields: [warrantyId], references: [id], onDelete: SetNull)
+  requestNumber             String                 @map("request_number") @db.VarChar(50) // e.g. "SR-2026-0001"
+  priority                  ServiceRequestPriority @default(MEDIUM) @map("priority")
+  status                    ServiceRequestStatus   @default(OPEN) @map("status")
+  subject                   String                 @db.VarChar(255)
+  description               String                 @db.Text
+  areaRoom                  String?                @map("area_room") @db.VarChar(100)
+  specificLocation          String?                @map("specific_location") @db.VarChar(255)
+  preferredServiceDate      DateTime?              @map("preferred_service_date") @db.Date
+  preferredTimeSlot         String?                @map("preferred_time_slot") @db.VarChar(50) // e.g. "10:00 AM - 01:00 PM"
+  customerAvailabilityNotes String?                @map("customer_availability_notes") @db.Text
+  assignedToId              String?                @map("assigned_to_id") @db.Uuid
+  assignedTo                Employee?              @relation("EmployeeAssignedServiceRequests", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedAt                DateTime?              @map("assigned_at")
+  isWarrantyCovered         Boolean                @default(false) @map("is_warranty_covered")
+  billingStatus             ServiceBillingStatus   @default(FREE_UNDER_WARRANTY) @map("billing_status")
+  estimatedCost             Decimal?               @map("estimated_cost") @db.Decimal(12, 2)
+  finalCost                 Decimal?               @map("final_cost") @db.Decimal(12, 2)
+  isPaid                    Boolean                @default(false) @map("is_paid")
+  dueDate                   DateTime?              @map("due_date") @db.Date
+  resolvedAt                DateTime?              @map("resolved_at")
+  resolvedNotes             String?                @map("resolved_notes") @db.Text
+  closedAt                  DateTime?              @map("closed_at")
+  isReopened                Boolean                @default(false) @map("is_reopened")
+  reopenReason              String?                @map("reopen_reason") @db.Text
+  attachments               Json?                  @map("attachments") // ImageType[] structured JSON array
+  internalNotes             String?                @map("internal_notes") @db.Text
+  additionalInformation     Json?                  @map("additional_information")
+  isDeleted                 Boolean                @default(false) @map("is_deleted")
+  deletedAt                 DateTime?              @map("deleted_at")
+  createdAt                 DateTime               @default(now()) @map("created_at")
+  updatedAt                 DateTime               @updatedAt @map("updated_at")
 
   // Relations
-  visits                AfterSalesServiceVisit[] @relation("ServiceRequestVisits")
-  feedback              CustomerFeedback?     @relation("ServiceRequestFeedback")
-  warrantyClaim         WarrantyClaim?        @relation("ServiceRequestWarrantyClaim")
+  visits        AfterSalesServiceVisit[] @relation("ServiceRequestVisits")
+  feedback      CustomerFeedback?        @relation("ServiceRequestFeedback")
+  warrantyClaim WarrantyClaim?           @relation("ServiceRequestWarrantyClaim")
 
   @@unique([projectId, requestNumber])
   @@index([projectId])
@@ -252,58 +252,58 @@ model AfterSalesServiceRequest {
 // ----------------------------------------------------------------------------
 
 model AfterSalesServiceVisit {
-  id                    String             @id @default(uuid()) @db.Uuid
+  id               String                   @id @default(uuid()) @db.Uuid
   // Direct Project Relation
-  projectId             String             @map("project_id") @db.Uuid
-  project               Project            @relation("ProjectAfterSalesServiceVisits", fields: [projectId], references: [id], onDelete: Cascade)
-  serviceRequestId      String             @map("service_request_id") @db.Uuid
-  serviceRequest        AfterSalesServiceRequest @relation("ServiceRequestVisits", fields: [serviceRequestId], references: [id], onDelete: Cascade)
-  visitNumber           String             @map("visit_number") @db.VarChar(50) // e.g. "SV-2026-0001"
-  visitType             ServiceVisitType   @default(CORRECTIVE_REPAIR) @map("visit_type")
-  status                ServiceVisitStatus @default(SCHEDULED) @map("status")
-  scheduledDate         DateTime           @map("scheduled_date") @db.Date
-  startTime             String?            @map("start_time") @db.VarChar(50)
-  endTime               String?            @map("end_time") @db.VarChar(50)
+  projectId        String                   @map("project_id") @db.Uuid
+  project          Project                  @relation("ProjectAfterSalesServiceVisits", fields: [projectId], references: [id], onDelete: Cascade)
+  serviceRequestId String                   @map("service_request_id") @db.Uuid
+  serviceRequest   AfterSalesServiceRequest @relation("ServiceRequestVisits", fields: [serviceRequestId], references: [id], onDelete: Cascade)
+  visitNumber      String                   @map("visit_number") @db.VarChar(50) // e.g. "SV-2026-0001"
+  visitType        ServiceVisitType         @default(CORRECTIVE_REPAIR) @map("visit_type")
+  status           ServiceVisitStatus       @default(SCHEDULED) @map("status")
+  scheduledDate    DateTime                 @map("scheduled_date") @db.Date
+  startTime        String?                  @map("start_time") @db.VarChar(50)
+  endTime          String?                  @map("end_time") @db.VarChar(50)
 
   // Technician / Personnel Assignment
-  assignedEmployeeId    String?            @map("assigned_employee_id") @db.Uuid
-  assignedEmployee      Employee?          @relation("EmployeeAssignedServiceVisits", fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
-  contactPerson         String?            @map("contact_person") @db.VarChar(255)
-  contactNumber         String?            @map("contact_number") @db.VarChar(50)
-  specialInstructions   String?            @map("special_instructions") @db.Text
+  assignedEmployeeId  String?   @map("assigned_employee_id") @db.Uuid
+  assignedEmployee    Employee? @relation("EmployeeAssignedServiceVisits", fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
+  contactPerson       String?   @map("contact_person") @db.VarChar(255)
+  contactNumber       String?   @map("contact_number") @db.VarChar(50)
+  specialInstructions String?   @map("special_instructions") @db.Text
 
   // Geofence & Check-In Details
-  checkInAt             DateTime?          @map("check_in_at")
-  checkInLatitude       Decimal?           @map("check_in_latitude") @db.Decimal(10, 7)
-  checkInLongitude      Decimal?           @map("check_in_longitude") @db.Decimal(10, 7)
-  checkInAddress        String?            @map("check_in_address") @db.Text
-  checkInPhotoUrl       Json?              @map("check_in_photo_url") // ImageType JSON
+  checkInAt        DateTime? @map("check_in_at")
+  checkInLatitude  Decimal?  @map("check_in_latitude") @db.Decimal(10, 7)
+  checkInLongitude Decimal?  @map("check_in_longitude") @db.Decimal(10, 7)
+  checkInAddress   String?   @map("check_in_address") @db.Text
+  checkInPhotoUrl  Json?     @map("check_in_photo_url") // ImageType JSON
 
   // Work Report & Rectification Documentation
-  diagnosisNotes        String?            @map("diagnosis_notes") @db.Text
-  workPerformed         String?            @map("work_performed") @db.Text
-  materialsUsed         String?            @map("materials_used") @db.Text
-  labourHours           Decimal?           @default(0) @map("labour_hours") @db.Decimal(5, 2)
-  beforePhotoUrls       Json?              @map("before_photo_urls") // ImageType[] JSON array
-  afterPhotoUrls        Json?              @map("after_photo_urls")  // ImageType[] JSON array
+  diagnosisNotes  String?  @map("diagnosis_notes") @db.Text
+  workPerformed   String?  @map("work_performed") @db.Text
+  materialsUsed   String?  @map("materials_used") @db.Text
+  labourHours     Decimal? @default(0) @map("labour_hours") @db.Decimal(5, 2)
+  beforePhotoUrls Json?    @map("before_photo_urls") // ImageType[] JSON array
+  afterPhotoUrls  Json?    @map("after_photo_urls") // ImageType[] JSON array
 
   // Customer Digital Touch Sign-off on Site
-  customerSignatureUrl  Json?              @map("customer_signature_url") // ImageType JSON
-  customerSignatureName String?            @map("customer_signature_name") @db.VarChar(255)
-  clientConfirmedAt     DateTime?          @map("client_confirmed_at")
-  rating                Decimal?           @map("rating") @db.Decimal(3, 2)
+  customerSignatureUrl  Json?     @map("customer_signature_url") // ImageType JSON
+  customerSignatureName String?   @map("customer_signature_name") @db.VarChar(255)
+  clientConfirmedAt     DateTime? @map("client_confirmed_at")
+  rating                Decimal?  @map("rating") @db.Decimal(3, 2)
 
   // Universal Custom Fields & Metadata
-  additionalInformation Json?              @map("additional_information")
+  additionalInformation Json? @map("additional_information")
 
   // Soft Delete & Timestamps
-  isDeleted             Boolean            @default(false) @map("is_deleted")
-  deletedAt             DateTime?          @map("deleted_at")
-  createdAt             DateTime           @default(now()) @map("created_at")
-  updatedAt             DateTime           @updatedAt @map("updated_at")
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
 
   // Relations
-  feedback              CustomerFeedback?  @relation("ServiceVisitFeedback")
+  feedback CustomerFeedback? @relation("ServiceVisitFeedback")
 
   @@unique([serviceRequestId, visitNumber])
   @@index([projectId])
@@ -319,45 +319,45 @@ model AfterSalesServiceVisit {
 // ----------------------------------------------------------------------------
 
 model CustomerFeedback {
-  id                    String                 @id @default(uuid()) @db.Uuid
+  id               String                    @id @default(uuid()) @db.Uuid
   // Direct Project Relation
-  projectId             String                 @map("project_id") @db.Uuid
-  project               Project                @relation("ProjectCustomerFeedbacks", fields: [projectId], references: [id], onDelete: Cascade)
-  serviceRequestId      String?                @unique @map("service_request_id") @db.Uuid
-  serviceRequest        AfterSalesServiceRequest? @relation("ServiceRequestFeedback", fields: [serviceRequestId], references: [id], onDelete: Cascade)
-  serviceVisitId        String?                @unique @map("service_visit_id") @db.Uuid
-  serviceVisit          AfterSalesServiceVisit?  @relation("ServiceVisitFeedback", fields: [serviceVisitId], references: [id], onDelete: SetNull)
-  feedbackNumber        String                 @map("feedback_number") @db.VarChar(50) // e.g. "FB-2026-0001"
-  touchpoint            String                 @default("POST_SERVICE") @map("touchpoint") @db.VarChar(100)
-  submittedAt           DateTime               @default(now()) @map("submitted_at")
+  projectId        String                    @map("project_id") @db.Uuid
+  project          Project                   @relation("ProjectCustomerFeedbacks", fields: [projectId], references: [id], onDelete: Cascade)
+  serviceRequestId String?                   @unique @map("service_request_id") @db.Uuid
+  serviceRequest   AfterSalesServiceRequest? @relation("ServiceRequestFeedback", fields: [serviceRequestId], references: [id], onDelete: Cascade)
+  serviceVisitId   String?                   @unique @map("service_visit_id") @db.Uuid
+  serviceVisit     AfterSalesServiceVisit?   @relation("ServiceVisitFeedback", fields: [serviceVisitId], references: [id], onDelete: SetNull)
+  feedbackNumber   String                    @map("feedback_number") @db.VarChar(50) // e.g. "FB-2026-0001"
+  touchpoint       String                    @default("POST_SERVICE") @map("touchpoint") @db.VarChar(100)
+  submittedAt      DateTime                  @default(now()) @map("submitted_at")
 
   // 5-Pillar CSAT Ratings (1.0 to 5.0)
-  overallRating         Decimal                @map("overall_rating") @db.Decimal(3, 2)
-  qualityRating         Decimal?               @map("quality_rating") @db.Decimal(3, 2)
-  timelinessRating      Decimal?               @map("timeliness_rating") @db.Decimal(3, 2)
-  professionalismRating Decimal?               @map("professionalism_rating") @db.Decimal(3, 2)
-  communicationRating   Decimal?               @map("communication_rating") @db.Decimal(3, 2)
+  overallRating         Decimal  @map("overall_rating") @db.Decimal(3, 2)
+  qualityRating         Decimal? @map("quality_rating") @db.Decimal(3, 2)
+  timelinessRating      Decimal? @map("timeliness_rating") @db.Decimal(3, 2)
+  professionalismRating Decimal? @map("professionalism_rating") @db.Decimal(3, 2)
+  communicationRating   Decimal? @map("communication_rating") @db.Decimal(3, 2)
 
   // Resolution & Qualitative Answers
-  issueResolvedAnswer   IssueResolutionAnswer  @default(YES) @map("issue_resolved_answer")
-  whatWentWell          String?                @map("what_went_well") @db.Text
-  whatCouldImprove      String?                @map("what_could_improve") @db.Text
-  customerComments      String?                @map("customer_comments") @db.Text
+  issueResolvedAnswer IssueResolutionAnswer @default(YES) @map("issue_resolved_answer")
+  whatWentWell        String?               @map("what_went_well") @db.Text
+  whatCouldImprove    String?               @map("what_could_improve") @db.Text
+  customerComments    String?               @map("customer_comments") @db.Text
 
   // Management Escalation
-  isEscalated           Boolean                @default(false) @map("is_escalated")
-  escalationReason      String?                @map("escalation_reason") @db.Text
-  managerNotes          String?                @map("manager_notes") @db.Text
-  isResolved            Boolean                @default(true) @map("is_resolved")
+  isEscalated      Boolean @default(false) @map("is_escalated")
+  escalationReason String? @map("escalation_reason") @db.Text
+  managerNotes     String? @map("manager_notes") @db.Text
+  isResolved       Boolean @default(true) @map("is_resolved")
 
   // Universal Custom Fields & Metadata
-  additionalInformation Json?                  @map("additional_information")
+  additionalInformation Json? @map("additional_information")
 
   // Soft Delete & Timestamps
-  isDeleted             Boolean                @default(false) @map("is_deleted")
-  deletedAt             DateTime?              @map("deleted_at")
-  createdAt             DateTime               @default(now()) @map("created_at")
-  updatedAt             DateTime               @updatedAt @map("updated_at")
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
 
   @@unique([projectId, feedbackNumber])
   @@index([projectId])

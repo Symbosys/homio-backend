@@ -1,0 +1,322 @@
+// ============================================================================
+// HOMIO CRM - SERVICE & LABOUR SCHEMA (NORMALIZED & CLEAN)
+// Multi-Tenant B2B SaaS Standards
+// Supports Part-Time/Daily-Wage Labour, Project Bookings, Geofenced
+// Punch In/Out at ProjectSite, KYC, Service Booking Ratings, Disputes & Wage Settlement
+// ============================================================================
+
+// ==========================================
+// 1. LABOUR PROFILE (WORKER DIRECTORY)
+// ==========================================
+
+model Labour {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationLabours", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Worker Personal Info
+  name     String  @map("name")
+  phone    String  @map("phone")
+  altPhone String? @map("alt_phone")
+  email    String? @map("email")
+  photoUrl Json?   @map("photo_url") // ImageType JSON { id, url, bytes, format, provider }
+
+  // Trade & Rate (Plain strings - organization enters freely)
+  trade      String   @map("trade") // e.g. "Carpentry", "Masonry", "Plumbing", "Painting"
+  skillLevel String?  @default("Skilled") @map("skill_level") // e.g. "Helper", "Skilled", "Master / Mistry"
+  dailyRate  Decimal  @map("daily_rate") @db.Decimal(10, 2) // Standard 8-hour day rate (e.g. ₹950.00)
+  hourlyRate Decimal? @map("hourly_rate") @db.Decimal(10, 2) // Optional overtime hourly rate
+
+  // Address & Identity
+  address    String? @map("address")
+  city       String? @map("city")
+  aadhaarNo  String? @map("aadhaar_no")
+  aadhaarDoc Json?   @map("aadhaar_doc") // ImageType JSON
+
+  // Bank & Settlement Details
+  bankName      String? @map("bank_name")
+  bankAccountNo String? @map("bank_account_no")
+  ifscCode      String? @map("ifsc_code")
+  upiId         String? @map("upi_id")
+
+  // Emergency Contact
+  emergencyContact String? @map("emergency_contact")
+  emergencyPhone   String? @map("emergency_phone")
+
+  // Status & Governance
+  status    String    @default("ACTIVE") @map("status") // ACTIVE, ON_LEAVE, INACTIVE, BLACKLISTED
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+
+  // Universal Additional Information (Rule 18)
+  additionalInformation Json? @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Normalized Relations
+  kycDocument LabourKycDocument?
+  bookings    LabourBooking[]    @relation("LabourBookings")
+  attendances LabourAttendance[] @relation("LabourAttendances")
+  payments    LabourPayment[]    @relation("LabourPayments")
+  ratings     LabourRating[]     @relation("LabourRatings")
+  disputes    LabourDispute[]    @relation("LabourDisputes")
+
+  @@index([organizationId])
+  @@index([phone])
+  @@index([trade])
+  @@index([status])
+  @@map("labours")
+}
+
+// ==========================================
+// 2. LABOUR KYC DOCUMENTS & VERIFICATION
+// ==========================================
+
+model LabourKycDocument {
+  id       String @id @default(uuid()) @db.Uuid
+  labourId String @unique @map("labour_id") @db.Uuid
+  labour   Labour @relation(fields: [labourId], references: [id], onDelete: Cascade)
+
+  // Document Attachments (ImageType JSON)
+  aadhaarNumber      String? @map("aadhaar_number")
+  aadhaarDoc         Json?   @map("aadhaar_doc")
+  selfiePhoto        Json?   @map("selfie_photo")
+  policeClearanceDoc Json?   @map("police_clearance_doc")
+  policeStationName  String? @map("police_station_name")
+
+  // Bank Account Snapshot
+  bankAccountNo     String? @map("bank_account_no")
+  ifscCode          String? @map("ifsc_code")
+  bankName          String? @map("bank_name")
+  accountHolderName String? @map("account_holder_name")
+  upiId             String? @map("upi_id")
+
+  // Verification Details
+  tradeTestScore    Float?    @map("trade_test_score")
+  status            String    @default("PENDING") @map("status") // PENDING, UNDER_REVIEW, APPROVED, REJECTED
+  verificationNotes String?   @map("verification_notes") @db.Text
+  rejectionReason   String?   @map("rejection_reason")
+  verifiedAt        DateTime? @map("verified_at")
+  verifiedBy        String?   @map("verified_by") // Admin / Supervisor name
+
+  additionalInformation Json? @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@map("labour_kyc_documents")
+}
+
+// ==========================================
+// 3. LABOUR BOOKING (PROJECT ASSIGNMENT)
+// ==========================================
+
+model LabourBooking {
+  id        String  @id @default(uuid()) @db.Uuid
+  projectId String  @map("project_id") @db.Uuid
+  project   Project @relation("ProjectLabourBookings", fields: [projectId], references: [id], onDelete: Cascade)
+
+  labourId String @map("labour_id") @db.Uuid
+  labour   Labour @relation("LabourBookings", fields: [labourId], references: [id], onDelete: Restrict)
+
+  bookingNumber   String   @map("booking_number") // e.g. "LB-2026-001"
+  workTitle       String   @map("work_title") // e.g. "False ceiling framing & board fixing"
+  workDescription String?  @map("work_description") @db.Text
+  startDate       DateTime @map("start_date") @db.Date
+  endDate         DateTime @map("end_date") @db.Date
+
+  // Agreed Financials
+  agreedDailyRate Decimal @map("agreed_daily_rate") @db.Decimal(10, 2)
+  estimatedDays   Int     @default(1) @map("estimated_days")
+  totalBudget     Decimal @default(0.00) @map("total_budget") @db.Decimal(12, 2)
+  totalPaid       Decimal @default(0.00) @map("total_paid") @db.Decimal(12, 2)
+
+  // Status & Notes
+  status String  @default("CONFIRMED") @map("status") // PENDING, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED
+  notes  String? @map("notes") @db.Text
+
+  // Soft Delete & Extensibility
+  isDeleted             Boolean   @default(false) @map("is_deleted")
+  deletedAt             DateTime? @map("deleted_at")
+  additionalInformation Json?     @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  attendances LabourAttendance[] @relation("BookingAttendances")
+  payments    LabourPayment[]    @relation("BookingPayments")
+  ratings     LabourRating[]     @relation("BookingRatings")
+  disputes    LabourDispute[]    @relation("BookingDisputes")
+
+  @@unique([projectId, bookingNumber])
+  @@index([projectId])
+  @@index([labourId])
+  @@index([status])
+  @@map("labour_bookings")
+}
+
+// ============================================================================
+// 4. LABOUR ATTENDANCE (GEOFENCED PUNCH-IN & PUNCH-OUT)
+// ============================================================================
+
+model LabourAttendance {
+  id            String      @id @default(uuid()) @db.Uuid
+  projectSiteId String      @map("project_site_id") @db.Uuid
+  projectSite   ProjectSite @relation("ProjectSiteLabourAttendances", fields: [projectSiteId], references: [id], onDelete: Cascade)
+
+  labourId String @map("labour_id") @db.Uuid
+  labour   Labour @relation("LabourAttendances", fields: [labourId], references: [id], onDelete: Cascade)
+
+  bookingId String?        @map("booking_id") @db.Uuid
+  booking   LabourBooking? @relation("BookingAttendances", fields: [bookingId], references: [id], onDelete: SetNull)
+
+  attendanceDate DateTime @map("attendance_date") @db.Date
+  status         String   @default("PENDING_APPROVAL") @map("status") // PRESENT, HALF_DAY, OVERTIME, ABSENT, PENDING_APPROVAL, GEO_MISMATCH
+
+  // --------------------------------------------------------------------------
+  // PUNCH IN DATA (Time, GPS Coordinates, Distance to Site, Live Selfie Photo)
+  // --------------------------------------------------------------------------
+  punchInTime           DateTime? @map("punch_in_time")
+  punchInLat            Float?    @map("punch_in_lat")
+  punchInLng            Float?    @map("punch_in_lng")
+  punchInDistanceMeters Int?      @map("punch_in_distance_meters") // Distance from ProjectSite GPS
+  isPunchInWithinRadius Boolean   @default(true) @map("is_punch_in_within_radius")
+  punchInPhoto          Json?     @map("punch_in_photo") // Live camera selfie ImageType JSON
+  punchInAddress        String?   @map("punch_in_address")
+
+  // --------------------------------------------------------------------------
+  // PUNCH OUT DATA (Time, GPS Coordinates, Distance to Site, Live Selfie Photo)
+  // --------------------------------------------------------------------------
+  punchOutTime           DateTime? @map("punch_out_time")
+  punchOutLat            Float?    @map("punch_out_lat")
+  punchOutLng            Float?    @map("punch_out_lng")
+  punchOutDistanceMeters Int?      @map("punch_out_distance_meters")
+  isPunchOutWithinRadius Boolean   @default(true) @map("is_punch_out_within_radius")
+  punchOutPhoto          Json?     @map("punch_out_photo") // Live camera selfie ImageType JSON
+  punchOutAddress        String?   @map("punch_out_address")
+
+  // --------------------------------------------------------------------------
+  // HOURS WORKED & DAILY WAGE CALCULATION
+  // --------------------------------------------------------------------------
+  hoursWorked Decimal? @default(0.00) @map("hours_worked") @db.Decimal(4, 2)
+  dayWage     Decimal  @default(0.00) @map("day_wage") @db.Decimal(10, 2) // Agreed daily rate applied for this day
+
+  // Work Summary & Supervisor Sign-off
+  workNotes          String? @map("work_notes") @db.Text
+  supervisorApproved Boolean @default(false) @map("supervisor_approved")
+  supervisorNotes    String? @map("supervisor_notes")
+
+  // Universal Additional Information (Rule 18)
+  additionalInformation Json? @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([projectSiteId, labourId, attendanceDate])
+  @@index([projectSiteId])
+  @@index([labourId])
+  @@index([bookingId])
+  @@index([attendanceDate])
+  @@index([status])
+  @@map("labour_attendances")
+}
+
+// ==========================================
+// 5. LABOUR PAYMENT (WAGE PAYOUT SETTLEMENT)
+// ==========================================
+
+model LabourPayment {
+  id       String @id @default(uuid()) @db.Uuid
+  labourId String @map("labour_id") @db.Uuid
+  labour   Labour @relation("LabourPayments", fields: [labourId], references: [id], onDelete: Restrict)
+
+  bookingId String?        @map("booking_id") @db.Uuid
+  booking   LabourBooking? @relation("BookingPayments", fields: [bookingId], references: [id], onDelete: SetNull)
+
+  // Payment Details
+  amount         Decimal  @map("amount") @db.Decimal(10, 2)
+  daysCount      Int      @default(1) @map("days_count")
+  paymentDate    DateTime @default(now()) @map("payment_date")
+  paymentMethod  String   @default("CASH") @map("payment_method") // CASH, UPI, BANK_TRANSFER
+  transactionRef String?  @map("transaction_ref") // UPI ID / UTR No / Cash Voucher No
+  receiptPhoto   Json?    @map("receipt_photo") // ImageType JSON
+  status         String   @default("PAID") @map("status") // PAID, PENDING, CANCELLED
+  remarks        String?  @map("remarks")
+
+  // Universal Additional Information (Rule 18)
+  additionalInformation Json? @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([labourId])
+  @@index([bookingId])
+  @@index([paymentDate])
+  @@map("labour_payments")
+}
+
+// ==========================================
+// 6. LABOUR RATING (SERVICE BOOKING REVIEW)
+// ==========================================
+
+model LabourRating {
+  id        String        @id @default(uuid()) @db.Uuid
+  bookingId String        @map("booking_id") @db.Uuid
+  booking   LabourBooking @relation("BookingRatings", fields: [bookingId], references: [id], onDelete: Cascade)
+
+  labourId String @map("labour_id") @db.Uuid
+  labour   Labour @relation("LabourRatings", fields: [labourId], references: [id], onDelete: Cascade)
+
+  reviewerName     String  @map("reviewer_name")
+  reviewerRole     String  @default("SUPERVISOR") @map("reviewer_role") // SUPERVISOR, CLIENT, MANAGER
+  rating           Float   @map("rating") // 1.0 to 5.0
+  qualityScore     Float?  @map("quality_score")
+  punctualityScore Float?  @map("punctuality_score")
+  behaviourScore   Float?  @map("behaviour_score")
+  reviewNotes      String? @map("review_notes") @db.Text
+
+  additionalInformation Json? @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([bookingId])
+  @@index([labourId])
+  @@map("labour_ratings")
+}
+
+// ==========================================
+// 7. LABOUR DISPUTE (LEGAL & SITE DISPUTES)
+// ==========================================
+
+model LabourDispute {
+  id       String @id @default(uuid()) @db.Uuid
+  labourId String @map("labour_id") @db.Uuid
+  labour   Labour @relation("LabourDisputes", fields: [labourId], references: [id], onDelete: Cascade)
+
+  bookingId String?        @map("booking_id") @db.Uuid
+  booking   LabourBooking? @relation("BookingDisputes", fields: [bookingId], references: [id], onDelete: SetNull)
+
+  disputeType       String    @map("dispute_type") // NON_PAYMENT, ABANDONMENT, QUALITY_BREACH, SAFETY_VIOLATION, OTHER
+  amountInDispute   Decimal   @default(0.00) @map("amount_in_dispute") @db.Decimal(12, 2)
+  status            String    @default("OPEN") @map("status") // OPEN, UNDER_REVIEW, NOTICE_SENT, SETTLED, CLOSED
+  initiator         String    @map("initiator") // CLIENT, LABOUR, CONTRACTOR
+  reason            String    @map("reason") @db.Text
+  resolutionSummary String?   @map("resolution_summary") @db.Text
+  lawyerName        String?   @map("lawyer_name")
+  hearingDate       DateTime? @map("hearing_date")
+  evidenceDocs      Json?     @map("evidence_docs") // Array of ImageType JSON
+
+  additionalInformation Json? @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([labourId])
+  @@index([bookingId])
+  @@index([status])
+  @@map("labour_disputes")
+}

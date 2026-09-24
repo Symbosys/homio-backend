@@ -16,58 +16,58 @@ enum MaterialRequestPriority {
 }
 
 enum MaterialRequestStatus {
-  DRAFT               // Initial site indent drafted
-  SUBMITTED           // Submitted to procurement
-  UNDER_REVIEW        // Rate/vendor feasibility check
-  APPROVED            // Approved by Project Manager / Admin
-  REJECTED            // Indent rejected
-  IN_PROCUREMENT      // RFQ or direct vendor dispatch initiated
+  DRAFT // Initial site indent drafted
+  SUBMITTED // Submitted to procurement
+  UNDER_REVIEW // Rate/vendor feasibility check
+  APPROVED // Approved by Project Manager / Admin
+  REJECTED // Indent rejected
+  IN_PROCUREMENT // RFQ or direct vendor dispatch initiated
   PARTIALLY_FULFILLED // Partial site delivery
-  FULFILLED           // Fully delivered & verified on site
-  CANCELLED           // Indent cancelled
+  FULFILLED // Fully delivered & verified on site
+  CANCELLED // Indent cancelled
 }
 
 enum VendorRfqStatus {
-  DRAFT               // Draft RFQ
-  SENT                // Sent to vendors
-  RESPONSES_RECEIVED  // Quotations/bids received
-  CLOSED              // Vendor selected & awarded
-  CANCELLED           // RFQ cancelled
-  EXPIRED             // Deadline passed
+  DRAFT // Draft RFQ
+  SENT // Sent to vendors
+  RESPONSES_RECEIVED // Quotations/bids received
+  CLOSED // Vendor selected & awarded
+  CANCELLED // RFQ cancelled
+  EXPIRED // Deadline passed
 }
 
 enum RfqInviteStatus {
-  INVITED             // RFQ sent to vendor
-  VIEWED              // RFQ opened by vendor
-  RESPONDED           // Vendor submitted quotation
-  DECLINED            // Vendor declined
+  INVITED // RFQ sent to vendor
+  VIEWED // RFQ opened by vendor
+  RESPONDED // Vendor submitted quotation
+  DECLINED // Vendor declined
 }
 
 enum VendorQuotationStatus {
-  RECEIVED            // Quotation submitted by vendor
-  UNDER_REVIEW        // Review in progress
-  SHORTLISTED         // Shortlisted for award
-  ACCEPTED            // Quote accepted
-  REJECTED            // Quote rejected
-  EXPIRED             // Validity lapsed
+  RECEIVED // Quotation submitted by vendor
+  UNDER_REVIEW // Review in progress
+  SHORTLISTED // Shortlisted for award
+  ACCEPTED // Quote accepted
+  REJECTED // Quote rejected
+  EXPIRED // Validity lapsed
 }
 
 enum MaterialDispatchStatus {
-  PLANNED             // Dispatch scheduled
-  IN_TRANSIT          // Shipped / on vehicle
-  DELIVERED           // Reached project site
-  RECEIVED            // Unloaded & QA verified
-  PARTIALLY_RECEIVED  // Discrepancy / partial acceptance
-  REJECTED            // Rejected at site gate
-  CANCELLED           // Dispatch cancelled
+  PLANNED // Dispatch scheduled
+  IN_TRANSIT // Shipped / on vehicle
+  DELIVERED // Reached project site
+  RECEIVED // Unloaded & QA verified
+  PARTIALLY_RECEIVED // Discrepancy / partial acceptance
+  REJECTED // Rejected at site gate
+  CANCELLED // Dispatch cancelled
 }
 
 enum MaterialItemCondition {
-  GOOD                // Verified & passed inspection
-  DAMAGED             // Transit / handling damage
-  SHORT               // Quantity deficit
-  WRONG_ITEM          // Specification / SKU mismatch
-  REJECTED            // QA rejected
+  GOOD // Verified & passed inspection
+  DAMAGED // Transit / handling damage
+  SHORT // Quantity deficit
+  WRONG_ITEM // Specification / SKU mismatch
+  REJECTED // QA rejected
 }
 
 // =============================================================================

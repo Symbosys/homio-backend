@@ -14,7 +14,7 @@ const quotationItemInclude = {
       id: true,
       name: true,
       sku: true,
-      unit: true,
+      unitOfMeasure: true,
       coverImageUrl: true,
       category: {
         select: {
@@ -52,7 +52,7 @@ const vendorQuotationDetailInclude = {
       email: true,
       phone: true,
       defaultCommissionRate: true,
-      status: true,
+      isActive: true,
     },
   },
   rfq: {
@@ -132,6 +132,40 @@ export class VendorQuotationRepository {
   }
 
   /**
+   * Safely resolve User ID from either a User ID or an Employee ID
+   */
+  private async resolveUserId(
+    id: string | null | undefined,
+    organizationId: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<string | null> {
+    if (!id) return null;
+    const db = tx || prisma;
+
+    // 1. Direct User lookup
+    const user = await db.user.findFirst({
+      where: { id, organizationId, isDeleted: false },
+      select: { id: true },
+    });
+    if (user) return user.id;
+
+    // 2. Employee with linked User lookup
+    const emp = await db.employee.findFirst({
+      where: { id, organizationId, isDeleted: false },
+      select: { userId: true },
+    });
+    if (emp && emp.userId) {
+      const linkedUser = await db.user.findFirst({
+        where: { id: emp.userId, organizationId, isDeleted: false },
+        select: { id: true },
+      });
+      if (linkedUser) return linkedUser.id;
+    }
+
+    return null;
+  }
+
+  /**
    * Create a new Vendor Quotation with line items in an atomic transaction
    */
   async create(organizationId: string, data: CreateVendorQuotationInput) {
@@ -141,6 +175,7 @@ export class VendorQuotationRepository {
         (await this.generateQuotationNumber(organizationId, data.vendorId, tx));
 
       const { items, ...headerData } = data;
+      const resolvedReviewedById = await this.resolveUserId(headerData.reviewedById, organizationId, tx);
 
       // Compute subtotal from items if not explicitly provided
       let subtotal = Number(headerData.subtotal || 0);
@@ -186,7 +221,7 @@ export class VendorQuotationRepository {
         vendorRating: headerData.vendorRating || null,
         evaluationNotes: headerData.evaluationNotes || null,
         attachmentUrl: (headerData.attachmentUrl as Prisma.InputJsonValue) ?? Prisma.JsonNull,
-        reviewedById: headerData.reviewedById || null,
+        reviewedById: resolvedReviewedById,
         additionalInformation: (headerData.additionalInformation as Prisma.InputJsonValue) ?? Prisma.JsonNull,
         items: items && items.length > 0
           ? {
@@ -370,6 +405,11 @@ export class VendorQuotationRepository {
    * Update Quotation header
    */
   async update(id: string, organizationId: string, data: UpdateVendorQuotationInput) {
+    let resolvedReviewedById: string | null | undefined = undefined;
+    if (data.reviewedById !== undefined) {
+      resolvedReviewedById = await this.resolveUserId(data.reviewedById, organizationId);
+    }
+
     const updateData: Prisma.VendorQuotationUncheckedUpdateInput = {
       ...(data.quotationNumber ? { quotationNumber: data.quotationNumber } : {}),
       ...(data.rfqId !== undefined ? { rfqId: data.rfqId || null } : {}),
@@ -391,7 +431,7 @@ export class VendorQuotationRepository {
       ...(data.attachmentUrl !== undefined
         ? { attachmentUrl: (data.attachmentUrl as Prisma.InputJsonValue) ?? Prisma.JsonNull }
         : {}),
-      ...(data.reviewedById !== undefined ? { reviewedById: data.reviewedById || null } : {}),
+      ...(resolvedReviewedById !== undefined ? { reviewedById: resolvedReviewedById } : {}),
       ...(data.additionalInformation !== undefined
         ? { additionalInformation: (data.additionalInformation as Prisma.InputJsonValue) ?? Prisma.JsonNull }
         : {}),
@@ -428,11 +468,16 @@ export class VendorQuotationRepository {
     vendorRating?: number,
     evaluationNotes?: string
   ) {
+    let resolvedReviewedById: string | null | undefined = undefined;
+    if (reviewedById !== undefined) {
+      resolvedReviewedById = await this.resolveUserId(reviewedById, organizationId);
+    }
+
     const data: Prisma.VendorQuotationUncheckedUpdateInput = {
       status,
       ...(evaluationNotes !== undefined ? { evaluationNotes } : {}),
       ...(vendorRating !== undefined ? { vendorRating } : {}),
-      ...(reviewedById !== undefined ? { reviewedById: reviewedById || null } : {}),
+      ...(resolvedReviewedById !== undefined ? { reviewedById: resolvedReviewedById } : {}),
     };
 
     return prisma.vendorQuotation.update({

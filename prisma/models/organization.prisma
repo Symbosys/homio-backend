@@ -95,6 +95,7 @@ model Organization {
   leadLostReasons         LeadLostReason[]                  @relation("OrganizationLeadLostReasons")
   complaintSnagCategories ComplaintSnagCategory[]           @relation("OrganizationComplaintSnagCategories")
   taskCategories          TaskCategory[]                    @relation("OrganizationTaskCategories")
+  labours                 Labour[]                          @relation("OrganizationLabours")
 
   @@index([slug])
   @@index([status])

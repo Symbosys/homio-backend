@@ -81,8 +81,8 @@ model Task {
   createdBy   User?   @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
 
   // Dynamic Task Category Master
-  categoryId   String?       @map("category_id") @db.Uuid
-  category     TaskCategory? @relation("TaskCategoryRelation", fields: [categoryId], references: [id], onDelete: SetNull)
+  categoryId String?       @map("category_id") @db.Uuid
+  category   TaskCategory? @relation("TaskCategoryRelation", fields: [categoryId], references: [id], onDelete: SetNull)
 
   // Reminders
   remindAt       DateTime? @map("remind_at")

@@ -114,12 +114,12 @@ model Lead {
   serviceCategory   ServiceCategory? @relation("LeadServiceCategory", fields: [serviceCategoryId], references: [id], onDelete: SetNull)
 
   // Lost Outcome Details & Master Reason
-  lostReasonId      String?          @map("lost_reason_id") @db.Uuid
-  lostReasonRef     LeadLostReason?  @relation("LeadLostReasonRelation", fields: [lostReasonId], references: [id], onDelete: SetNull)
-  lostReason        String?          @map("lost_reason") // Text fallback / snapshot
-  lostRemarks       String?          @map("lost_remarks")
-  lostCompetitor    String?          @map("lost_competitor") // Competitor name if reason requires competitor
-  lostAt            DateTime?        @map("lost_at")
+  lostReasonId   String?         @map("lost_reason_id") @db.Uuid
+  lostReasonRef  LeadLostReason? @relation("LeadLostReasonRelation", fields: [lostReasonId], references: [id], onDelete: SetNull)
+  lostReason     String?         @map("lost_reason") // Text fallback / snapshot
+  lostRemarks    String?         @map("lost_remarks")
+  lostCompetitor String?         @map("lost_competitor") // Competitor name if reason requires competitor
+  lostAt         DateTime?       @map("lost_at")
 
   // Metadata & Custom Attributes
   tags                  String[] @default([]) @map("tags")

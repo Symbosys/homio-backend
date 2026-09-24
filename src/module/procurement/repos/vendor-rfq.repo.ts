@@ -16,7 +16,7 @@ const rfqItemInclude = {
       id: true,
       name: true,
       sku: true,
-      unit: true,
+      unitOfMeasure: true,
       coverImageUrl: true,
       category: {
         select: {
@@ -45,7 +45,7 @@ const rfqInviteInclude = {
       code: true,
       email: true,
       phone: true,
-      status: true,
+      isActive: true,
     },
   },
 };
@@ -59,7 +59,8 @@ const vendorRfqDetailInclude = {
       status: true,
       site: {
         select: {
-          siteAddress: true,
+          siteName: true,
+          address: true,
           city: true,
           state: true,
         },
@@ -154,6 +155,40 @@ export class VendorRfqRepository {
   }
 
   /**
+   * Safely resolve User ID from either a User ID or an Employee ID
+   */
+  private async resolveUserId(
+    id: string | null | undefined,
+    organizationId: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<string | null> {
+    if (!id) return null;
+    const db = tx || prisma;
+
+    // 1. Direct User lookup
+    const user = await db.user.findFirst({
+      where: { id, organizationId, isDeleted: false },
+      select: { id: true },
+    });
+    if (user) return user.id;
+
+    // 2. Employee with linked User lookup
+    const emp = await db.employee.findFirst({
+      where: { id, organizationId, isDeleted: false },
+      select: { userId: true },
+    });
+    if (emp && emp.userId) {
+      const linkedUser = await db.user.findFirst({
+        where: { id: emp.userId, organizationId, isDeleted: false },
+        select: { id: true },
+      });
+      if (linkedUser) return linkedUser.id;
+    }
+
+    return null;
+  }
+
+  /**
    * Create a new RFQ with items and vendor invites in an atomic transaction
    */
   async create(organizationId: string, data: CreateVendorRfqInput) {
@@ -162,6 +197,7 @@ export class VendorRfqRepository {
         data.rfqNumber || (await this.generateRfqNumber(organizationId, tx));
 
       const { items, vendorIds, ...headerData } = data;
+      const resolvedCreatedById = await this.resolveUserId(headerData.createdById, organizationId, tx);
 
       const createData: Prisma.VendorRfqUncheckedCreateInput = {
         organizationId,
@@ -176,7 +212,7 @@ export class VendorRfqRepository {
         deliveryLocation: headerData.deliveryLocation || null,
         terms: headerData.terms || null,
         notes: headerData.notes || null,
-        createdById: headerData.createdById || null,
+        createdById: resolvedCreatedById,
         additionalInformation: (headerData.additionalInformation as Prisma.InputJsonValue) ?? Prisma.JsonNull,
         items: items && items.length > 0
           ? {

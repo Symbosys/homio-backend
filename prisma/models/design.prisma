@@ -52,13 +52,13 @@ enum DesignAttachmentType {
   TECHNICAL_DRAWING_PDF
   SPECIFICATION_SHEET
   CAD_DWG_FILE
-  THREED_MODEL_FILE      // .glb, .gltf, .obj, .fbx
-  THREED_PREVIEW_URL     // Matterport, Sketchfab, Spline, Kuula 360, Polycam
-  YOUTUBE_VIDEO          // Walkthrough video embeds
+  THREED_MODEL_FILE // .glb, .gltf, .obj, .fbx
+  THREED_PREVIEW_URL // Matterport, Sketchfab, Spline, Kuula 360, Polycam
+  YOUTUBE_VIDEO // Walkthrough video embeds
   VIMEO_VIDEO
-  VIDEO_FILE             // Uploaded MP4 / WebM video
-  AUDIO_WALKTHROUGH      // Designer verbal commentary / walkthrough
-  EXTERNAL_DRIVE_LINK    // Google Drive / Dropbox / OneDrive
+  VIDEO_FILE // Uploaded MP4 / WebM video
+  AUDIO_WALKTHROUGH // Designer verbal commentary / walkthrough
+  EXTERNAL_DRIVE_LINK // Google Drive / Dropbox / OneDrive
   OTHER
 }
 
@@ -162,12 +162,12 @@ model ProjectDesign {
   milestone   ProjectMilestone? @relation("MilestoneDesigns", fields: [milestoneId], references: [id], onDelete: SetNull)
 
   // Classification & Metadata
-  designCode  String?     @map("design_code") // e.g. "DSG-001"
-  title       String      @map("title") // e.g. "False Ceiling & Cove Lighting Layout"
-  designType  DesignType  @default(RENDER_3D) @map("design_type")
-  designStyle String?     @map("design_style") // e.g. "MODERN_MINIMALIST", "JAPANDI", "SCANDINAVIAN", "CONTEMPORARY"
-  description String?     @map("description") @db.Text
-  roomArea    String?     @map("room_area") // e.g. "Master Bedroom", "Balcony Lounge"
+  designCode  String?    @map("design_code") // e.g. "DSG-001"
+  title       String     @map("title") // e.g. "False Ceiling & Cove Lighting Layout"
+  designType  DesignType @default(RENDER_3D) @map("design_type")
+  designStyle String?    @map("design_style") // e.g. "MODERN_MINIMALIST", "JAPANDI", "SCANDINAVIAN", "CONTEMPORARY"
+  description String?    @map("description") @db.Text
+  roomArea    String?    @map("room_area") // e.g. "Master Bedroom", "Balcony Lounge"
 
   // Engineering & Architectural Specifications
   specifications Json?    @map("specifications") // Dimensions, finishes, materials, wall heights, carpet area
@@ -363,11 +363,11 @@ model DesignChangeRequest {
   designVersion   DesignVersion @relation("VersionChangeRequests", fields: [designVersionId], references: [id], onDelete: Cascade)
 
   // Request Classification
-  requestNumber Int                  @default(1) @map("request_number")
-  title         String               @map("title") // e.g. "Change laminate finish to smoked walnut"
-  description   String               @map("description") @db.Text
-  category      DesignChangeCategory @default(MATERIAL_AND_FINISH) @map("category")
-  urgency       ProjectPriority      @default(MEDIUM) @map("urgency")
+  requestNumber Int                       @default(1) @map("request_number")
+  title         String                    @map("title") // e.g. "Change laminate finish to smoked walnut"
+  description   String                    @map("description") @db.Text
+  category      DesignChangeCategory      @default(MATERIAL_AND_FINISH) @map("category")
+  urgency       ProjectPriority           @default(MEDIUM) @map("urgency")
   status        DesignChangeRequestStatus @default(PENDING) @map("status")
 
   // Interactive Pin Annotations & Reference Media

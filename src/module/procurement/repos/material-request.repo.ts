@@ -14,7 +14,7 @@ const materialRequestItemInclude = {
       id: true,
       name: true,
       sku: true,
-      unit: true,
+      unitOfMeasure: true,
       coverImageUrl: true,
       category: {
         select: {
@@ -35,7 +35,8 @@ const materialRequestDetailInclude = {
       status: true,
       site: {
         select: {
-          siteAddress: true,
+          siteName: true,
+          address: true,
           city: true,
           state: true,
           pincode: true,
@@ -111,6 +112,40 @@ export class MaterialRequestRepository {
   }
 
   /**
+   * Safely resolve User ID from either a User ID or an Employee ID
+   */
+  private async resolveUserId(
+    id: string | null | undefined,
+    organizationId: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<string | null> {
+    if (!id) return null;
+    const db = tx || prisma;
+
+    // 1. Direct User lookup
+    const user = await db.user.findFirst({
+      where: { id, organizationId, isDeleted: false },
+      select: { id: true },
+    });
+    if (user) return user.id;
+
+    // 2. Employee with linked User lookup
+    const emp = await db.employee.findFirst({
+      where: { id, organizationId, isDeleted: false },
+      select: { userId: true },
+    });
+    if (emp && emp.userId) {
+      const linkedUser = await db.user.findFirst({
+        where: { id: emp.userId, organizationId, isDeleted: false },
+        select: { id: true },
+      });
+      if (linkedUser) return linkedUser.id;
+    }
+
+    return null;
+  }
+
+  /**
    * Create a new Material Request with line items in an atomic transaction
    */
   async create(organizationId: string, data: CreateMaterialRequestInput) {
@@ -131,6 +166,9 @@ export class MaterialRequestRepository {
         }, 0);
       }
 
+      const requestedById = await this.resolveUserId(headerData.requestedById, organizationId, tx);
+      const approvedById = await this.resolveUserId(headerData.approvedById, organizationId, tx);
+
       const createData: Prisma.MaterialRequestUncheckedCreateInput = {
         organizationId,
         projectId: headerData.projectId,
@@ -145,8 +183,8 @@ export class MaterialRequestRepository {
         notes: headerData.notes || null,
         estimatedCost: totalEstimatedCost,
         approvedCost: headerData.approvedCost || 0,
-        requestedById: headerData.requestedById || null,
-        approvedById: headerData.approvedById || null,
+        requestedById,
+        approvedById,
         additionalInformation: (headerData.additionalInformation as Prisma.InputJsonValue) ?? Prisma.JsonNull,
         items: items && items.length > 0
           ? {
@@ -314,7 +352,18 @@ export class MaterialRequestRepository {
    * Update Material Request header
    */
   async update(id: string, organizationId: string, data: UpdateMaterialRequestInput) {
+    const requestedById =
+      data.requestedById !== undefined
+        ? await this.resolveUserId(data.requestedById, organizationId)
+        : undefined;
+
+    const approvedById =
+      data.approvedById !== undefined
+        ? await this.resolveUserId(data.approvedById, organizationId)
+        : undefined;
+
     const updateData: Prisma.MaterialRequestUncheckedUpdateInput = {
+      ...(data.projectId ? { projectId: data.projectId } : {}),
       ...(data.requestNumber ? { requestNumber: data.requestNumber } : {}),
       ...(data.requestDate ? { requestDate: new Date(data.requestDate) } : {}),
       ...(data.requiredByDate ? { requiredByDate: new Date(data.requiredByDate) } : {}),
@@ -326,8 +375,8 @@ export class MaterialRequestRepository {
       ...(data.notes !== undefined ? { notes: data.notes } : {}),
       ...(data.estimatedCost !== undefined ? { estimatedCost: data.estimatedCost } : {}),
       ...(data.approvedCost !== undefined ? { approvedCost: data.approvedCost } : {}),
-      ...(data.requestedById !== undefined ? { requestedById: data.requestedById || null } : {}),
-      ...(data.approvedById !== undefined ? { approvedById: data.approvedById || null } : {}),
+      ...(data.requestedById !== undefined ? { requestedById } : {}),
+      ...(data.approvedById !== undefined ? { approvedById } : {}),
       ...(data.additionalInformation !== undefined
         ? { additionalInformation: (data.additionalInformation as Prisma.InputJsonValue) ?? Prisma.JsonNull }
         : {}),
@@ -364,11 +413,15 @@ export class MaterialRequestRepository {
     approvedCost?: number,
     notes?: string
   ) {
+    const resolvedApprovedById = approvedById
+      ? await this.resolveUserId(approvedById, organizationId)
+      : undefined;
+
     const data: Prisma.MaterialRequestUncheckedUpdateInput = {
       status,
       ...(notes ? { notes } : {}),
       ...(approvedCost !== undefined ? { approvedCost } : {}),
-      ...(approvedById !== undefined ? { approvedById: approvedById || null } : {}),
+      ...(approvedById !== undefined ? { approvedById: resolvedApprovedById } : {}),
     };
 
     return prisma.materialRequest.update({
