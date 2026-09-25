@@ -8,6 +8,8 @@ import type {
   CreateLeadInput,
   UpdateLeadInput,
   UpdateLeadStatusInput,
+  UpdateLeadChannelPartnerInput,
+  GetDistinctPropertiesQueryInput,
   AssignLeadInput,
   ConvertLeadInput,
   MarkLeadLostInput,
@@ -98,20 +100,81 @@ export class LeadService {
       // Generate sequential lead code (e.g. LEAD-2026-0001)
       const leadCode = await leadRepo.generateLeadCode(organizationId, tx);
 
-      // Destructure customer out of input so it doesn't get passed into Prisma lead fields
-      const { customer, ...leadPayload } = input;
+      // Auto-compute dual budget (INR <-> Lakh)
+      let estimatedBudget = input.estimatedBudget;
+      let budgetInLakh = input.budgetInLakh;
+      let budgetDisplay = input.budgetDisplay;
+
+      if (budgetInLakh !== undefined && budgetInLakh !== null && (estimatedBudget === undefined || estimatedBudget === null)) {
+        estimatedBudget = budgetInLakh * 100000;
+      } else if (estimatedBudget !== undefined && estimatedBudget !== null && (budgetInLakh === undefined || budgetInLakh === null)) {
+        budgetInLakh = Number((estimatedBudget / 100000).toFixed(2));
+      }
+
+      if (!budgetDisplay && budgetInLakh !== undefined && budgetInLakh !== null) {
+        budgetDisplay = `₹${budgetInLakh} L`;
+      }
+
+      // Destructure customer and channel partner specific link fields
+      const {
+        customer,
+        channelPartnerId,
+        commissionType,
+        commissionRate,
+        commissionAmount,
+        ...leadPayload
+      } = input;
+
+      const effectiveSource = channelPartnerId ? "CHANNEL_PARTNER" : (input.source || "WEBSITE");
 
       // Create the Lead record
       const lead = await leadRepo.create(
         organizationId,
         {
           ...leadPayload,
+          source: effectiveSource,
+          estimatedBudget,
+          budgetInLakh,
+          budgetDisplay,
           customerId: resolvedCustomerId,
           leadCode,
           inquiryNumber,
         },
         tx
       );
+
+      // Automatically link Channel Partner if selected during creation
+      if (channelPartnerId) {
+        const cp = await tx.channelPartner.findFirst({
+          where: { id: channelPartnerId, organizationId, isDeleted: false },
+        });
+
+        if (!cp) {
+          throw new ErrorResponse("Channel partner not found in this organization", statusCode.Not_Found);
+        }
+
+        const effectiveCommType = commissionType || cp.defaultCommissionType || "PERCENTAGE";
+        const effectiveCommRate = commissionRate !== undefined && commissionRate !== null
+          ? new Prisma.Decimal(commissionRate)
+          : cp.defaultCommissionValue;
+        const effectiveCommAmount = commissionAmount !== undefined && commissionAmount !== null
+          ? new Prisma.Decimal(commissionAmount)
+          : null;
+
+        await tx.channelPartnerLead.create({
+          data: {
+            organizationId,
+            leadId: lead.id,
+            channelPartnerId,
+            status: "IN_PROGRESS",
+            commissionType: effectiveCommType,
+            commissionRate: effectiveCommRate,
+            commissionAmount: effectiveCommAmount,
+            commissionDueAmount: effectiveCommAmount,
+            commissionStatus: "DUE",
+          },
+        });
+      }
 
       // Record initial stage transition in history
       await tx.leadStageHistory.create({
@@ -171,7 +234,18 @@ export class LeadService {
       throw new ErrorResponse("Lead not found", statusCode.Not_Found);
     }
 
-    const { customer, ...leadFields } = input;
+    const { customer, channelPartnerId, commissionType, commissionRate, commissionAmount, cpLeadStatus, ...leadFields } = input;
+
+    // Auto-compute dual budget (INR <-> Lakh) if updated
+    if (leadFields.budgetInLakh !== undefined && leadFields.estimatedBudget === undefined) {
+      leadFields.estimatedBudget = leadFields.budgetInLakh !== null ? leadFields.budgetInLakh * 100000 : null;
+    } else if (leadFields.estimatedBudget !== undefined && leadFields.budgetInLakh === undefined) {
+      leadFields.budgetInLakh = leadFields.estimatedBudget !== null ? Number((leadFields.estimatedBudget / 100000).toFixed(2)) : null;
+    }
+
+    if (!leadFields.budgetDisplay && leadFields.budgetInLakh !== undefined && leadFields.budgetInLakh !== null) {
+      leadFields.budgetDisplay = `₹${leadFields.budgetInLakh} L`;
+    }
 
     if (customer && existing.customerId) {
       await prisma.customer.update({
@@ -186,6 +260,17 @@ export class LeadService {
           ...(customer.billingState !== undefined ? { billingState: customer.billingState || null } : {}),
           ...(customer.billingPincode !== undefined ? { billingPincode: customer.billingPincode || null } : {}),
         },
+      });
+    }
+
+    // Link/update Channel Partner if provided
+    if (channelPartnerId || commissionType || commissionRate !== undefined || commissionAmount !== undefined || cpLeadStatus) {
+      await leadRepo.upsertChannelPartnerLead(id, organizationId, {
+        channelPartnerId: channelPartnerId || undefined,
+        status: cpLeadStatus,
+        commissionType,
+        commissionRate,
+        commissionAmount,
       });
     }
 
@@ -480,6 +565,41 @@ export class LeadService {
 
     await leadRepo.softDelete(id, organizationId);
     return { message: "Lead deleted successfully" };
+  }
+
+  /**
+   * Update Channel Partner attribution & commission for a lead
+   */
+  async updateLeadChannelPartner(
+    id: string,
+    organizationId: string,
+    input: UpdateLeadChannelPartnerInput
+  ) {
+    const lead = await leadRepo.findById(id, organizationId);
+    if (!lead) {
+      throw new ErrorResponse("Lead not found", statusCode.Not_Found);
+    }
+
+    if (input.channelPartnerId) {
+      const cp = await prisma.channelPartner.findFirst({
+        where: { id: input.channelPartnerId, organizationId, isDeleted: false },
+      });
+      if (!cp) {
+        throw new ErrorResponse("Channel partner not found in this organization", statusCode.Not_Found);
+      }
+    }
+
+    return leadRepo.upsertChannelPartnerLead(id, organizationId, input);
+  }
+
+  /**
+   * Autocomplete/distinct property names for dropdown search
+   */
+  async getDistinctProperties(
+    organizationId: string,
+    query: GetDistinctPropertiesQueryInput
+  ) {
+    return leadRepo.getDistinctProperties(organizationId, query);
   }
 }
 

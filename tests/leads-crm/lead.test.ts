@@ -180,13 +180,15 @@ describe("Lead CRM Module Tests", () => {
     const MOCK_SERVICE_CATEGORY_ID = "c0000000-0000-4000-8000-000000000003";
     const MOCK_LOST_REASON_ID = "b0000000-0000-4000-8000-000000000002";
 
-    it("should validate lead creation with serviceCategoryId link", () => {
+    it("should validate lead creation with propertyName, budgetInLakh, and workDescription", () => {
       const payload = {
         body: {
           customerId: MOCK_CUSTOMER_ID,
           title: "Full Home Interior - Master Data Linked",
+          workDescription: "Complete modular kitchen and interior woodwork",
+          propertyName: "Prestige Lakeside Habitat",
           estimatedBudget: 2500000,
-          serviceCategoryId: MOCK_SERVICE_CATEGORY_ID,
+          budgetInLakh: 25.0,
           additionalInformation: {
             architectConsultationRequired: true,
           },
@@ -196,7 +198,9 @@ describe("Lead CRM Module Tests", () => {
       const result = createLeadSchema.safeParse(payload);
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.body.serviceCategoryId).toBe(MOCK_SERVICE_CATEGORY_ID);
+        expect(result.data.body.propertyName).toBe("Prestige Lakeside Habitat");
+        expect(result.data.body.budgetInLakh).toBe(25.0);
+        expect(result.data.body.workDescription).toBe("Complete modular kitchen and interior woodwork");
         expect(result.data.body.additionalInformation?.architectConsultationRequired).toBe(true);
       }
     });

@@ -12,6 +12,8 @@ import {
   bulkActionLeadsSchema,
   leadIdParamSchema,
   getLeadsQuerySchema,
+  updateLeadChannelPartnerSchema,
+  getDistinctPropertiesQuerySchema,
 } from "../validators/lead.validator.js";
 
 /**
@@ -172,4 +174,32 @@ export const deleteLead = asyncHandler(async (req, res) => {
   const parsed = leadIdParamSchema.parse({ params: req.params });
   const result = await leadService.deleteLead(parsed.params.id, organizationId);
   return SuccessResponse(res, "Lead deleted successfully", result, statusCode.OK);
+});
+
+/**
+ * Controller: Update Channel Partner link and commission on Lead
+ */
+export const updateLeadChannelPartner = asyncHandler(async (req, res) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+  }
+
+  const parsed = updateLeadChannelPartnerSchema.parse({ params: req.params, body: req.body });
+  const result = await leadService.updateLeadChannelPartner(parsed.params.id, organizationId, parsed.body);
+  return SuccessResponse(res, "Channel partner link updated successfully", result, statusCode.OK);
+});
+
+/**
+ * Controller: Get distinct property names for searchable dropdown
+ */
+export const getDistinctProperties = asyncHandler(async (req, res) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+  }
+
+  const parsed = getDistinctPropertiesQuerySchema.parse({ query: req.query });
+  const result = await leadService.getDistinctProperties(organizationId, parsed.query);
+  return SuccessResponse(res, "Distinct properties retrieved successfully", result, statusCode.OK);
 });

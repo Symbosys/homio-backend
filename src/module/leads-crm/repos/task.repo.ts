@@ -46,6 +46,9 @@ export class TaskRepository {
         tags: tags || [],
         customFields: customFields ? (customFields as Prisma.InputJsonValue) : Prisma.JsonNull,
         additionalInformation: additionalInformation ? (additionalInformation as Prisma.InputJsonValue) : Prisma.JsonNull,
+        checklistTotal: checklistItems ? checklistItems.length : 0,
+        checklistCompleted: 0,
+        progressPercentage: 0,
         ...(assignees && assignees.length > 0
           ? {
               assignees: {
@@ -80,6 +83,15 @@ export class TaskRepository {
             designation: true,
           },
         },
+        approvedBy: {
+          select: {
+            id: true,
+            employeeCode: true,
+            firstName: true,
+            lastName: true,
+            designation: true,
+          },
+        },
         assignees: {
           include: {
             employee: {
@@ -95,7 +107,6 @@ export class TaskRepository {
           },
         },
         lead: { select: { id: true, leadCode: true, title: true, status: true } },
-        customer: { select: { id: true, customerCode: true, firstName: true, lastName: true } },
         category: { select: { id: true, name: true, slug: true, code: true, color: true, icon: true } },
         checklistItems: { orderBy: { sortOrder: "asc" } },
       },
@@ -114,6 +125,16 @@ export class TaskRepository {
       },
       include: {
         assignedTo: {
+          select: {
+            id: true,
+            employeeCode: true,
+            firstName: true,
+            lastName: true,
+            designation: true,
+            workEmail: true,
+          },
+        },
+        approvedBy: {
           select: {
             id: true,
             employeeCode: true,
@@ -162,18 +183,6 @@ export class TaskRepository {
           },
         },
         category: { select: { id: true, name: true, slug: true, code: true, color: true, icon: true } },
-        customer: {
-          select: {
-            id: true,
-            customerCode: true,
-            customerType: true,
-            firstName: true,
-            lastName: true,
-            displayName: true,
-            phone: true,
-            email: true,
-          },
-        },
         checklistItems: {
           orderBy: { sortOrder: "asc" },
         },
@@ -219,7 +228,6 @@ export class TaskRepository {
       priority,
       type,
       leadId,
-      customerId,
       projectId,
       employeeId,
       assignedToId,
@@ -245,7 +253,6 @@ export class TaskRepository {
       ...(priority ? { priority } : {}),
       ...(type ? { type } : {}),
       ...(leadId ? { leadId } : {}),
-      ...(customerId ? { customerId } : {}),
       ...(projectId ? { projectId } : {}),
       ...(effectiveEmployeeId
         ? {
@@ -317,8 +324,16 @@ export class TaskRepository {
               },
             },
           },
+          approvedBy: {
+            select: {
+              id: true,
+              employeeCode: true,
+              firstName: true,
+              lastName: true,
+              designation: true,
+            },
+          },
           lead: { select: { id: true, leadCode: true, title: true, status: true } },
-          customer: { select: { id: true, customerCode: true, firstName: true, lastName: true } },
           category: { select: { id: true, name: true, slug: true, code: true, color: true, icon: true } },
           _count: {
             select: {
@@ -346,7 +361,7 @@ export class TaskRepository {
    * Kanban Board grouping by status
    */
   async getKanban(organizationId: string, query: GetTaskKanbanQueryInput) {
-    const { search, priority, type, leadId, customerId, projectId, employeeId, assignedToId } = query;
+    const { search, priority, type, leadId, projectId, employeeId, assignedToId } = query;
     const effectiveEmployeeId = employeeId || assignedToId;
 
     const where: Prisma.TaskWhereInput = {
@@ -355,7 +370,6 @@ export class TaskRepository {
       ...(priority ? { priority } : {}),
       ...(type ? { type } : {}),
       ...(leadId ? { leadId } : {}),
-      ...(customerId ? { customerId } : {}),
       ...(projectId ? { projectId } : {}),
       ...(effectiveEmployeeId
         ? {
@@ -391,8 +405,15 @@ export class TaskRepository {
             },
           },
         },
+        approvedBy: {
+          select: {
+            id: true,
+            employeeCode: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
         lead: { select: { id: true, leadCode: true, title: true } },
-        customer: { select: { id: true, customerCode: true, firstName: true, lastName: true } },
         category: { select: { id: true, name: true, slug: true, code: true, color: true, icon: true } },
         _count: {
           select: {
@@ -407,8 +428,9 @@ export class TaskRepository {
     const columns: Record<string, typeof tasks> = {
       TODO: [],
       IN_PROGRESS: [],
-      IN_REVIEW: [],
-      BLOCKED: [],
+      UNDER_REVIEW: [],
+      RE_WORK: [],
+      ON_HOLD: [],
       COMPLETED: [],
       CANCELLED: [],
     };
@@ -428,7 +450,7 @@ export class TaskRepository {
    */
   async update(id: string, organizationId: string, data: UpdateTaskInput, tx?: Prisma.TransactionClient) {
     const db = tx || prisma;
-    const { startDate, dueDate, completedAt, remindAt, customFields, additionalInformation, assignees, ...directFields } = data;
+    const { startDate, dueDate, completedAt, remindAt, customFields, additionalInformation, assignees, categoryId, leadId, projectId, assignedToId, ...directFields } = data;
 
     if (assignees !== undefined) {
       await db.taskAssignee.deleteMany({
@@ -451,6 +473,10 @@ export class TaskRepository {
       where: { id },
       data: {
         ...directFields,
+        ...(categoryId !== undefined ? { categoryId: categoryId || null } : {}),
+        ...(leadId !== undefined ? { leadId: leadId || null } : {}),
+        ...(projectId !== undefined ? { projectId: projectId || null } : {}),
+        ...(assignedToId !== undefined ? { assignedToId: assignedToId || null } : {}),
         ...(startDate !== undefined ? { startDate: startDate ? new Date(startDate) : null } : {}),
         ...(dueDate !== undefined ? { dueDate: dueDate ? new Date(dueDate) : null } : {}),
         ...(completedAt !== undefined ? { completedAt: completedAt ? new Date(completedAt) : null } : {}),
@@ -464,6 +490,7 @@ export class TaskRepository {
       },
       include: {
         assignedTo: { select: { id: true, employeeCode: true, firstName: true, lastName: true } },
+        approvedBy: { select: { id: true, employeeCode: true, firstName: true, lastName: true, designation: true } },
         category: { select: { id: true, name: true, slug: true, code: true, color: true, icon: true } },
         assignees: {
           include: {
@@ -594,6 +621,97 @@ export class TaskRepository {
   async deleteChecklistItem(itemId: string) {
     return prisma.taskChecklistItem.delete({
       where: { id: itemId },
+    });
+  }
+
+  /**
+   * Recalculate and persist task checklist counters and percentage
+   */
+  async recalculateChecklistMetrics(taskId: string, tx?: Prisma.TransactionClient) {
+    const db = tx || prisma;
+    const items = await db.taskChecklistItem.findMany({
+      where: { taskId },
+      select: { id: true, isCompleted: true },
+    });
+
+    const total = items.length;
+    const completed = items.filter((item) => item.isCompleted).length;
+    const progressPercentage = total > 0 ? Number(((completed / total) * 100).toFixed(1)) : 0;
+
+    return db.task.update({
+      where: { id: taskId },
+      data: {
+        checklistTotal: total,
+        checklistCompleted: completed,
+        progressPercentage,
+      },
+    });
+  }
+
+  /**
+   * Workflow: Submit task for review and verification
+   */
+  async submitForReview(id: string, tx?: Prisma.TransactionClient) {
+    const db = tx || prisma;
+    return db.task.update({
+      where: { id },
+      data: {
+        status: "UNDER_REVIEW",
+        submittedForReviewAt: new Date(),
+      },
+    });
+  }
+
+  /**
+   * Workflow: Approve task and mark completed
+   */
+  async approveTask(
+    id: string,
+    approvedById?: string | null,
+    approvalRemarks?: string | null,
+    tx?: Prisma.TransactionClient
+  ) {
+    const db = tx || prisma;
+    return db.task.update({
+      where: { id },
+      data: {
+        status: "COMPLETED",
+        approvedById: approvedById || null,
+        approvedAt: new Date(),
+        approvalRemarks: approvalRemarks || null,
+        completedAt: new Date(),
+      },
+    });
+  }
+
+  /**
+   * Workflow: Reject task for rework
+   */
+  async rejectTaskForRework(
+    id: string,
+    reworkNotes: string,
+    tx?: Prisma.TransactionClient
+  ) {
+    const db = tx || prisma;
+    return db.task.update({
+      where: { id },
+      data: {
+        status: "RE_WORK",
+        approvalRemarks: reworkNotes,
+      },
+    });
+  }
+
+  /**
+   * Workflow: Put task on hold
+   */
+  async holdTask(id: string, reason: string, tx?: Prisma.TransactionClient) {
+    const db = tx || prisma;
+    return db.task.update({
+      where: { id },
+      data: {
+        status: "ON_HOLD",
+      },
     });
   }
 

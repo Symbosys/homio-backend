@@ -26,5 +26,17 @@ export const uploadCustomerDocumentSchema = z.object({
   }),
 });
 
+export const updateLeadDocumentSchema = z.object({
+  params: z.object({
+    id: z.string().uuid("Invalid document ID format"),
+  }),
+  body: z.object({
+    name: z.string().min(1, "Document name is required").max(150).optional(),
+    category: z.string().optional(),
+  }),
+});
+
 export type UploadLeadDocumentInput = z.infer<typeof uploadLeadDocumentSchema>["body"];
+export type UpdateLeadDocumentInput = z.infer<typeof updateLeadDocumentSchema>["body"];
 export type UploadCustomerDocumentInput = z.infer<typeof uploadCustomerDocumentSchema>["body"];
+

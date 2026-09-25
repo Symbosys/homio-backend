@@ -4,8 +4,9 @@ export const TaskPriorityEnum = z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]);
 export const TaskStatusEnum = z.enum([
   "TODO",
   "IN_PROGRESS",
-  "IN_REVIEW",
-  "BLOCKED",
+  "UNDER_REVIEW",
+  "RE_WORK",
+  "ON_HOLD",
   "COMPLETED",
   "CANCELLED",
 ]);
@@ -64,7 +65,6 @@ export const createCustomTaskSchema = z.object({
   body: z.object({
     // Polymorphic Linkage
     leadId: z.string().uuid("Invalid lead ID").optional().nullable(),
-    customerId: z.string().uuid("Invalid customer ID").optional().nullable(),
     projectId: z.string().uuid("Invalid project ID").optional().nullable(),
 
     title: z.string().min(1, "Task title is required").max(200),
@@ -107,7 +107,6 @@ export const updateTaskSchema = z.object({
   }),
   body: z.object({
     leadId: z.string().uuid("Invalid lead ID").optional().nullable(),
-    customerId: z.string().uuid("Invalid customer ID").optional().nullable(),
     projectId: z.string().uuid("Invalid project ID").optional().nullable(),
 
     title: z.string().min(1).max(200).optional(),
@@ -234,7 +233,6 @@ export const getTasksQuerySchema = z.object({
     priority: TaskPriorityEnum.optional(),
     type: TaskTypeEnum.optional(),
     leadId: z.string().uuid().optional(),
-    customerId: z.string().uuid().optional(),
     projectId: z.string().uuid().optional(),
     employeeId: z.string().uuid().optional(),
     assignedToId: z.string().uuid().optional(),
@@ -255,10 +253,52 @@ export const getTaskKanbanQuerySchema = z.object({
     priority: TaskPriorityEnum.optional(),
     type: TaskTypeEnum.optional(),
     leadId: z.string().uuid().optional(),
-    customerId: z.string().uuid().optional(),
     projectId: z.string().uuid().optional(),
     employeeId: z.string().uuid().optional(),
     assignedToId: z.string().uuid().optional(),
+  }),
+});
+
+export const submitTaskForReviewSchema = z.object({
+  params: z.object({
+    id: z.string().uuid("Invalid task ID format"),
+  }),
+  body: z
+    .object({
+      notes: z.string().max(1000).optional().nullable(),
+    })
+    .optional()
+    .default({}),
+});
+
+export const approveTaskSchema = z.object({
+  params: z.object({
+    id: z.string().uuid("Invalid task ID format"),
+  }),
+  body: z
+    .object({
+      approvedById: z.string().uuid("Invalid employee ID format").optional().nullable(),
+      approvalRemarks: z.string().max(1000).optional().nullable(),
+    })
+    .optional()
+    .default({}),
+});
+
+export const rejectTaskForReworkSchema = z.object({
+  params: z.object({
+    id: z.string().uuid("Invalid task ID format"),
+  }),
+  body: z.object({
+    reworkNotes: z.string().min(1, "Rework notes are required").max(1000),
+  }),
+});
+
+export const holdTaskSchema = z.object({
+  params: z.object({
+    id: z.string().uuid("Invalid task ID format"),
+  }),
+  body: z.object({
+    reason: z.string().min(1, "Hold reason is required").max(1000),
   }),
 });
 
@@ -275,3 +315,7 @@ export type UploadTaskDocumentInput = z.infer<typeof uploadTaskDocumentSchema>["
 export type BulkActionTasksInput = z.infer<typeof bulkActionTasksSchema>["body"];
 export type GetTasksQueryInput = z.infer<typeof getTasksQuerySchema>["query"];
 export type GetTaskKanbanQueryInput = z.infer<typeof getTaskKanbanQuerySchema>["query"];
+export type SubmitTaskForReviewInput = z.infer<typeof submitTaskForReviewSchema>["body"];
+export type ApproveTaskInput = z.infer<typeof approveTaskSchema>["body"];
+export type RejectTaskForReworkInput = z.infer<typeof rejectTaskForReworkSchema>["body"];
+export type HoldTaskInput = z.infer<typeof holdTaskSchema>["body"];

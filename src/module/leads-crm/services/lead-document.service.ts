@@ -30,7 +30,7 @@ export class LeadDocumentService {
       },
       {
         folder: `homio/organizations/${organizationId}/leads/${leadId}/docs`,
-        resourceType: "raw",
+        resourceType: "auto",
       }
     );
 
@@ -64,6 +64,51 @@ export class LeadDocumentService {
     }
 
     return leadDocumentRepo.findByLeadId(leadId, organizationId);
+  }
+
+  /**
+   * Update lead document metadata or replacement file
+   */
+  async updateDocument(
+    organizationId: string,
+    id: string,
+    input: { name?: string; category?: string },
+    file?: Express.Multer.File
+  ) {
+    const existing = await leadDocumentRepo.findById(id, organizationId);
+    if (!existing) {
+      throw new ErrorResponse("Document not found", statusCode.Not_Found);
+    }
+
+    let docFile: ImageType | undefined = undefined;
+    if (file) {
+      const uploadResult = await storageService.upload(
+        {
+          buffer: file.buffer,
+          originalname: file.originalname,
+          mimetype: file.mimetype,
+          size: file.size,
+        },
+        {
+          folder: `homio/organizations/${organizationId}/leads/${existing.leadId}/docs`,
+          resourceType: "auto",
+        }
+      );
+
+      docFile = {
+        id: uploadResult.publicId,
+        url: uploadResult.secureUrl || uploadResult.url,
+        bytes: uploadResult.bytes,
+        format: uploadResult.format,
+        provider: uploadResult.provider,
+      };
+    }
+
+    return leadDocumentRepo.update(id, organizationId, {
+      ...(input.name ? { name: input.name } : {}),
+      ...(input.category ? { category: input.category } : {}),
+      ...(docFile ? { fileUrl: docFile as unknown as Prisma.InputJsonValue } : {}),
+    });
   }
 
   /**

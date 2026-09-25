@@ -1,0 +1,195 @@
+// ==========================================
+// CHANNEL PARTNER ENUMS
+// ==========================================
+
+enum ChannelPartnerStatus {
+  ACTIVE
+  INACTIVE
+  BLACKLISTED
+}
+
+enum ChannelPartnerLeadStatus {
+  IN_PROGRESS
+  MEETING_DONE      // Meeting conducted with client
+  BOOKED            // Lead converted / booked by partner
+  NOT_INTERESTED    // Lead marked not interested
+  LOST              // Lost to competitor / dropped
+}
+
+enum CommissionType {
+  PERCENTAGE        // e.g. 5% of total deal/project value
+  FIXED_AMOUNT      // e.g. ₹25,000 fixed flat commission
+}
+
+enum CommissionStatus {
+  DUE               // Commission payable upon booking/milestone
+  PARTIALLY_PAID    // Partial payout processed
+  PAID              // Fully disbursed
+  CANCELLED         // Ineligible or cancelled
+}
+
+enum ChannelPartnerPayoutStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REVERSED
+}
+
+// ==========================================
+// CHANNEL PARTNER MASTER MODEL
+// ==========================================
+
+model ChannelPartner {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationChannelPartners", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Identification & Code
+  partnerCode    String       @map("partner_code") // e.g. "CP-1001"
+  name           String       @map("name") // Contact Person / Lead Name
+  companyName    String?      @map("company_name") // Agency / Brokerage Name
+  partnerType    String?      @map("partner_type") // REAL_ESTATE_AGENT, ARCHITECT, BUILDER, FREELANCE_BROKER, OTHER
+
+  // Contact Information
+  phone          String       @map("phone")
+  alternatePhone String?      @map("alternate_phone")
+  email          String?      @map("email")
+  address        String?      @map("address")
+  city           String?      @map("city")
+  state          String?      @map("state")
+  pincode        String?      @map("pincode")
+
+  // Default Commission Configuration
+  defaultCommissionType  CommissionType @default(PERCENTAGE) @map("default_commission_type")
+  defaultCommissionValue Decimal?       @map("default_commission_value") @db.Decimal(10, 2) // e.g. 5.00 for 5%
+
+  // Bank Details Configuration
+  // Structure: { accountHolderName, bankName, accountNumber, ifscCode, branch, upiId }
+  bankDetails    Json?        @map("bank_details")
+
+  // KYC Details & Verification
+  panNumber      String?      @map("pan_number")
+  gstNumber      String?      @map("gst_number")
+  aadhaarNumber  String?      @map("aadhaar_number")
+  kycStatus      String       @default("PENDING") @map("kyc_status") // PENDING, VERIFIED, REJECTED
+  // Structure: { documentType, documentUrl: ImageType, verifiedAt, verifiedBy, remarks }
+  kycDetails     Json?        @map("kyc_details")
+
+  // Status, Notes & Visuals
+  status         ChannelPartnerStatus @default(ACTIVE) @map("status")
+  notes          String?              @map("notes")
+  avatarUrl      Json?                @map("avatar_url") // ImageType JSON
+
+  // Universal Dynamic Custom Fields
+  additionalInformation Json?         @map("additional_information")
+
+  // Soft Delete & Timestamps
+  isDeleted      Boolean      @default(false) @map("is_deleted")
+  deletedAt      DateTime?    @map("deleted_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  channelPartnerLeads ChannelPartnerLead[]   @relation("ChannelPartnerLeads")
+  payouts             ChannelPartnerPayout[] @relation("ChannelPartnerPayouts")
+
+  @@unique([organizationId, partnerCode])
+  @@unique([organizationId, phone])
+  @@index([organizationId])
+  @@index([status])
+  @@index([kycStatus])
+  @@index([isDeleted, deletedAt])
+  @@map("channel_partners")
+}
+
+// ==========================================
+// CHANNEL PARTNER LEAD (Normalized Link Table)
+// ==========================================
+
+model ChannelPartnerLead {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationChannelPartnerLeads", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // 1-to-1 Relationship with Lead
+  leadId         String       @unique @map("lead_id") @db.Uuid
+  lead           Lead         @relation("LeadChannelPartnerLead", fields: [leadId], references: [id], onDelete: Cascade)
+
+  // Parent Channel Partner
+  channelPartnerId String     @map("channel_partner_id") @db.Uuid
+  channelPartner   ChannelPartner @relation("ChannelPartnerLeads", fields: [channelPartnerId], references: [id], onDelete: Restrict)
+
+  // Partner Stage Tracking for this Lead
+  status         ChannelPartnerLeadStatus @default(IN_PROGRESS) @map("status") // MEETING_DONE, BOOKED, NOT_INTERESTED, IN_PROGRESS, LOST
+
+  // Commission Configuration & Calculations
+  commissionType       CommissionType   @default(PERCENTAGE) @map("commission_type")
+  commissionRate       Decimal?         @map("commission_rate") @db.Decimal(10, 2) // e.g. 5.00 (%) or 25000.00 (₹)
+  commissionAmount     Decimal?         @map("commission_amount") @db.Decimal(14, 2) // Total calculated commission
+  commissionPaidAmount Decimal          @default(0) @map("commission_paid_amount") @db.Decimal(14, 2)
+  commissionDueAmount  Decimal?         @map("commission_due_amount") @db.Decimal(14, 2)
+  commissionStatus     CommissionStatus @default(DUE) @map("commission_status")
+
+  notes          String?      @map("notes")
+  additionalInformation Json? @map("additional_information")
+
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  payouts        ChannelPartnerPayout[] @relation("CPLeadPayouts")
+
+  @@index([organizationId])
+  @@index([channelPartnerId])
+  @@index([status])
+  @@index([commissionStatus])
+  @@map("channel_partner_leads")
+}
+
+// ==========================================
+// CHANNEL PARTNER FINANCE TRACKER / PAYOUTS
+// ==========================================
+
+model ChannelPartnerPayout {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationCPPayouts", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Target Channel Partner
+  channelPartnerId String         @map("channel_partner_id") @db.Uuid
+  channelPartner   ChannelPartner @relation("ChannelPartnerPayouts", fields: [channelPartnerId], references: [id], onDelete: Restrict)
+  
+  // Associated Lead & CP Lead Link
+  leadId           String?             @map("lead_id") @db.Uuid
+  lead             Lead?               @relation("LeadChannelPartnerPayouts", fields: [leadId], references: [id], onDelete: SetNull)
+  cpLeadId         String?             @map("cp_lead_id") @db.Uuid
+  cpLead           ChannelPartnerLead? @relation("CPLeadPayouts", fields: [cpLeadId], references: [id], onDelete: SetNull)
+
+  // Payment Details
+  amount               Decimal                    @map("amount") @db.Decimal(14, 2)
+  paymentMode          String                     @map("payment_mode") // BANK_TRANSFER, UPI, CHEQUE, NEFT, RTGS, CASH
+  transactionReference String?                    @map("transaction_reference") // UTR / Ref ID
+  status               ChannelPartnerPayoutStatus @default(COMPLETED) @map("status")
+  paymentDate          DateTime                   @default(now()) @map("payment_date")
+
+  // Receipt / Proof Document
+  receiptUrl           Json?                      @map("receipt_url") // ImageType JSON
+  remarks              String?                    @map("remarks")
+
+  // Processed By
+  processedById        String?                    @map("processed_by_id") @db.Uuid
+  processedBy          User?                      @relation("CPPayoutProcessedBy", fields: [processedById], references: [id], onDelete: SetNull)
+
+  additionalInformation Json?                     @map("additional_information")
+
+  createdAt            DateTime                   @default(now()) @map("created_at")
+  updatedAt            DateTime                   @updatedAt @map("updated_at")
+
+  @@index([organizationId])
+  @@index([channelPartnerId])
+  @@index([leadId])
+  @@index([cpLeadId])
+  @@index([paymentDate])
+  @@index([status])
+  @@map("channel_partner_payouts")
+}

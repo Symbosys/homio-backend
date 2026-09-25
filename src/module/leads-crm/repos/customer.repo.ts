@@ -33,6 +33,7 @@ export class CustomerRepository {
         phone: data.phone,
         alternatePhone: data.alternatePhone || null,
         companyName: data.companyName || null,
+        customerType: data.customerType || "CLIENT",
         gstin: data.gstin || null,
         panNumber: data.panNumber || null,
         status: data.status || "ACTIVE",

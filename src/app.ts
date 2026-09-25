@@ -16,6 +16,7 @@ import procurementRouter from "./module/procurement/routes/index.js";
 import afterSalesRouter from "./module/after-sales/routes/index.js";
 import masterDataRouter from "./module/master-data/routes/index.js";
 import labourRouter from "./module/labour/routes/index.js";
+import channelPartnerRouter from "./module/channel-partner/routes/index.js";
 
 const app = express();
 
@@ -67,6 +68,11 @@ app.use("/api/v1/hrms", hrmsRouter);
  * CRM & Lead Management Module Routes
  */
 app.use("/api/v1/crm", crmRouter);
+
+/**
+ * Channel Partner & Commission Finance Routes
+ */
+app.use("/api/v1/channel-partners", channelPartnerRouter);
 
 /**
  * Projects Module Routes (Full Lifecycle, Sites, Schedules, Metrics, Financials, Dynamic Teams)

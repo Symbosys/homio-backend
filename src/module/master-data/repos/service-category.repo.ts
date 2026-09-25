@@ -120,12 +120,11 @@ export class ServiceCategoryRepository {
    */
   async countUsage(id: string, organizationId: string, tx?: Prisma.TransactionClient) {
     const db = tx || prisma;
-    const [leadCount, projectCount, requestCount] = await Promise.all([
-      db.lead.count({ where: { organizationId, serviceCategoryId: id, isDeleted: false } }),
+    const [projectCount, requestCount] = await Promise.all([
       db.project.count({ where: { organizationId, serviceCategoryId: id, isDeleted: false } }),
       db.afterSalesServiceRequest.count({ where: { project: { organizationId }, categoryId: id, isDeleted: false } }),
     ]);
-    return { leadCount, projectCount, requestCount, total: leadCount + projectCount + requestCount };
+    return { leadCount: 0, projectCount, requestCount, total: projectCount + requestCount };
   }
 
   /**

@@ -174,7 +174,6 @@ model ServiceCategory {
 
   // Relations Across Modules
   serviceRequests AfterSalesServiceRequest[] @relation("CategoryServiceRequests")
-  leads           Lead[]                     @relation("LeadServiceCategory")
   projects        Project[]                  @relation("ProjectServiceCategory")
 
   @@unique([organizationId, name])

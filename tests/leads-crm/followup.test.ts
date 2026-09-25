@@ -20,7 +20,7 @@ describe("Follow-ups API & Quality Test Suite", () => {
       const payload = {
         body: {
           leadId: MOCK_LEAD_ID,
-          type: "CALL" as const,
+          type: "CALLBACK" as const,
           scheduledAt: "2026-09-25T10:00:00.000Z",
           remindAt: "2026-09-25T09:45:00.000Z",
           agenda: "Follow up regarding 3D kitchen design quote approval",
@@ -32,7 +32,7 @@ describe("Follow-ups API & Quality Test Suite", () => {
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.body.leadId).toBe(MOCK_LEAD_ID);
-        expect(result.data.body.type).toBe("CALL");
+        expect(result.data.body.type).toBe("CALLBACK");
         expect(result.data.body.assignedToId).toBe(MOCK_EMPLOYEE_ID_1);
       }
     });

@@ -97,6 +97,10 @@ model Organization {
   taskCategories          TaskCategory[]                    @relation("OrganizationTaskCategories")
   labours                 Labour[]                          @relation("OrganizationLabours")
   projectServices         ProjectService[]                  @relation("OrganizationProjectServices")
+  leadDocuments           LeadDocument[]                    @relation("OrganizationLeadDocuments")
+  channelPartners         ChannelPartner[]                  @relation("OrganizationChannelPartners")
+  channelPartnerLeads     ChannelPartnerLead[]              @relation("OrganizationChannelPartnerLeads")
+  channelPartnerPayouts   ChannelPartnerPayout[]            @relation("OrganizationCPPayouts")
 
   @@index([slug])
   @@index([status])

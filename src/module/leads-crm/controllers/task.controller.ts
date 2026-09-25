@@ -19,6 +19,10 @@ import {
   taskActivityIdParamSchema,
   getTasksQuerySchema,
   getTaskKanbanQuerySchema,
+  submitTaskForReviewSchema,
+  approveTaskSchema,
+  rejectTaskForReworkSchema,
+  holdTaskSchema,
 } from "../validators/task.validator.js";
 import { documentIdParamSchema } from "../validators/lead-document.validator.js";
 
@@ -123,6 +127,83 @@ export const updateTaskPriority = asyncHandler(async (req, res) => {
   const parsed = updateTaskPrioritySchema.parse({ params: req.params, body: req.body });
   const result = await taskService.updateTaskPriority(parsed.params.id, organizationId, parsed.body);
   return SuccessResponse(res, "Task priority updated successfully", result, statusCode.OK);
+});
+
+/**
+ * Controller: Submit task for review and verification
+ */
+export const submitTaskForReview = asyncHandler(async (req, res) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+  }
+
+  const parsed = submitTaskForReviewSchema.parse({ params: req.params, body: req.body });
+  const result = await taskService.submitForReview(
+    organizationId,
+    parsed.params.id,
+    parsed.body?.notes,
+    req.user?.id
+  );
+  return SuccessResponse(res, "Task submitted for review successfully", result, statusCode.OK);
+});
+
+/**
+ * Controller: Approve and verify task completion
+ */
+export const approveTask = asyncHandler(async (req, res) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+  }
+
+  const parsed = approveTaskSchema.parse({ params: req.params, body: req.body });
+  const result = await taskService.approveTask(
+    organizationId,
+    parsed.params.id,
+    parsed.body?.approvedById,
+    parsed.body?.approvalRemarks,
+    req.user?.id
+  );
+  return SuccessResponse(res, "Task approved and verified successfully", result, statusCode.OK);
+});
+
+/**
+ * Controller: Reject task and request rework
+ */
+export const rejectTaskForRework = asyncHandler(async (req, res) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+  }
+
+  const parsed = rejectTaskForReworkSchema.parse({ params: req.params, body: req.body });
+  const result = await taskService.rejectTaskForRework(
+    organizationId,
+    parsed.params.id,
+    parsed.body.reworkNotes,
+    req.user?.id
+  );
+  return SuccessResponse(res, "Task sent back for rework", result, statusCode.OK);
+});
+
+/**
+ * Controller: Put task on hold
+ */
+export const holdTask = asyncHandler(async (req, res) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+  }
+
+  const parsed = holdTaskSchema.parse({ params: req.params, body: req.body });
+  const result = await taskService.holdTask(
+    organizationId,
+    parsed.params.id,
+    parsed.body.reason,
+    req.user?.id
+  );
+  return SuccessResponse(res, "Task placed on hold successfully", result, statusCode.OK);
 });
 
 /**

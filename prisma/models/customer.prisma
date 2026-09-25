@@ -98,7 +98,6 @@ model Customer {
   activities       CustomerActivity[]          @relation("CustomerActivities")
   documents        CustomerDocument[]          @relation("CustomerDocuments")
   meetings         Meeting[]                   @relation("CustomerMeetings")
-  tasks            Task[]                      @relation("CustomerTasks")
   projects         Project[]                   @relation("CustomerProjects")
   complaints       ProjectComplaint[]          @relation("CustomerReportedComplaints")
   changeRequests   WorkApprovalChangeRequest[] @relation("CustomerChangeRequests")

@@ -23,6 +23,7 @@ export const createCustomerSchema = z.object({
     companyName: z.string().max(150).optional().nullable(),
     gstin: z.string().max(30).optional().nullable(),
     panNumber: z.string().max(20).optional().nullable(),
+    customerType: CustomerTypeEnum.default("CLIENT").optional(),
     status: CustomerStatusEnum.default("ACTIVE").optional(),
     tags: z.array(z.string()).default([]).optional(),
     notes: z.string().max(2000).optional().nullable(),

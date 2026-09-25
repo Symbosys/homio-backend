@@ -12,8 +12,9 @@ enum TaskPriority {
 enum TaskStatus {
   TODO
   IN_PROGRESS
-  IN_REVIEW
-  BLOCKED
+  UNDER_REVIEW
+  RE_WORK
+  ON_HOLD
   COMPLETED
   CANCELLED
 }
@@ -34,7 +35,7 @@ enum TaskType {
 }
 
 // ==========================================
-// TASK MODEL (Polymorphic: Lead, Customer/Client, Project)
+// TASK MODEL (Polymorphic: Lead, Project)
 // ==========================================
 
 model Task {
@@ -50,11 +51,7 @@ model Task {
   leadId String? @map("lead_id") @db.Uuid
   lead   Lead?   @relation("LeadTasks", fields: [leadId], references: [id], onDelete: SetNull)
 
-  // 2. Customer / Client Association (Optional)
-  customerId String?   @map("customer_id") @db.Uuid
-  customer   Customer? @relation("CustomerTasks", fields: [customerId], references: [id], onDelete: SetNull)
-
-  // 3. Project Association (Future-proof for Project Management module)
+  // 2. Project Association (Future-proof for Project Management module)
   projectId String? @map("project_id") @db.Uuid
 
   // Task Information
@@ -64,10 +61,23 @@ model Task {
   priority    TaskPriority @default(MEDIUM) @map("priority")
   status      TaskStatus   @default(TODO) @map("status")
 
+  // Checklist & Progress Metrics (e.g. 2/10 completed = 20%)
+  checklistTotal     Int   @default(0) @map("checklist_total")
+  checklistCompleted Int   @default(0) @map("checklist_completed")
+  progressPercentage Float @default(0) @map("progress_percentage")
+  checklist          Json? @map("checklist") // Array of { id: string, title: string, isCompleted: boolean }
+
   // Scheduling & Deadlines
-  startDate   DateTime? @map("start_date")
-  dueDate     DateTime? @map("due_date")
-  completedAt DateTime? @map("completed_at")
+  startDate            DateTime? @map("start_date")
+  dueDate              DateTime? @map("due_date")
+  submittedForReviewAt DateTime? @map("submitted_for_review_at") // Recorded when task is submitted under review
+  completedAt          DateTime? @map("completed_at")           // Recorded when verified and marked completed
+
+  // Task Review & Verification Approval
+  approvedById    String?   @map("approved_by_id") @db.Uuid
+  approvedBy      Employee? @relation("TaskApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt      DateTime? @map("approved_at")
+  approvalRemarks String?   @map("approval_remarks")
 
   // Estimation & Time Tracking
   estimatedHours Float? @map("estimated_hours")
@@ -109,9 +119,9 @@ model Task {
   @@unique([organizationId, taskCode])
   @@index([organizationId])
   @@index([leadId])
-  @@index([customerId])
   @@index([projectId])
   @@index([assignedToId])
+  @@index([approvedById])
   @@index([categoryId])
   @@index([status])
   @@index([priority])

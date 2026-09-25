@@ -41,8 +41,8 @@ describe("Tasks API Quality Test Suite (Areas 6 - 9)", () => {
       }
     });
 
-    it("should allow status progression (TODO -> IN_PROGRESS -> IN_REVIEW -> COMPLETED)", () => {
-      const statuses = ["TODO", "IN_PROGRESS", "IN_REVIEW", "COMPLETED"] as const;
+    it("should allow status progression (TODO -> IN_PROGRESS -> UNDER_REVIEW -> ON_HOLD -> RE_WORK -> COMPLETED)", () => {
+      const statuses = ["TODO", "IN_PROGRESS", "UNDER_REVIEW", "ON_HOLD", "RE_WORK", "COMPLETED"] as const;
       for (const status of statuses) {
         const res = updateTaskStatusSchema.safeParse({
           params: { id: MOCK_TASK_ID_1 },

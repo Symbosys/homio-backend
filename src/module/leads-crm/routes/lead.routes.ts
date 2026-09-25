@@ -12,6 +12,8 @@ import {
   markLeadLost,
   bulkActionLeads,
   deleteLead,
+  updateLeadChannelPartner,
+  getDistinctProperties,
 } from "../controllers/lead.controller.js";
 import {
   createLeadActivity,
@@ -21,6 +23,7 @@ import {
 import {
   uploadLeadDocument,
   getLeadDocuments,
+  updateLeadDocument,
   deleteLeadDocument,
 } from "../controllers/lead-document.controller.js";
 
@@ -34,6 +37,12 @@ leadRoutes.use(authenticate, authorize("PLATFORM_ADMIN", "ADMIN", "USER"));
  * @desc    Perform bulk batch actions on leads (assign, change status, bulk delete)
  */
 leadRoutes.post("/bulk", bulkActionLeads);
+
+/**
+ * @route   GET /api/v1/crm/leads/properties
+ * @desc    Get searchable distinct property names with city/state for quick dropdown selection
+ */
+leadRoutes.get("/properties", getDistinctProperties);
 
 /**
  * @route   POST /api/v1/crm/leads
@@ -52,6 +61,12 @@ leadRoutes.get("/", getLeads);
  * @desc    Get comprehensive lead details including customer profile, follow-ups, and activities
  */
 leadRoutes.get("/:id", getLeadById);
+
+/**
+ * @route   PATCH /api/v1/crm/leads/:id/channel-partner
+ * @desc    Link or update channel partner and commission settings on a lead
+ */
+leadRoutes.patch("/:id/channel-partner", updateLeadChannelPartner);
 
 /**
  * @route   PATCH /api/v1/crm/leads/:id
@@ -122,6 +137,16 @@ leadRoutes.post(
  * @desc    Fetch list of all uploaded documents and floor plans for lead
  */
 leadRoutes.get("/:id/documents", getLeadDocuments);
+
+/**
+ * @route   PATCH /api/v1/crm/leads/documents/:id
+ * @desc    Update document metadata (name, category) or replace attachment file
+ */
+leadRoutes.patch(
+  "/documents/:id",
+  upload.single("file", { category: "all", maxFileSize: 25 * 1024 * 1024 }),
+  updateLeadDocument
+);
 
 /**
  * @route   DELETE /api/v1/crm/leads/documents/:id

@@ -15,14 +15,10 @@ export const FollowUpStatusEnum = z.enum([
  * Follow-up communication and interaction types
  */
 export const FollowUpTypeEnum = z.enum([
-  "CALL",
+  "CALLBACK",
   "ONLINE_MEETING",
-  "IN_PERSON_MEETING",
   "SITE_VISIT",
-  "WHATSAPP_MESSAGE",
-  "EMAIL",
-  "PROPOSAL_REVIEW",
-  "OTHER",
+  "OFFICE_VISIT",
 ]);
 
 /**
@@ -40,7 +36,7 @@ export const followUpIdParamSchema = z.object({
 export const createLeadFollowUpSchema = z.object({
   body: z.object({
     leadId: z.string().uuid("Invalid lead ID format"),
-    type: FollowUpTypeEnum.default("CALL").optional(),
+    type: FollowUpTypeEnum.default("CALLBACK").optional(),
     scheduledAt: z.string().datetime({ message: "scheduledAt must be a valid ISO datetime" }),
     remindAt: z.string().datetime().optional().nullable(),
     agenda: z.string().min(1, "Agenda is required").max(500),

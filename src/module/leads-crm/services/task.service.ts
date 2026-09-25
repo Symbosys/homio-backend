@@ -1,3 +1,4 @@
+import { prisma } from "../../../lib/prisma.js";
 import { taskRepo } from "../repos/task.repo.js";
 import { leadRepo } from "../repos/lead.repo.js";
 import { customerRepo } from "../repos/customer.repo.js";
@@ -17,6 +18,10 @@ import type {
   BulkActionTasksInput,
   GetTasksQueryInput,
   GetTaskKanbanQueryInput,
+  SubmitTaskForReviewInput,
+  ApproveTaskInput,
+  RejectTaskForReworkInput,
+  HoldTaskInput,
 } from "../validators/task.validator.js";
 
 export class TaskService {
@@ -28,13 +33,6 @@ export class TaskService {
       const lead = await leadRepo.findById(input.leadId, organizationId);
       if (!lead) {
         throw new ErrorResponse("Associated lead not found", statusCode.Not_Found);
-      }
-    }
-
-    if (input.customerId) {
-      const customer = await customerRepo.findById(input.customerId, organizationId);
-      if (!customer) {
-        throw new ErrorResponse("Associated customer not found", statusCode.Not_Found);
       }
     }
 
@@ -106,15 +104,133 @@ export class TaskService {
       return existing;
     }
 
+    const isCompleted = input.status === "COMPLETED";
+    const isUnderReview = input.status === "UNDER_REVIEW";
+
     const updated = await taskRepo.update(id, organizationId, {
       status: input.status,
-      completedAt: input.status === "COMPLETED" ? new Date().toISOString() : null,
+      completedAt: isCompleted ? new Date().toISOString() : null,
+      ...(isUnderReview ? { submittedForReviewAt: new Date() } : {}),
     });
 
     await taskRepo.addActivity(organizationId, id, {
       type: "STATUS_CHANGE",
       content: `Status changed from ${existing.status} to ${input.status}`,
       metadata: { fromStatus: existing.status, toStatus: input.status },
+    });
+
+    return updated;
+  }
+
+  /**
+   * Submit task for review and verification
+   */
+  async submitForReview(organizationId: string, taskId: string, notes?: string | null, userId?: string | null) {
+    const task = await taskRepo.findById(taskId, organizationId);
+    if (!task) {
+      throw new ErrorResponse("Task not found", statusCode.Not_Found);
+    }
+
+    const updated = await taskRepo.submitForReview(taskId);
+
+    await taskRepo.addActivity(organizationId, taskId, {
+      type: "STATUS_CHANGE",
+      content: notes ? `Task submitted under review: ${notes}` : "Task submitted under review and verification",
+      metadata: { fromStatus: task.status, toStatus: "UNDER_REVIEW", notes },
+    });
+
+    return updated;
+  }
+
+  /**
+   * Approve task and verify completion
+   */
+  async approveTask(
+    organizationId: string,
+    taskId: string,
+    approvedById?: string | null,
+    approvalRemarks?: string | null,
+    userId?: string | null
+  ) {
+    const task = await taskRepo.findById(taskId, organizationId);
+    if (!task) {
+      throw new ErrorResponse("Task not found", statusCode.Not_Found);
+    }
+
+    let resolvedApproverId = approvedById;
+    if (!resolvedApproverId && userId) {
+      const employee = await prisma.employee.findFirst({
+        where: { userId, organizationId, isDeleted: false },
+        select: { id: true },
+      });
+      if (employee) {
+        resolvedApproverId = employee.id;
+      }
+    }
+
+    const updated = await taskRepo.approveTask(taskId, resolvedApproverId, approvalRemarks);
+
+    await taskRepo.addActivity(organizationId, taskId, {
+      type: "STATUS_CHANGE",
+      content: approvalRemarks
+        ? `Task approved and verified: ${approvalRemarks}`
+        : "Task verified, approved, and marked completed",
+      metadata: {
+        fromStatus: task.status,
+        toStatus: "COMPLETED",
+        approvedById: resolvedApproverId,
+        approvalRemarks,
+      },
+    });
+
+    return updated;
+  }
+
+  /**
+   * Reject task and request rework
+   */
+  async rejectTaskForRework(
+    organizationId: string,
+    taskId: string,
+    reworkNotes: string,
+    userId?: string | null
+  ) {
+    const task = await taskRepo.findById(taskId, organizationId);
+    if (!task) {
+      throw new ErrorResponse("Task not found", statusCode.Not_Found);
+    }
+
+    const updated = await taskRepo.rejectTaskForRework(taskId, reworkNotes);
+
+    await taskRepo.addActivity(organizationId, taskId, {
+      type: "STATUS_CHANGE",
+      content: `Task rejected for rework: ${reworkNotes}`,
+      metadata: { fromStatus: task.status, toStatus: "RE_WORK", reworkNotes },
+    });
+
+    return updated;
+  }
+
+  /**
+   * Put task on hold
+   */
+  async holdTask(
+    organizationId: string,
+    taskId: string,
+    reason: string,
+    userId?: string | null
+  ) {
+    const task = await taskRepo.findById(taskId, organizationId);
+    if (!task) {
+      throw new ErrorResponse("Task not found", statusCode.Not_Found);
+    }
+
+    const updated = await taskRepo.holdTask(taskId, reason);
+
+    await taskRepo.addActivity(organizationId, taskId, {
+      type: "STATUS_CHANGE",
+      content: `Task placed on hold: ${reason}`,
+      metadata: { fromStatus: task.status, toStatus: "ON_HOLD", reason },
     });
 
     return updated;
@@ -181,7 +297,7 @@ export class TaskService {
   }
 
   /**
-   * Checklist operations
+   * Checklist operations with automatic metric tracking (e.g. 2/10 completed)
    */
   async addChecklistItem(organizationId: string, taskId: string, input: AddChecklistItemInput) {
     const task = await taskRepo.findById(taskId, organizationId);
@@ -189,7 +305,9 @@ export class TaskService {
       throw new ErrorResponse("Task not found", statusCode.Not_Found);
     }
 
-    return taskRepo.addChecklistItem(organizationId, taskId, input);
+    const item = await taskRepo.addChecklistItem(organizationId, taskId, input);
+    await taskRepo.recalculateChecklistMetrics(taskId);
+    return item;
   }
 
   async updateChecklistItem(organizationId: string, taskId: string, itemId: string, input: UpdateChecklistItemInput) {
@@ -198,7 +316,9 @@ export class TaskService {
       throw new ErrorResponse("Task not found", statusCode.Not_Found);
     }
 
-    return taskRepo.updateChecklistItem(itemId, input);
+    const updated = await taskRepo.updateChecklistItem(itemId, input);
+    await taskRepo.recalculateChecklistMetrics(taskId);
+    return updated;
   }
 
   async deleteChecklistItem(organizationId: string, taskId: string, itemId: string) {
@@ -208,6 +328,7 @@ export class TaskService {
     }
 
     await taskRepo.deleteChecklistItem(itemId);
+    await taskRepo.recalculateChecklistMetrics(taskId);
     return { message: "Checklist item deleted successfully" };
   }
 

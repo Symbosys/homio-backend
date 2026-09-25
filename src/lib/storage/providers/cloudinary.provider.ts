@@ -57,6 +57,8 @@ export class CloudinaryStorageProvider implements IStorageProvider {
     const uploadOptions: UploadApiOptions = {
       folder,
       resource_type: resourceType,
+      use_filename: true,
+      unique_filename: true,
     };
 
     if (options?.publicId !== undefined) {

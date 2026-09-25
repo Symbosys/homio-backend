@@ -18,7 +18,7 @@ export class LeadFollowUpRepository {
       data: {
         organizationId,
         leadId: data.leadId,
-        type: data.type || "CALL",
+        type: data.type || "CALLBACK",
         status: "PENDING",
         scheduledAt: new Date(data.scheduledAt),
         remindAt: data.remindAt ? new Date(data.remindAt) : null,

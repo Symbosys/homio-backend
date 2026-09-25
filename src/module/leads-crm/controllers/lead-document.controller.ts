@@ -4,6 +4,7 @@ import { statusCode } from "../../../types/types.js";
 import { leadDocumentService } from "../services/lead-document.service.js";
 import {
   uploadLeadDocumentSchema,
+  updateLeadDocumentSchema,
   documentIdParamSchema,
 } from "../validators/lead-document.validator.js";
 import { leadIdParamSchema } from "../validators/lead.validator.js";
@@ -47,6 +48,25 @@ export const getLeadDocuments = asyncHandler(async (req, res) => {
     organizationId
   );
   return SuccessResponse(res, "Lead documents retrieved successfully", result, statusCode.OK);
+});
+
+/**
+ * Controller: Update Lead Document
+ */
+export const updateLeadDocument = asyncHandler(async (req, res) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+  }
+
+  const parsed = updateLeadDocumentSchema.parse({ params: req.params, body: req.body });
+  const result = await leadDocumentService.updateDocument(
+    organizationId,
+    parsed.params.id,
+    parsed.body,
+    req.file
+  );
+  return SuccessResponse(res, "Document updated successfully", result, statusCode.OK);
 });
 
 /**

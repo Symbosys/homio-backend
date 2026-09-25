@@ -71,6 +71,34 @@ export class LeadDocumentRepository {
   }
 
   /**
+   * Update document by ID
+   */
+  async update(
+    id: string,
+    organizationId: string,
+    data: {
+      name?: string;
+      category?: string;
+      fileUrl?: Prisma.InputJsonValue;
+    }
+  ) {
+    return prisma.leadDocument.update({
+      where: { id },
+      data,
+      include: {
+        uploadedBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
    * Delete document by ID
    */
   async delete(id: string, organizationId: string) {

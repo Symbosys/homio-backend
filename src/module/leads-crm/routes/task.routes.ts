@@ -9,6 +9,10 @@ import {
   updateTask,
   updateTaskStatus,
   updateTaskPriority,
+  submitTaskForReview,
+  approveTask,
+  rejectTaskForRework,
+  holdTask,
   addTaskAssignees,
   removeTaskAssignee,
   setPrimaryTaskAssignee,
@@ -75,6 +79,30 @@ taskRoutes.delete("/:id", deleteTask);
  * @desc    Transition task status (e.g., when dragging cards on Kanban board)
  */
 taskRoutes.patch("/:id/status", updateTaskStatus);
+
+/**
+ * @route   PATCH /api/v1/crm/tasks/:id/submit-review
+ * @desc    Submit task under review and verification workflow
+ */
+taskRoutes.patch("/:id/submit-review", submitTaskForReview);
+
+/**
+ * @route   PATCH /api/v1/crm/tasks/:id/approve
+ * @desc    Approve verified task and mark as completed
+ */
+taskRoutes.patch("/:id/approve", approveTask);
+
+/**
+ * @route   PATCH /api/v1/crm/tasks/:id/reject-rework
+ * @desc    Reject task and return for re-work with notes
+ */
+taskRoutes.patch("/:id/reject-rework", rejectTaskForRework);
+
+/**
+ * @route   PATCH /api/v1/crm/tasks/:id/hold
+ * @desc    Place task on hold with reason
+ */
+taskRoutes.patch("/:id/hold", holdTask);
 
 /**
  * @route   PATCH /api/v1/crm/tasks/:id/priority
