@@ -96,6 +96,7 @@ model Organization {
   complaintSnagCategories ComplaintSnagCategory[]           @relation("OrganizationComplaintSnagCategories")
   taskCategories          TaskCategory[]                    @relation("OrganizationTaskCategories")
   labours                 Labour[]                          @relation("OrganizationLabours")
+  projectServices         ProjectService[]                  @relation("OrganizationProjectServices")
 
   @@index([slug])
   @@index([status])

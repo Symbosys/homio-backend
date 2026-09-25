@@ -7,6 +7,7 @@ import { additionalInformationSchema } from "./labour.validator.js";
 export const createLabourBookingSchema = z.object({
   body: z.object({
     projectId: z.string().uuid("Invalid project ID format"),
+    projectServiceId: z.string().uuid("Invalid project service ID format"),
     labourId: z.string().uuid("Invalid labour ID format"),
     workTitle: z.string().min(2, "Work title must be at least 2 characters").max(200),
     workDescription: z.string().optional().nullable(),
@@ -29,6 +30,7 @@ export const updateLabourBookingSchema = z.object({
   }),
   body: z.object({
     projectId: z.string().uuid("Invalid project ID format").optional(),
+    projectServiceId: z.string().uuid("Invalid project service ID format").optional(),
     labourId: z.string().uuid("Invalid labour ID format").optional(),
     workTitle: z.string().min(2, "Work title must be at least 2 characters").max(200).optional(),
     workDescription: z.string().optional().nullable(),
@@ -72,6 +74,7 @@ export const getLabourBookingsQuerySchema = z.object({
     page: z.coerce.number().int().positive().default(1),
     limit: z.coerce.number().int().positive().max(100).default(10),
     projectId: z.string().uuid().optional(),
+    projectServiceId: z.string().uuid().optional(),
     labourId: z.string().uuid().optional(),
     status: z.string().optional(),
     search: z.string().optional(),

@@ -337,6 +337,7 @@ model Project {
   afterSalesServiceVisits   AfterSalesServiceVisit[]   @relation("ProjectAfterSalesServiceVisits")
   customerFeedbacks         CustomerFeedback[]         @relation("ProjectCustomerFeedbacks")
   retentionFollowUps        RetentionFollowUp[]        @relation("ProjectRetentionFollowUps")
+  services                  ProjectService[]           @relation("ProjectServices")
   labourBookings            LabourBooking[]            @relation("ProjectLabourBookings")
 
   @@unique([organizationId, projectCode])

@@ -4,7 +4,7 @@ import type { GetLabourBookingsQuery } from "../validators/labour-booking.valida
 
 /**
  * Labour Booking Repository
- * Handles tenant-isolated DB operations for labour bookings/assignments.
+ * Handles tenant-isolated DB operations for labour bookings/assignments under Project Services.
  */
 export class LabourBookingRepo {
   private formatJsonValue(val: unknown): Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput | undefined {
@@ -55,6 +55,15 @@ export class LabourBookingRepo {
             site: true,
           },
         },
+        projectService: {
+          select: {
+            id: true,
+            serviceCode: true,
+            title: true,
+            category: true,
+            status: true,
+          },
+        },
       },
     });
   }
@@ -89,6 +98,16 @@ export class LabourBookingRepo {
             site: true,
           },
         },
+        projectService: {
+          select: {
+            id: true,
+            serviceCode: true,
+            title: true,
+            category: true,
+            status: true,
+            location: true,
+          },
+        },
         _count: {
           select: {
             attendances: true,
@@ -105,13 +124,14 @@ export class LabourBookingRepo {
    * List paginated bookings with filters
    */
   async findAll(query: GetLabourBookingsQuery, organizationId: string) {
-    const { page, limit, projectId, labourId, status, search } = query;
+    const { page, limit, projectId, projectServiceId, labourId, status, search } = query;
     const skip = (page - 1) * limit;
 
     const where: Prisma.LabourBookingWhereInput = {
       isDeleted: false,
       project: { organizationId },
       ...(projectId && { projectId }),
+      ...(projectServiceId && { projectServiceId }),
       ...(labourId && { labourId }),
       ...(status && { status }),
       ...(search && {
@@ -119,6 +139,7 @@ export class LabourBookingRepo {
           { bookingNumber: { contains: search, mode: "insensitive" } },
           { workTitle: { contains: search, mode: "insensitive" } },
           { labour: { name: { contains: search, mode: "insensitive" } } },
+          { projectService: { title: { contains: search, mode: "insensitive" } } },
         ],
       }),
     };
@@ -145,6 +166,15 @@ export class LabourBookingRepo {
               id: true,
               name: true,
               projectCode: true,
+            },
+          },
+          projectService: {
+            select: {
+              id: true,
+              serviceCode: true,
+              title: true,
+              category: true,
+              status: true,
             },
           },
         },
@@ -188,6 +218,15 @@ export class LabourBookingRepo {
             id: true,
             name: true,
             projectCode: true,
+          },
+        },
+        projectService: {
+          select: {
+            id: true,
+            serviceCode: true,
+            title: true,
+            category: true,
+            status: true,
           },
         },
       },

@@ -8,6 +8,7 @@ import {
 import {
   MOCK_BOOKING_ID_1,
   MOCK_PROJECT_ID_1,
+  MOCK_PROJECT_SERVICE_ID_1,
   MOCK_LABOUR_ID_1,
 } from "./fixtures/labour.fixtures.js";
 
@@ -24,11 +25,12 @@ describe("Labour Module - Booking Management Tests", () => {
     });
   });
 
-  describe("2. Booking Creation Validation", () => {
-    it("should validate full booking creation payload with rates and schedule", () => {
+  describe("2. Booking Creation Validation (Mandatory ProjectService)", () => {
+    it("should validate full booking creation payload with projectServiceId, rates and schedule", () => {
       const payload = {
         body: {
           projectId: MOCK_PROJECT_ID_1,
+          projectServiceId: MOCK_PROJECT_SERVICE_ID_1,
           labourId: MOCK_LABOUR_ID_1,
           workTitle: "False Ceiling Framing & Acoustic Boards",
           workDescription: "Installation of gypsum boards and shadow line channel framing.",
@@ -46,6 +48,7 @@ describe("Labour Module - Booking Management Tests", () => {
 
       const parsed = createLabourBookingSchema.parse(payload);
       expect(parsed.body.projectId).toBe(MOCK_PROJECT_ID_1);
+      expect(parsed.body.projectServiceId).toBe(MOCK_PROJECT_SERVICE_ID_1);
       expect(parsed.body.agreedDailyRate).toBe(1200.0);
       expect(parsed.body.estimatedDays).toBe(12);
       expect(parsed.body.status).toBe("CONFIRMED");
@@ -58,10 +61,26 @@ describe("Labour Module - Booking Management Tests", () => {
       expect(calculatedBudget).toBe(17500.0);
     });
 
+    it("should reject booking when projectServiceId is missing", () => {
+      const payload = {
+        body: {
+          projectId: MOCK_PROJECT_ID_1,
+          labourId: MOCK_LABOUR_ID_1,
+          workTitle: "Framing",
+          startDate: "2026-10-01",
+          endDate: "2026-10-15",
+          agreedDailyRate: 1000,
+        },
+      };
+
+      expect(() => createLabourBookingSchema.parse(payload)).toThrow();
+    });
+
     it("should reject booking when projectId or labourId is missing or invalid", () => {
       expect(() =>
         createLabourBookingSchema.parse({
           body: {
+            projectServiceId: MOCK_PROJECT_SERVICE_ID_1,
             workTitle: "Framing",
             startDate: "2026-10-01",
             endDate: "2026-10-15",
@@ -73,10 +92,11 @@ describe("Labour Module - Booking Management Tests", () => {
   });
 
   describe("3. Symmetric Full Editability Validation (Rule 19)", () => {
-    it("should allow editing all booking fields during update", () => {
+    it("should allow editing all booking fields including projectServiceId during update", () => {
       const updatePayload = {
         params: { id: MOCK_BOOKING_ID_1 },
         body: {
+          projectServiceId: MOCK_PROJECT_SERVICE_ID_1,
           workTitle: "Updated: False ceiling + Painting Prep",
           agreedDailyRate: 1300.0,
           estimatedDays: 15,
@@ -87,6 +107,7 @@ describe("Labour Module - Booking Management Tests", () => {
       };
 
       const parsed = updateLabourBookingSchema.parse(updatePayload);
+      expect(parsed.body.projectServiceId).toBe(MOCK_PROJECT_SERVICE_ID_1);
       expect(parsed.body.workTitle).toContain("Painting Prep");
       expect(parsed.body.agreedDailyRate).toBe(1300.0);
       expect(parsed.body.totalBudget).toBe(19500.0);
@@ -107,18 +128,20 @@ describe("Labour Module - Booking Management Tests", () => {
   });
 
   describe("5. Query Filtering Validation", () => {
-    it("should parse query filters for project and worker", () => {
+    it("should parse query filters for project, projectService, and worker", () => {
       const parsed = getLabourBookingsQuerySchema.parse({
         query: {
           page: "1",
           limit: "10",
           projectId: MOCK_PROJECT_ID_1,
+          projectServiceId: MOCK_PROJECT_SERVICE_ID_1,
           labourId: MOCK_LABOUR_ID_1,
           status: "CONFIRMED",
         },
       });
 
       expect(parsed.query.projectId).toBe(MOCK_PROJECT_ID_1);
+      expect(parsed.query.projectServiceId).toBe(MOCK_PROJECT_SERVICE_ID_1);
       expect(parsed.query.status).toBe("CONFIRMED");
     });
   });

@@ -109,14 +109,75 @@ model LabourKycDocument {
   @@map("labour_kyc_documents")
 }
 
-// ==========================================
-// 3. LABOUR BOOKING (PROJECT ASSIGNMENT)
-// ==========================================
+// ============================================================================
+// 3. PROJECT SERVICE (SCOPE OF WORK & DELIVERABLE UNDER A PROJECT)
+// ============================================================================
+
+model ProjectService {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationProjectServices", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  projectId String  @map("project_id") @db.Uuid
+  project   Project @relation("ProjectServices", fields: [projectId], references: [id], onDelete: Cascade)
+
+  serviceCode String  @map("service_code") // Auto-generated e.g. "SRV-2026-0001"
+  title       String  @map("title")        // e.g. "False Ceiling & Gypsum Board Work"
+  category    String  @map("category")     // CARPENTRY, ELECTRICAL, PLUMBING, PAINTING, MASONRY, HVAC, CIVIL, FLOORING, OTHER
+  description String? @map("description") @db.Text
+  scopeOfWork String? @map("scope_of_work") @db.Text
+  location    String? @map("location")    // e.g. "Living Room & Master Bedroom"
+
+  // Status & Priority
+  status   String @default("PLANNED") @map("status") // PLANNED, IN_PROGRESS, COMPLETED, ON_HOLD, CANCELLED
+  priority String @default("MEDIUM") @map("priority") // LOW, MEDIUM, HIGH, URGENT
+
+  // Timeline
+  startDate             DateTime? @map("start_date") @db.Date
+  endDate               DateTime? @map("end_date") @db.Date
+  estimatedDurationDays Int       @default(1) @map("estimated_duration_days")
+
+  // Financials & Rollup
+  estimatedBudget Decimal @default(0.00) @map("estimated_budget") @db.Decimal(12, 2)
+  actualCost      Decimal @default(0.00) @map("actual_cost") @db.Decimal(12, 2)
+  totalPaid       Decimal @default(0.00) @map("total_paid") @db.Decimal(12, 2)
+
+  // Supervisor Allocation
+  supervisorId String?   @map("supervisor_id") @db.Uuid
+  supervisor   Employee? @relation("ProjectServiceSupervisors", fields: [supervisorId], references: [id], onDelete: SetNull)
+
+  // Soft Delete & Extensibility (Universal Rule 18)
+  isDeleted             Boolean   @default(false) @map("is_deleted")
+  deletedAt             DateTime? @map("deleted_at")
+  additionalInformation Json?     @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations (Multiple Labour Bookings Allocated for this Service)
+  labourBookings LabourBooking[] @relation("ProjectServiceLabourBookings")
+
+  @@unique([organizationId, serviceCode])
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([status])
+  @@index([category])
+  @@index([priority])
+  @@index([supervisorId])
+  @@map("project_services")
+}
+
+// ============================================================================
+// 4. LABOUR BOOKING (WORKER ALLOCATION UNDER A PROJECT SERVICE)
+// ============================================================================
 
 model LabourBooking {
   id        String  @id @default(uuid()) @db.Uuid
   projectId String  @map("project_id") @db.Uuid
   project   Project @relation("ProjectLabourBookings", fields: [projectId], references: [id], onDelete: Cascade)
+
+  projectServiceId String         @map("project_service_id") @db.Uuid
+  projectService   ProjectService @relation("ProjectServiceLabourBookings", fields: [projectServiceId], references: [id], onDelete: Cascade)
 
   labourId String @map("labour_id") @db.Uuid
   labour   Labour @relation("LabourBookings", fields: [labourId], references: [id], onDelete: Restrict)
@@ -153,6 +214,7 @@ model LabourBooking {
 
   @@unique([projectId, bookingNumber])
   @@index([projectId])
+  @@index([projectServiceId])
   @@index([labourId])
   @@index([status])
   @@map("labour_bookings")
