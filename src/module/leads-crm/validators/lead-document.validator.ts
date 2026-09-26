@@ -21,8 +21,8 @@ export const uploadCustomerDocumentSchema = z.object({
     id: z.string().uuid("Invalid customer ID format"),
   }),
   body: z.object({
-    name: z.string().min(1, "Document name is required").max(150),
-    category: z.string().default("OTHER").optional(), // KYC_ID, AGREEMENT, SITE_DEED, OTHER
+    name: z.string().max(200).optional().default("Document"),
+    category: z.string().max(100).default("KYC_ID").optional(),
   }),
 });
 

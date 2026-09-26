@@ -550,25 +550,13 @@ model ProjectCommercial {
 
   currency String @default("INR") @map("currency")
 
-  // Revenue & Value Components
-  estimatedBudget       Decimal? @map("estimated_budget") @db.Decimal(14, 2)
-  contractAmount        Decimal  @default(0) @map("contract_amount") @db.Decimal(14, 2)
-  additionalWorkAmount  Decimal  @default(0) @map("additional_work_amount") @db.Decimal(14, 2)
-  discountAmount        Decimal  @default(0) @map("discount_amount") @db.Decimal(14, 2)
-  revisedContractAmount Decimal  @default(0) @map("revised_contract_amount") @db.Decimal(14, 2)
+  // Approved Contract Amount & Project Finance (Design, Material, Labour, Supervision)
+  contractAmount  Decimal @default(0) @map("contract_amount") @db.Decimal(14, 2)
+  designFee       Decimal @default(0) @map("design_fee") @db.Decimal(14, 2)
+  materialPayment Decimal @default(0) @map("material_payment") @db.Decimal(14, 2)
+  labourPayment   Decimal @default(0) @map("labour_payment") @db.Decimal(14, 2)
+  supervisionFee  Decimal @default(0) @map("supervision_fee") @db.Decimal(14, 2)
 
-  // Inflow & Outflow
-  totalReceivedAmount    Decimal @default(0) @map("total_received_amount") @db.Decimal(14, 2)
-  totalOutstandingAmount Decimal @default(0) @map("total_outstanding_amount") @db.Decimal(14, 2)
-  totalExpenseAmount     Decimal @default(0) @map("total_expense_amount") @db.Decimal(14, 2)
-
-  // Cost Breakdown
-  materialCost    Decimal @default(0) @map("material_cost") @db.Decimal(14, 2)
-  labourCost      Decimal @default(0) @map("labour_cost") @db.Decimal(14, 2)
-  supervisionCost Decimal @default(0) @map("supervision_cost") @db.Decimal(14, 2)
-
-  // Margins
-  grossMarginPercent    Float @default(0) @map("gross_margin_percent")
   additionalInformation Json? @map("additional_information")
 
   createdAt DateTime @default(now()) @map("created_at")

@@ -1,6 +1,6 @@
 import { prisma } from "../../../lib/prisma.js";
 import { ErrorResponse } from "../../../utils/response.util.js";
-import { statusCode } from "../../../types/types.js";
+import { statusCode, Prisma } from "../../../types/types.js";
 import { projectRepo } from "../repos/project.repo.js";
 import type {
   CreateProjectInput,
@@ -82,25 +82,116 @@ export class ProjectService {
       }
     }
 
-    // 5. Automatically compute commercial balance if commercial details provided
-    if (data.commercial) {
-      const contract = data.commercial.contractAmount ?? 0;
-      const additional = data.commercial.additionalWorkAmount ?? 0;
-      const discount = data.commercial.discountAmount ?? 0;
-      const received = data.commercial.totalReceivedAmount ?? 0;
-
-      if (data.commercial.revisedContractAmount === undefined || data.commercial.revisedContractAmount === null) {
-        data.commercial.revisedContractAmount = contract + additional - discount;
-      }
-      if (data.commercial.totalOutstandingAmount === undefined || data.commercial.totalOutstandingAmount === null) {
-        data.commercial.totalOutstandingAmount = data.commercial.revisedContractAmount - received;
-      }
-    }
 
     // 6. Execute atomic creation via repository
     const project = await projectRepo.create(organizationId, { ...data, projectCode }, userId);
 
-    // 7. Auto-create initial project creation timeline event
+    // 7. Promote Customer to CLIENT, update alternate contacts/KYC, and record conversion
+    const clientAlternatePhone = data.client?.alternatePhone !== undefined ? data.client?.alternatePhone : data.clientAlternatePhone;
+    const clientAlternateRelation = data.client?.alternateContactRelation !== undefined ? data.client?.alternateContactRelation : data.clientAlternateRelation;
+    const clientPan = data.client?.panNumber !== undefined ? data.client?.panNumber : data.clientPan;
+    const clientAadhaar = data.client?.aadhaarNumber !== undefined ? data.client?.aadhaarNumber : data.clientAadhaar;
+
+    const customerUpdateData: Prisma.CustomerUpdateInput = {
+      customerType: "CLIENT",
+      convertedAt: new Date(),
+      ...(data.leadId ? { initialLeadId: data.leadId } : {}),
+    };
+
+    if (clientAlternatePhone !== undefined) {
+      customerUpdateData.alternatePhone = clientAlternatePhone ? clientAlternatePhone.trim() : null;
+    }
+    if (clientAlternateRelation !== undefined) {
+      customerUpdateData.alternateContactRelation = clientAlternateRelation ? clientAlternateRelation.trim() : null;
+    }
+    if (clientPan !== undefined) {
+      customerUpdateData.panNumber = clientPan ? clientPan.trim().toUpperCase() : null;
+    }
+    if (clientAadhaar !== undefined) {
+      customerUpdateData.aadhaarNumber = clientAadhaar ? clientAadhaar.trim() : null;
+    }
+
+    await prisma.customer
+      .update({
+        where: { id: data.customerId },
+        data: customerUpdateData,
+      })
+      .catch((err) => {
+        console.error("Failed to update customer details on project create:", err);
+      });
+
+    // 8. If promoted from a Lead, update Lead status to WON and link project
+    if (data.leadId) {
+      const existingLead = await prisma.lead.findUnique({
+        where: { id: data.leadId },
+        select: { id: true, status: true, leadCode: true },
+      });
+
+      if (existingLead) {
+        if (existingLead.status !== "WON") {
+          await prisma.leadStageHistory
+            .create({
+              data: {
+                organizationId,
+                leadId: data.leadId,
+                fromStage: existingLead.status,
+                toStage: "WON",
+                changedById: userId || null,
+                remarks: `Promoted to Project '${project.name}' (${project.projectCode})`,
+              },
+            })
+            .catch(() => {});
+        }
+
+        await prisma.lead
+          .update({
+            where: { id: data.leadId },
+            data: {
+              status: "WON",
+              convertedAt: new Date(),
+              convertedProjectId: project.id,
+              convertedById: userId || null,
+            },
+          })
+          .catch(() => {});
+
+        await prisma.leadActivity
+          .create({
+            data: {
+              organizationId,
+              leadId: data.leadId,
+              type: "STATUS_CHANGE",
+              title: "Promoted to Project (WON)",
+              description: `Lead converted and promoted to Project '${project.name}' (${project.projectCode}).`,
+              metadata: {
+                projectId: project.id,
+                projectCode: project.projectCode,
+              },
+            },
+          })
+          .catch(() => {});
+      }
+    }
+
+    // 9. Record Conversion Activity on Customer
+    await prisma.customerActivity
+      .create({
+        data: {
+          organizationId,
+          customerId: data.customerId,
+          type: "CONVERSION",
+          title: "Promoted to Client",
+          description: `Customer was converted to Client upon creation of Project '${project.name}' (${project.projectCode}).`,
+          metadata: {
+            projectId: project.id,
+            projectCode: project.projectCode,
+            leadId: data.leadId || null,
+          },
+        },
+      })
+      .catch(() => {});
+
+    // 10. Auto-create initial project creation timeline event
     await prisma.projectTimeline
       .create({
         data: {
@@ -216,24 +307,47 @@ export class ProjectService {
       }
     }
 
-    // 6. Recalculate commercial balances if updated
-    if (data.commercial) {
-      const existingComm = existing.commercial;
-      const contract = data.commercial.contractAmount ?? (existingComm?.contractAmount ? Number(existingComm.contractAmount) : 0);
-      const additional = data.commercial.additionalWorkAmount ?? (existingComm?.additionalWorkAmount ? Number(existingComm.additionalWorkAmount) : 0);
-      const discount = data.commercial.discountAmount ?? (existingComm?.discountAmount ? Number(existingComm.discountAmount) : 0);
-      const received = data.commercial.totalReceivedAmount ?? (existingComm?.totalReceivedAmount ? Number(existingComm.totalReceivedAmount) : 0);
-
-      if (data.commercial.revisedContractAmount === undefined || data.commercial.revisedContractAmount === null) {
-        data.commercial.revisedContractAmount = contract + additional - discount;
-      }
-      if (data.commercial.totalOutstandingAmount === undefined || data.commercial.totalOutstandingAmount === null) {
-        data.commercial.totalOutstandingAmount = data.commercial.revisedContractAmount - received;
-      }
-    }
 
     // 7. Update via repository
     const updated = await projectRepo.update(id, organizationId, data, userId);
+
+    // 7b. Update Customer contact / KYC fields if supplied
+    const targetCustomerId = data.customerId || existing.customerId;
+    const clientAlternatePhone = data.client?.alternatePhone !== undefined ? data.client?.alternatePhone : data.clientAlternatePhone;
+    const clientAlternateRelation = data.client?.alternateContactRelation !== undefined ? data.client?.alternateContactRelation : data.clientAlternateRelation;
+    const clientPan = data.client?.panNumber !== undefined ? data.client?.panNumber : data.clientPan;
+    const clientAadhaar = data.client?.aadhaarNumber !== undefined ? data.client?.aadhaarNumber : data.clientAadhaar;
+
+    const customerUpdateData: Prisma.CustomerUpdateInput = {};
+    let shouldUpdateCustomer = false;
+
+    if (clientAlternatePhone !== undefined) {
+      customerUpdateData.alternatePhone = clientAlternatePhone ? clientAlternatePhone.trim() : null;
+      shouldUpdateCustomer = true;
+    }
+    if (clientAlternateRelation !== undefined) {
+      customerUpdateData.alternateContactRelation = clientAlternateRelation ? clientAlternateRelation.trim() : null;
+      shouldUpdateCustomer = true;
+    }
+    if (clientPan !== undefined) {
+      customerUpdateData.panNumber = clientPan ? clientPan.trim().toUpperCase() : null;
+      shouldUpdateCustomer = true;
+    }
+    if (clientAadhaar !== undefined) {
+      customerUpdateData.aadhaarNumber = clientAadhaar ? clientAadhaar.trim() : null;
+      shouldUpdateCustomer = true;
+    }
+
+    if (shouldUpdateCustomer && targetCustomerId) {
+      await prisma.customer
+        .update({
+          where: { id: targetCustomerId },
+          data: customerUpdateData,
+        })
+        .catch((err) => {
+          console.error("Failed to update customer details on project update:", err);
+        });
+    }
 
     // 8. Auto-create timeline event entries for significant status/stage/health transitions
     if (data.status && data.status !== existing.status) {

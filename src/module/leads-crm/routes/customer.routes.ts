@@ -66,7 +66,7 @@ customerRoutes.post("/:id/activities", addCustomerActivity);
  */
 customerRoutes.post(
   "/:id/documents",
-  upload.single("file", { category: "all", maxFileSize: 20 * 1024 * 1024 }),
+  upload.any({ category: "all", maxFileSize: 25 * 1024 * 1024 }),
   uploadCustomerDocument
 );
 

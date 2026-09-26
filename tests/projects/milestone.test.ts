@@ -16,15 +16,14 @@ describe("Project Milestones Module Tests", () => {
   // 1. Milestone Code Sequential Format Verification
   // =========================================================================
   describe("Milestone Code Format Validation", () => {
-    it("should conform to sequential Milestone Code pattern MS-NN", () => {
-      const codeRegex = /^MS-\d{2,}$/;
-      expect(codeRegex.test("MS-01")).toBe(true);
-      expect(codeRegex.test("MS-02")).toBe(true);
-      expect(codeRegex.test("MS-15")).toBe(true);
-      expect(codeRegex.test("MS-102")).toBe(true);
+    it("should conform to sequential Milestone Code pattern PR-123-M1 / PRJ-2026-0001-M1", () => {
+      const codeRegex = /^(?:[A-Z0-9]+-)+M\d+$/;
+      expect(codeRegex.test("PR-123-M1")).toBe(true);
+      expect(codeRegex.test("PR-123-M2")).toBe(true);
+      expect(codeRegex.test("PRJ-2026-0001-M1")).toBe(true);
+      expect(codeRegex.test("PRJ-2026-0001-M15")).toBe(true);
 
       expect(codeRegex.test("INVALID-CODE")).toBe(false);
-      expect(codeRegex.test("M-1")).toBe(false);
     });
   });
 

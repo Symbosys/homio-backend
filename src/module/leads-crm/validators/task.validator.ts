@@ -66,6 +66,7 @@ export const createCustomTaskSchema = z.object({
     // Polymorphic Linkage
     leadId: z.string().uuid("Invalid lead ID").optional().nullable(),
     projectId: z.string().uuid("Invalid project ID").optional().nullable(),
+    milestoneId: z.string().uuid("Invalid milestone ID").optional().nullable(),
 
     title: z.string().min(1, "Task title is required").max(200),
     description: z.string().max(3000).optional().nullable(),
@@ -108,6 +109,7 @@ export const updateTaskSchema = z.object({
   body: z.object({
     leadId: z.string().uuid("Invalid lead ID").optional().nullable(),
     projectId: z.string().uuid("Invalid project ID").optional().nullable(),
+    milestoneId: z.string().uuid("Invalid milestone ID").optional().nullable(),
 
     title: z.string().min(1).max(200).optional(),
     description: z.string().max(3000).optional().nullable(),

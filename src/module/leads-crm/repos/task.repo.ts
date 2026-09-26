@@ -502,10 +502,43 @@ export class TaskRepository {
   }
 
   /**
-   * Generate sequential task code (e.g. TASK-2026-0001)
+   * Generate sequential task code (e.g. PR-123-M1-T1 for milestone tasks, or TASK-2026-0001)
    */
-  async generateTaskCode(organizationId: string, tx?: Prisma.TransactionClient): Promise<string> {
+  async generateTaskCode(
+    organizationId: string,
+    milestoneIdOrCode?: string | null,
+    tx?: Prisma.TransactionClient,
+  ): Promise<string> {
     const db = tx || prisma;
+
+    if (milestoneIdOrCode) {
+      let mCode = milestoneIdOrCode;
+      // If it looks like a UUID, fetch milestone
+      if (
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          milestoneIdOrCode,
+        )
+      ) {
+        const milestone = await db.projectMilestone.findFirst({
+          where: { id: milestoneIdOrCode },
+          select: { milestoneCode: true },
+        });
+        if (milestone?.milestoneCode) {
+          mCode = milestone.milestoneCode;
+        }
+      }
+
+      if (mCode && (mCode.includes("-M") || mCode.startsWith("PR"))) {
+        const count = await db.task.count({
+          where: {
+            organizationId,
+            taskCode: { startsWith: `${mCode}-T` },
+          },
+        });
+        return `${mCode}-T${count + 1}`;
+      }
+    }
+
     const currentYear = new Date().getFullYear();
     const count = await db.task.count({
       where: {

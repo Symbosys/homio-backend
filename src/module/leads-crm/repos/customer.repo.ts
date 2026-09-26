@@ -36,6 +36,7 @@ export class CustomerRepository {
         customerType: data.customerType || "CLIENT",
         gstin: data.gstin || null,
         panNumber: data.panNumber || null,
+        aadhaarNumber: data.aadhaarNumber || null,
         status: data.status || "ACTIVE",
         tags: data.tags || [],
         notes: data.notes || null,
@@ -141,6 +142,93 @@ export class CustomerRepository {
             },
           },
         },
+        _count: {
+          select: {
+            leads: true,
+            activities: true,
+            documents: true,
+            projects: true,
+          },
+        },
+        projects: {
+          where: { isDeleted: false },
+          orderBy: { createdAt: "desc" },
+          include: {
+            serviceCategory: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                color: true,
+                icon: true,
+              },
+            },
+            site: {
+              select: {
+                id: true,
+                siteName: true,
+                address: true,
+                city: true,
+                state: true,
+                pincode: true,
+                propertyType: true,
+                totalAreaSqft: true,
+                carpetAreaSqft: true,
+                contactPerson: true,
+                contactPhone: true,
+              },
+            },
+            schedule: {
+              select: {
+                id: true,
+                plannedStartDate: true,
+                plannedEndDate: true,
+                actualStartDate: true,
+                actualEndDate: true,
+                siteHandoverDate: true,
+                estimatedDurationDays: true,
+              },
+            },
+            metric: {
+              select: {
+                id: true,
+                progressPercent: true,
+                designProgress: true,
+                executionProgress: true,
+                procurementProgress: true,
+                paymentProgress: true,
+                qualityScore: true,
+              },
+            },
+            commercial: {
+              select: {
+                id: true,
+                currency: true,
+                contractAmount: true,
+                designFee: true,
+                materialPayment: true,
+                labourPayment: true,
+                supervisionFee: true,
+              },
+            },
+            members: {
+              where: { isActive: true },
+              include: {
+                employee: {
+                  select: {
+                    id: true,
+                    employeeCode: true,
+                    firstName: true,
+                    lastName: true,
+                    displayName: true,
+                    avatarUrl: true,
+                    designation: true,
+                  },
+                },
+              },
+            },
+          },
+        },
         documents: {
           orderBy: { createdAt: "desc" },
           include: {
@@ -196,7 +284,16 @@ export class CustomerRepository {
     const where: Prisma.CustomerWhereInput = {
       organizationId,
       isDeleted: false,
-      ...(customerType ? { customerType } : {}),
+      ...(customerType
+        ? customerType === "CLIENT"
+          ? {
+              OR: [
+                { customerType: "CLIENT" },
+                { projects: { some: { isDeleted: false } } },
+              ],
+            }
+          : { customerType }
+        : {}),
       ...(status ? { status } : {}),
       ...(city ? { billingCity: { contains: city, mode: "insensitive" } } : {}),
       ...(search
@@ -234,6 +331,7 @@ export class CustomerRepository {
           _count: {
             select: {
               leads: true,
+              projects: true,
               activities: true,
               documents: true,
             },

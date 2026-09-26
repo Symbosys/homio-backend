@@ -66,6 +66,11 @@ export class ProjectRepository {
       additionalInformation,
       stageStatuses,
       tags,
+      client,
+      clientAlternatePhone,
+      clientAlternateRelation,
+      clientPan,
+      clientAadhaar,
       ...coreFields
     } = data;
 
@@ -151,33 +156,14 @@ export class ProjectRepository {
           ? {
               create: {
                 currency: commercial.currency || "INR",
-                estimatedBudget:
-                  commercial.estimatedBudget !== undefined && commercial.estimatedBudget !== null
-                    ? new Prisma.Decimal(commercial.estimatedBudget)
-                    : null,
                 contractAmount: new Prisma.Decimal(commercial.contractAmount ?? 0),
-                additionalWorkAmount: new Prisma.Decimal(commercial.additionalWorkAmount ?? 0),
-                discountAmount: new Prisma.Decimal(commercial.discountAmount ?? 0),
-                revisedContractAmount:
-                  commercial.revisedContractAmount !== undefined && commercial.revisedContractAmount !== null
-                    ? new Prisma.Decimal(commercial.revisedContractAmount)
-                    : new Prisma.Decimal((commercial.contractAmount ?? 0) + (commercial.additionalWorkAmount ?? 0) - (commercial.discountAmount ?? 0)),
-                totalReceivedAmount: new Prisma.Decimal(commercial.totalReceivedAmount ?? 0),
-                totalOutstandingAmount:
-                  commercial.totalOutstandingAmount !== undefined && commercial.totalOutstandingAmount !== null
-                    ? new Prisma.Decimal(commercial.totalOutstandingAmount)
-                    : new Prisma.Decimal(
-                        (commercial.contractAmount ?? 0) +
-                          (commercial.additionalWorkAmount ?? 0) -
-                          (commercial.discountAmount ?? 0) -
-                          (commercial.totalReceivedAmount ?? 0)
-                      ),
-                totalExpenseAmount: new Prisma.Decimal(commercial.totalExpenseAmount ?? 0),
-                materialCost: new Prisma.Decimal(commercial.materialCost ?? 0),
-                labourCost: new Prisma.Decimal(commercial.labourCost ?? 0),
-                supervisionCost: new Prisma.Decimal(commercial.supervisionCost ?? 0),
-                grossMarginPercent: commercial.grossMarginPercent ?? 0,
-                additionalInformation: commercial.additionalInformation ? (commercial.additionalInformation as Prisma.InputJsonValue) : Prisma.JsonNull,
+                designFee: new Prisma.Decimal(commercial.designFee ?? 0),
+                materialPayment: new Prisma.Decimal(commercial.materialPayment ?? 0),
+                labourPayment: new Prisma.Decimal(commercial.labourPayment ?? 0),
+                supervisionFee: new Prisma.Decimal(commercial.supervisionFee ?? 0),
+                additionalInformation: commercial.additionalInformation
+                  ? (commercial.additionalInformation as Prisma.InputJsonValue)
+                  : Prisma.JsonNull,
               },
             }
           : undefined,
@@ -275,6 +261,10 @@ export class ProjectRepository {
             lastName: true,
             displayName: true,
             phone: true,
+            alternatePhone: true,
+            alternateContactRelation: true,
+            panNumber: true,
+            aadhaarNumber: true,
             email: true,
             companyName: true,
             billingCity: true,
@@ -497,6 +487,11 @@ export class ProjectRepository {
       tags,
       additionalInformation,
       stageStatuses,
+      client,
+      clientAlternatePhone,
+      clientAlternateRelation,
+      clientPan,
+      clientAadhaar,
       ...coreFields
     } = data;
 
@@ -703,36 +698,13 @@ export class ProjectRepository {
       if (commercial === null) {
         projectUpdateData.commercial = { delete: true };
       } else {
-        const commercialCreateData = {
+        const commercialCreateData: Prisma.ProjectCommercialCreateWithoutProjectInput = {
           currency: commercial.currency || "INR",
-          estimatedBudget:
-            commercial.estimatedBudget !== undefined && commercial.estimatedBudget !== null
-              ? new Prisma.Decimal(commercial.estimatedBudget)
-              : null,
           contractAmount: new Prisma.Decimal(commercial.contractAmount ?? 0),
-          additionalWorkAmount: new Prisma.Decimal(commercial.additionalWorkAmount ?? 0),
-          discountAmount: new Prisma.Decimal(commercial.discountAmount ?? 0),
-          revisedContractAmount:
-            commercial.revisedContractAmount !== undefined && commercial.revisedContractAmount !== null
-              ? new Prisma.Decimal(commercial.revisedContractAmount)
-              : new Prisma.Decimal(
-                  (commercial.contractAmount ?? 0) + (commercial.additionalWorkAmount ?? 0) - (commercial.discountAmount ?? 0)
-                ),
-          totalReceivedAmount: new Prisma.Decimal(commercial.totalReceivedAmount ?? 0),
-          totalOutstandingAmount:
-            commercial.totalOutstandingAmount !== undefined && commercial.totalOutstandingAmount !== null
-              ? new Prisma.Decimal(commercial.totalOutstandingAmount)
-              : new Prisma.Decimal(
-                  (commercial.contractAmount ?? 0) +
-                    (commercial.additionalWorkAmount ?? 0) -
-                    (commercial.discountAmount ?? 0) -
-                    (commercial.totalReceivedAmount ?? 0)
-                ),
-          totalExpenseAmount: new Prisma.Decimal(commercial.totalExpenseAmount ?? 0),
-          materialCost: new Prisma.Decimal(commercial.materialCost ?? 0),
-          labourCost: new Prisma.Decimal(commercial.labourCost ?? 0),
-          supervisionCost: new Prisma.Decimal(commercial.supervisionCost ?? 0),
-          grossMarginPercent: commercial.grossMarginPercent ?? 0,
+          designFee: new Prisma.Decimal(commercial.designFee ?? 0),
+          materialPayment: new Prisma.Decimal(commercial.materialPayment ?? 0),
+          labourPayment: new Prisma.Decimal(commercial.labourPayment ?? 0),
+          supervisionFee: new Prisma.Decimal(commercial.supervisionFee ?? 0),
           additionalInformation: commercial.additionalInformation
             ? (commercial.additionalInformation as Prisma.InputJsonValue)
             : Prisma.JsonNull,
@@ -740,31 +712,16 @@ export class ProjectRepository {
 
         const commercialUpdateData: Prisma.ProjectCommercialUpdateInput = {};
         if (commercial.currency !== undefined) commercialUpdateData.currency = commercial.currency;
-        if (commercial.estimatedBudget !== undefined)
-          commercialUpdateData.estimatedBudget =
-            commercial.estimatedBudget !== null ? new Prisma.Decimal(commercial.estimatedBudget) : null;
         if (commercial.contractAmount !== undefined)
           commercialUpdateData.contractAmount = new Prisma.Decimal(commercial.contractAmount);
-        if (commercial.additionalWorkAmount !== undefined)
-          commercialUpdateData.additionalWorkAmount = new Prisma.Decimal(commercial.additionalWorkAmount);
-        if (commercial.discountAmount !== undefined)
-          commercialUpdateData.discountAmount = new Prisma.Decimal(commercial.discountAmount);
-        if (commercial.revisedContractAmount !== undefined && commercial.revisedContractAmount !== null)
-          commercialUpdateData.revisedContractAmount = new Prisma.Decimal(commercial.revisedContractAmount);
-        if (commercial.totalReceivedAmount !== undefined)
-          commercialUpdateData.totalReceivedAmount = new Prisma.Decimal(commercial.totalReceivedAmount);
-        if (commercial.totalOutstandingAmount !== undefined && commercial.totalOutstandingAmount !== null)
-          commercialUpdateData.totalOutstandingAmount = new Prisma.Decimal(commercial.totalOutstandingAmount);
-        if (commercial.totalExpenseAmount !== undefined)
-          commercialUpdateData.totalExpenseAmount = new Prisma.Decimal(commercial.totalExpenseAmount);
-        if (commercial.materialCost !== undefined)
-          commercialUpdateData.materialCost = new Prisma.Decimal(commercial.materialCost);
-        if (commercial.labourCost !== undefined)
-          commercialUpdateData.labourCost = new Prisma.Decimal(commercial.labourCost);
-        if (commercial.supervisionCost !== undefined)
-          commercialUpdateData.supervisionCost = new Prisma.Decimal(commercial.supervisionCost);
-        if (commercial.grossMarginPercent !== undefined && commercial.grossMarginPercent !== null)
-          commercialUpdateData.grossMarginPercent = commercial.grossMarginPercent;
+        if (commercial.designFee !== undefined)
+          commercialUpdateData.designFee = new Prisma.Decimal(commercial.designFee);
+        if (commercial.materialPayment !== undefined)
+          commercialUpdateData.materialPayment = new Prisma.Decimal(commercial.materialPayment);
+        if (commercial.labourPayment !== undefined)
+          commercialUpdateData.labourPayment = new Prisma.Decimal(commercial.labourPayment);
+        if (commercial.supervisionFee !== undefined)
+          commercialUpdateData.supervisionFee = new Prisma.Decimal(commercial.supervisionFee);
         if (commercial.additionalInformation !== undefined)
           commercialUpdateData.additionalInformation = commercial.additionalInformation
             ? (commercial.additionalInformation as Prisma.InputJsonValue)

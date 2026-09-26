@@ -36,7 +36,11 @@ export class TaskService {
       }
     }
 
-    const taskCode = await taskRepo.generateTaskCode(organizationId);
+    const milestoneId =
+      (input as any).milestoneId ||
+      (input.customFields as any)?.milestoneId ||
+      (input.additionalInformation as any)?.milestoneId;
+    const taskCode = await taskRepo.generateTaskCode(organizationId, milestoneId);
 
     const task = await taskRepo.create(organizationId, {
       ...input,

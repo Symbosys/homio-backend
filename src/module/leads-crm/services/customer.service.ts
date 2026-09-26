@@ -226,6 +226,8 @@ export class CustomerService {
       throw new ErrorResponse("Customer not found", statusCode.Not_Found);
     }
 
+    const isImage = file.mimetype?.startsWith("image/") || file.originalname.match(/\.(jpe?g|png|webp|gif)$/i);
+
     const uploadResult = await storageService.upload(
       {
         buffer: file.buffer,
@@ -235,23 +237,29 @@ export class CustomerService {
       },
       {
         folder: `homio/organizations/${organizationId}/customers/${customerId}/docs`,
-        resourceType: "raw",
+        resourceType: isImage ? "image" : "auto",
       }
     );
+
+    const fileFormat =
+      uploadResult.format ||
+      file.originalname.split(".").pop()?.toLowerCase() ||
+      file.mimetype.split("/")[1] ||
+      "pdf";
 
     const docFile: ImageType = {
       id: uploadResult.publicId,
       url: uploadResult.secureUrl || uploadResult.url,
-      bytes: uploadResult.bytes,
-      format: uploadResult.format,
+      bytes: uploadResult.bytes || file.size,
+      format: fileFormat,
       provider: uploadResult.provider,
     };
 
     const doc = await customerRepo.createDocument({
       organizationId,
       customerId,
-      name: input.name,
-      category: input.category || "OTHER",
+      name: input.name || file.originalname,
+      category: input.category || "KYC_ID",
       fileUrl: docFile as unknown as Prisma.InputJsonValue,
       uploadedById,
     });

@@ -172,6 +172,18 @@ export class ProgressService {
       throw new ErrorResponse("Progress entry not found", statusCode.Not_Found);
     }
 
+    // 24-hour edit window rule: cannot update site progress after 24 hours of submission
+    const createdAtTime = new Date(existing.createdAt).getTime();
+    const nowTime = Date.now();
+    const diffHours = (nowTime - createdAtTime) / (1000 * 60 * 60);
+
+    if (diffHours > 24) {
+      throw new ErrorResponse(
+        "Site progress cannot be updated after 24 hours of submission",
+        statusCode.Bad_Request,
+      );
+    }
+
     // If milestone is updated, verify it belongs to project
     if (data.milestoneId && data.milestoneId !== existing.milestoneId) {
       const milestone = await prisma.projectMilestone.findFirst({

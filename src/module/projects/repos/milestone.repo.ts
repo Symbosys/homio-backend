@@ -8,17 +8,22 @@ import type {
 
 export class MilestoneRepository {
   /**
-   * Auto-generate sequential Project Milestone Code e.g. "MS-01", "MS-02"
+   * Auto-generate sequential Project Milestone Code e.g. "PR-123-M1", "PRJ-2026-0001-M1"
    */
   async generateMilestoneCode(
     projectId: string,
     tx?: Prisma.TransactionClient,
   ): Promise<string> {
     const db = tx || prisma;
+    const project = await db.project.findUnique({
+      where: { id: projectId },
+      select: { projectCode: true },
+    });
     const count = await db.projectMilestone.count({
       where: { projectId },
     });
-    return `MS-${String(count + 1).padStart(2, "0")}`;
+    const prefix = project?.projectCode || "PR-1";
+    return `${prefix}-M${count + 1}`;
   }
 
   /**

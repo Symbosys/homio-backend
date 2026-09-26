@@ -132,16 +132,27 @@ export const uploadCustomerDocument = asyncHandler(async (req, res) => {
     throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
   }
 
-  if (!req.file) {
+  const uploadedFile =
+    req.file ||
+    (req.files && Array.isArray(req.files) ? req.files[0] : undefined) ||
+    (req.files && typeof req.files === "object" ? Object.values(req.files).flat()[0] : undefined);
+
+  if (!uploadedFile) {
     throw new ErrorResponse("Please attach a document file to upload", statusCode.Bad_Request);
   }
 
-  const parsed = uploadCustomerDocumentSchema.parse({ params: req.params, body: req.body });
+  const name = req.body?.name?.trim() || uploadedFile.originalname || "Document";
+  const category = req.body?.category || "KYC_ID";
+
+  const parsed = uploadCustomerDocumentSchema.parse({
+    params: req.params,
+    body: { name, category },
+  });
   const result = await customerService.uploadCustomerDocument(
     organizationId,
     parsed.params.id,
     parsed.body,
-    req.file,
+    uploadedFile,
     req.user?.id
   );
   return SuccessResponse(res, "Customer document uploaded successfully", result, statusCode.Created);

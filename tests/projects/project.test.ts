@@ -129,16 +129,11 @@ describe("Projects Module Tests", () => {
           // 1-to-1 Commercial
           commercial: {
             currency: "INR",
-            estimatedBudget: 8500000,
             contractAmount: 8200000,
-            additionalWorkAmount: 300000,
-            discountAmount: 200000,
-            totalReceivedAmount: 2500000,
-            totalExpenseAmount: 1200000,
-            materialCost: 800000,
-            labourCost: 300000,
-            supervisionCost: 100000,
-            grossMarginPercent: 32.5,
+            designFee: 500000,
+            materialPayment: 4500000,
+            labourPayment: 2500000,
+            supervisionFee: 700000,
             additionalInformation: {
               paymentTerms: "30% Advance, 40% Mid-way, 30% Handover",
               taxInvoiceType: "GST_TAX_INVOICE",
@@ -255,7 +250,7 @@ describe("Projects Module Tests", () => {
             },
           },
           commercial: {
-            totalReceivedAmount: 4000000,
+            materialPayment: 4000000,
             additionalInformation: {
               discountApprovedBy: "CEO",
             },
@@ -270,7 +265,7 @@ describe("Projects Module Tests", () => {
       expect(parsed.body.site?.additionalInformation?.liftAccess).toBe(false);
       expect(parsed.body.metric?.progressPercent).toBe(45.5);
       expect(parsed.body.metric?.additionalInformation?.snagsFoundCount).toBe(3);
-      expect(parsed.body.commercial?.totalReceivedAmount).toBe(4000000);
+      expect(parsed.body.commercial?.materialPayment).toBe(4000000);
       expect(parsed.body.commercial?.additionalInformation?.discountApprovedBy).toBe("CEO");
     });
   });

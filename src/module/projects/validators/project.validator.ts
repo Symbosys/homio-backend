@@ -1,96 +1,29 @@
 import { z } from "zod";
+import {
+  ProjectType,
+  ProjectStatus,
+  ProjectDesignStatus,
+  ProjectExecutionStatus,
+  ProjectHealth,
+  ProjectStage,
+  StageStatus,
+  ProjectPriority,
+  ProjectMemberRole,
+} from "../../../types/types";
 
 // ==========================================
-// ENUMS VALIDATORS
+// ENUMS VALIDATORS (DIRECTLY FROM PRISMA CLIENT)
 // ==========================================
 
-export const ProjectTypeEnum = z.enum([
-  "TURNKEY",
-  "CONSULTING",
-  "FORM_BASED",
-  "INTERIOR_DESIGN",
-  "RENOVATION",
-  "COMMERCIAL",
-  "RESIDENTIAL",
-]);
-
-export const ProjectStatusEnum = z.enum([
-  "DRAFT",
-  "PLANNED",
-  "DESIGN",
-  "APPROVAL_PENDING",
-  "EXECUTION",
-  "ON_HOLD",
-  "DELAYED",
-  "COMPLETED",
-  "HANDOVER",
-  "CLOSED",
-  "CANCELLED",
-]);
-
-export const ProjectDesignStatusEnum = z.enum([
-  "NOT_STARTED",
-  "IN_PROGRESS",
-  "APPROVAL_PENDING",
-  "REVISION_REQUESTED",
-  "APPROVED",
-  "COMPLETED",
-  "ON_HOLD",
-]);
-
-export const ProjectExecutionStatusEnum = z.enum([
-  "NOT_STARTED",
-  "SITE_SURVEY",
-  "CIVIL_WORK",
-  "CARPENTRY",
-  "ELECTRICAL_MEP",
-  "FINISHING",
-  "IN_PROGRESS",
-  "COMPLETED",
-  "ON_HOLD",
-  "HANDOVER",
-]);
-
-export const ProjectHealthEnum = z.enum([
-  "HEALTHY",
-  "NEED_ATTENTION",
-  "AT_RISK",
-]);
-
-export const ProjectStageEnum = z.enum([
-  "ONBOARDING",
-  "SURVEY",
-  "DESIGN",
-  "APPROVAL",
-  "PROCUREMENT",
-  "EXECUTION",
-  "HANDOVER",
-  "AFTER_SALES",
-]);
-
-export const StageStatusEnum = z.enum([
-  "NOT_STARTED",
-  "ASSIGNED",
-  "IN_PROGRESS",
-  "COMPLETED",
-  "ON_HOLD",
-]);
-
-export const ProjectPriorityEnum = z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]);
-
-export const ProjectMemberRoleEnum = z.enum([
-  "PROJECT_MANAGER",
-  "LEAD_DESIGNER",
-  "ASSISTANT_DESIGNER",
-  "SITE_SUPERVISOR",
-  "SITE_ENGINEER",
-  "SALES_OWNER",
-  "PROCUREMENT_MANAGER",
-  "QUALITY_AUDITOR",
-  "MEP_CONSULTANT",
-  "SAFETY_OFFICER",
-  "OTHER",
-]);
+export const ProjectTypeEnum = z.nativeEnum(ProjectType);
+export const ProjectStatusEnum = z.nativeEnum(ProjectStatus);
+export const ProjectDesignStatusEnum = z.nativeEnum(ProjectDesignStatus);
+export const ProjectExecutionStatusEnum = z.nativeEnum(ProjectExecutionStatus);
+export const ProjectHealthEnum = z.nativeEnum(ProjectHealth);
+export const ProjectStageEnum = z.nativeEnum(ProjectStage);
+export const StageStatusEnum = z.nativeEnum(StageStatus);
+export const ProjectPriorityEnum = z.nativeEnum(ProjectPriority);
+export const ProjectMemberRoleEnum = z.nativeEnum(ProjectMemberRole);
 
 // ==========================================
 // SUB-MODEL INPUT SCHEMAS
@@ -199,18 +132,11 @@ export const projectMetricInputSchema = z.object({
 
 export const projectCommercialInputSchema = z.object({
   currency: z.string().max(10).default("INR").optional(),
-  estimatedBudget: z.number().nonnegative().optional().nullable(),
   contractAmount: z.number().nonnegative().default(0).optional(),
-  additionalWorkAmount: z.number().nonnegative().default(0).optional(),
-  discountAmount: z.number().nonnegative().default(0).optional(),
-  revisedContractAmount: z.number().nonnegative().optional().nullable(),
-  totalReceivedAmount: z.number().nonnegative().default(0).optional(),
-  totalOutstandingAmount: z.number().optional().nullable(),
-  totalExpenseAmount: z.number().nonnegative().default(0).optional(),
-  materialCost: z.number().nonnegative().default(0).optional(),
-  labourCost: z.number().nonnegative().default(0).optional(),
-  supervisionCost: z.number().nonnegative().default(0).optional(),
-  grossMarginPercent: z.number().optional().nullable(),
+  designFee: z.number().nonnegative().default(0).optional(),
+  materialPayment: z.number().nonnegative().default(0).optional(),
+  labourPayment: z.number().nonnegative().default(0).optional(),
+  supervisionFee: z.number().nonnegative().default(0).optional(),
   additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
 });
 
@@ -224,6 +150,13 @@ export const projectMemberInputSchema = z.object({
   isActive: z.boolean().default(true).optional(),
   allocatedHoursPerWeek: z.number().nonnegative().max(168).optional().nullable(),
   additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
+});
+
+export const projectClientDetailsInputSchema = z.object({
+  alternatePhone: z.string().max(20).optional().nullable(),
+  alternateContactRelation: z.string().max(100).optional().nullable(),
+  panNumber: z.string().max(20).optional().nullable(),
+  aadhaarNumber: z.string().max(20).optional().nullable(),
 });
 
 // ImageType JSON Schema for coverImageUrl
@@ -266,6 +199,13 @@ export const createProjectSchema = z.object({
     stageStatuses: z.record(z.string(), z.any()).optional().nullable(),
     priority: ProjectPriorityEnum.default("MEDIUM").optional(),
     coverImageUrl: imageTypeSchema.optional().nullable(),
+
+    // Client Contact & KYC Details Update
+    client: projectClientDetailsInputSchema.optional().nullable(),
+    clientAlternatePhone: z.string().max(20).optional().nullable(),
+    clientAlternateRelation: z.string().max(100).optional().nullable(),
+    clientPan: z.string().max(20).optional().nullable(),
+    clientAadhaar: z.string().max(20).optional().nullable(),
 
     // Client Portal & Satisfaction
     isClientPortalVisible: z.boolean().default(true).optional(),
@@ -310,6 +250,13 @@ export const updateProjectSchema = z.object({
     stageStatuses: z.record(z.string(), z.any()).optional().nullable(),
     priority: ProjectPriorityEnum.optional(),
     coverImageUrl: imageTypeSchema.optional().nullable(),
+
+    // Client Contact & KYC Details Update
+    client: projectClientDetailsInputSchema.partial().optional().nullable(),
+    clientAlternatePhone: z.string().max(20).optional().nullable(),
+    clientAlternateRelation: z.string().max(100).optional().nullable(),
+    clientPan: z.string().max(20).optional().nullable(),
+    clientAadhaar: z.string().max(20).optional().nullable(),
 
     // Client Portal & Satisfaction
     isClientPortalVisible: z.boolean().optional(),
