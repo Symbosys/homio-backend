@@ -57,7 +57,26 @@ export class ApprovalService {
       }
     }
 
-    return approvalRepo.create(projectId, data);
+    const approval = await approvalRepo.create(projectId, data);
+
+    // Auto-create timeline event for approval request
+    await prisma.projectTimeline
+      .create({
+        data: {
+          projectId,
+          title: `Client Approval Requested: ${approval.title}`,
+          description: approval.description || `Approval submission for '${approval.title}' (${approval.type}).`,
+          eventType: "WORK_APPROVAL",
+          category: approval.type || "APPROVAL",
+          status: "IN_PROGRESS",
+          performedById: approval.submittedById || null,
+          isCustom: false,
+          isSystemGenerated: true,
+        },
+      })
+      .catch(() => {});
+
+    return approval;
   }
 
   /**
@@ -178,7 +197,26 @@ export class ApprovalService {
       throw new ErrorResponse("Work approval not found", statusCode.Not_Found);
     }
 
-    return approvalRepo.review(id, projectId, data);
+    const reviewed = await approvalRepo.review(id, projectId, data);
+
+    // Auto-create timeline event for approval review
+    const statusText = data.action === "APPROVE" ? "APPROVED" : "REJECTED";
+    await prisma.projectTimeline
+      .create({
+        data: {
+          projectId,
+          title: `Client Work Approval: ${statusText} (${existing.title})`,
+          description: data.clientFeedback || data.rejectionReason || `Work approval '${existing.title}' was marked ${statusText} by client.`,
+          eventType: "WORK_APPROVAL",
+          category: existing.type || "APPROVAL",
+          status: data.action === "APPROVE" ? "COMPLETED" : "CANCELLED",
+          isCustom: false,
+          isSystemGenerated: true,
+        },
+      })
+      .catch(() => {});
+
+    return reviewed;
   }
 
   /**
@@ -247,7 +285,25 @@ export class ApprovalService {
       }
     }
 
-    return approvalRepo.createChangeRequest(approvalId, data);
+    const changeRequest = await approvalRepo.createChangeRequest(approvalId, data);
+
+    // Auto-create timeline event for change request
+    await prisma.projectTimeline
+      .create({
+        data: {
+          projectId,
+          title: `Change Request: ${data.title || "Requested Changes"}`,
+          description: data.requestedChanges || data.reason || `Change request submitted for approval '${approval.title}'.`,
+          eventType: "WORK_APPROVAL",
+          category: "CHANGE_REQUEST",
+          status: "IN_PROGRESS",
+          isCustom: false,
+          isSystemGenerated: true,
+        },
+      })
+      .catch(() => {});
+
+    return changeRequest;
   }
 
   /**

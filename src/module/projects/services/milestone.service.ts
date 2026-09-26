@@ -69,7 +69,26 @@ export class MilestoneService {
       }
     }
 
-    return milestoneRepo.create(projectId, { ...data, milestoneCode });
+    const milestone = await milestoneRepo.create(projectId, { ...data, milestoneCode });
+
+    // Auto-create timeline event for milestone initiation
+    await prisma.projectTimeline
+      .create({
+        data: {
+          projectId,
+          title: `Milestone Added: ${milestone.name}`,
+          description: milestone.description || `Milestone ${milestone.milestoneCode} was scheduled.`,
+          eventType: "MILESTONE_STARTED",
+          category: "MILESTONE",
+          status: milestone.status === "COMPLETED" ? "COMPLETED" : "PLANNED",
+          performedById: milestone.assigneeId || null,
+          isCustom: false,
+          isSystemGenerated: true,
+        },
+      })
+      .catch(() => {});
+
+    return milestone;
   }
 
   /**
@@ -190,7 +209,28 @@ export class MilestoneService {
       }
     }
 
-    return milestoneRepo.update(id, projectId, data);
+    const updated = await milestoneRepo.update(id, projectId, data);
+
+    // Auto-create timeline event when milestone status changes
+    if (data.status && data.status !== existing.status) {
+      await prisma.projectTimeline
+        .create({
+          data: {
+            projectId,
+            title: data.status === "COMPLETED" ? `Milestone Completed: ${updated.name}` : `Milestone Status: ${data.status} (${updated.name})`,
+            description: `Milestone status changed from ${existing.status} to ${data.status}.`,
+            eventType: data.status === "COMPLETED" ? "MILESTONE_COMPLETED" : "MILESTONE_STARTED",
+            category: "MILESTONE",
+            status: data.status === "COMPLETED" ? "COMPLETED" : "IN_PROGRESS",
+            performedById: updated.assigneeId || null,
+            isCustom: false,
+            isSystemGenerated: true,
+          },
+        })
+        .catch(() => {});
+    }
+
+    return updated;
   }
 
   /**
@@ -244,18 +284,38 @@ export class MilestoneService {
         ? (completedCount / allChecklists.length) * 100
         : 0;
 
+    const newStatus =
+      completionPercent === 100
+        ? "COMPLETED"
+        : completionPercent > 0
+          ? "IN_PROGRESS"
+          : milestone.status;
+
     await prisma.projectMilestone.update({
       where: { id: milestoneId },
       data: {
         completionPercent,
-        status:
-          completionPercent === 100
-            ? "COMPLETED"
-            : completionPercent > 0
-              ? "IN_PROGRESS"
-              : milestone.status,
+        status: newStatus,
       },
     });
+
+    if (newStatus === "COMPLETED" && milestone.status !== "COMPLETED") {
+      await prisma.projectTimeline
+        .create({
+          data: {
+            projectId,
+            title: `Milestone Completed: ${milestone.name}`,
+            description: `All checklist items for milestone '${milestone.name}' have been verified and completed (100%).`,
+            eventType: "MILESTONE_COMPLETED",
+            category: "MILESTONE",
+            status: "COMPLETED",
+            performedById: milestone.assigneeId || null,
+            isCustom: false,
+            isSystemGenerated: true,
+          },
+        })
+        .catch(() => {});
+    }
 
     return updatedChecklist;
   }

@@ -28,12 +28,33 @@ export const ProjectStatusEnum = z.enum([
   "CANCELLED",
 ]);
 
+export const ProjectDesignStatusEnum = z.enum([
+  "NOT_STARTED",
+  "IN_PROGRESS",
+  "APPROVAL_PENDING",
+  "REVISION_REQUESTED",
+  "APPROVED",
+  "COMPLETED",
+  "ON_HOLD",
+]);
+
+export const ProjectExecutionStatusEnum = z.enum([
+  "NOT_STARTED",
+  "SITE_SURVEY",
+  "CIVIL_WORK",
+  "CARPENTRY",
+  "ELECTRICAL_MEP",
+  "FINISHING",
+  "IN_PROGRESS",
+  "COMPLETED",
+  "ON_HOLD",
+  "HANDOVER",
+]);
+
 export const ProjectHealthEnum = z.enum([
   "HEALTHY",
+  "NEED_ATTENTION",
   "AT_RISK",
-  "DELAYED",
-  "CRITICAL",
-  "COMPLETED",
 ]);
 
 export const ProjectStageEnum = z.enum([
@@ -78,8 +99,10 @@ export const projectSiteInputSchema = z.object({
   propertyType: z.string().max(100).optional().nullable(),
   floorNumber: z.string().max(50).optional().nullable(),
   totalAreaSqft: z.number().nonnegative().optional().nullable(),
+  workableAreaSqft: z.number().nonnegative().optional().nullable(),
   carpetAreaSqft: z.number().nonnegative().optional().nullable(),
   contactPerson: z.string().max(100).optional().nullable(),
+  contactPersonRelation: z.string().max(100).optional().nullable(),
   contactPhone: z.string().max(20).optional().nullable(),
   contactEmail: z.string().email("Invalid contact email").optional().nullable().or(z.literal("")),
   accessInstructions: z.string().max(2000).optional().nullable(),
@@ -226,6 +249,8 @@ export const createProjectSchema = z.object({
     category: z.string().max(100).optional().nullable(),
     type: ProjectTypeEnum.default("TURNKEY").optional(),
     status: ProjectStatusEnum.default("PLANNED").optional(),
+    designStatus: ProjectDesignStatusEnum.default("NOT_STARTED").optional(),
+    executionStatus: ProjectExecutionStatusEnum.default("NOT_STARTED").optional(),
     health: ProjectHealthEnum.default("HEALTHY").optional(),
     currentStage: ProjectStageEnum.default("PLANNING").optional(),
     priority: ProjectPriorityEnum.default("MEDIUM").optional(),
@@ -266,6 +291,8 @@ export const updateProjectSchema = z.object({
     category: z.string().max(100).optional().nullable(),
     type: ProjectTypeEnum.optional(),
     status: ProjectStatusEnum.optional(),
+    designStatus: ProjectDesignStatusEnum.optional(),
+    executionStatus: ProjectExecutionStatusEnum.optional(),
     health: ProjectHealthEnum.optional(),
     currentStage: ProjectStageEnum.optional(),
     priority: ProjectPriorityEnum.optional(),
@@ -297,6 +324,8 @@ export const getProjectsQuerySchema = z.object({
     limit: z.coerce.number().int().positive().max(100).default(20).optional(),
     search: z.string().max(100).optional(),
     status: ProjectStatusEnum.optional(),
+    designStatus: ProjectDesignStatusEnum.optional(),
+    executionStatus: ProjectExecutionStatusEnum.optional(),
     health: ProjectHealthEnum.optional(),
     currentStage: ProjectStageEnum.optional(),
     priority: ProjectPriorityEnum.optional(),

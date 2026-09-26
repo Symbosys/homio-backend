@@ -208,7 +208,26 @@ export class HandoverService {
         : Prisma.JsonNull,
     }));
 
-    return this.repo.createHandover(createData, initialItems, initialSnags);
+    const createdHandover = await this.repo.createHandover(createData, initialItems, initialSnags);
+
+    // Auto-create timeline event for handover scheduling
+    await prisma.projectTimeline
+      .create({
+        data: {
+          projectId: input.projectId,
+          title: `Handover Phase: ${createdHandover.title}`,
+          description: createdHandover.description || `Project handover process initialized (${createdHandover.handoverNumber}).`,
+          eventType: "HANDOVER_SNAG",
+          category: "HANDOVER",
+          status: "PLANNED",
+          performedById: createdHandover.handedOverById || null,
+          isCustom: false,
+          isSystemGenerated: true,
+        },
+      })
+      .catch(() => {});
+
+    return createdHandover;
   }
 
   /**
@@ -459,7 +478,25 @@ export class HandoverService {
       },
     });
 
-    return this.repo.updateHandover(id, organizationId, updateData);
+    const updated = await this.repo.updateHandover(id, organizationId, updateData);
+
+    // Auto-create timeline event for formal client handover sign-off
+    await prisma.projectTimeline
+      .create({
+        data: {
+          projectId: handover.projectId,
+          title: "Project Handover Accepted & Signed Off",
+          description: input.clientFeedback || `Client ${input.clientSignoffName} signed off and accepted project handover.`,
+          eventType: "HANDOVER_SNAG",
+          category: "HANDOVER",
+          status: "COMPLETED",
+          isCustom: false,
+          isSystemGenerated: true,
+        },
+      })
+      .catch(() => {});
+
+    return updated;
   }
 
   /**
@@ -687,7 +724,7 @@ export class HandoverService {
       );
     }
 
-    return this.repo.createSnag({
+    const createdSnag = await this.repo.createSnag({
       handoverId,
       complaintId: input.complaintId ?? null,
       categoryId: input.categoryId ?? null,
@@ -705,6 +742,25 @@ export class HandoverService {
         ? (input.additionalInformation as unknown as Prisma.InputJsonValue)
         : Prisma.JsonNull,
     });
+
+    // Auto-create timeline event for snag reported
+    await prisma.projectTimeline
+      .create({
+        data: {
+          projectId: (await this.getHandoverById(handoverId, organizationId)).projectId,
+          title: `Snag Item Identified: ${input.title}`,
+          description: input.description || `Snag identified in ${input.areaRoom || "site area"} with severity ${input.severity}.`,
+          eventType: "HANDOVER_SNAG",
+          category: "SNAG",
+          status: "IN_PROGRESS",
+          performedById: input.assignedToId || null,
+          isCustom: false,
+          isSystemGenerated: true,
+        },
+      })
+      .catch(() => {});
+
+    return createdSnag;
   }
 
   async updateSnag(
@@ -756,7 +812,8 @@ export class HandoverService {
     input: ResolveHandoverSnagInput,
     files?: SnagFiles
   ) {
-    await this.getSnagById(handoverId, snagId, organizationId);
+    const handover = await this.getHandoverById(handoverId, organizationId);
+    const existingSnag = await this.getSnagById(handoverId, snagId, organizationId);
 
     let afterPhotoUrl: ImageType | undefined = undefined;
     if (files?.afterPhoto?.[0]) {
@@ -776,7 +833,25 @@ export class HandoverService {
       }),
     };
 
-    return this.repo.updateSnag(snagId, updateData);
+    const resolved = await this.repo.updateSnag(snagId, updateData);
+
+    // Auto-create timeline event for snag resolved
+    await prisma.projectTimeline
+      .create({
+        data: {
+          projectId: handover.projectId,
+          title: `Snag Resolved: ${existingSnag.title}`,
+          description: input.resolvedNotes || `Snag item was resolved and verified.`,
+          eventType: "HANDOVER_SNAG",
+          category: "SNAG",
+          status: "COMPLETED",
+          isCustom: false,
+          isSystemGenerated: true,
+        },
+      })
+      .catch(() => {});
+
+    return resolved;
   }
 
   async verifySnag(

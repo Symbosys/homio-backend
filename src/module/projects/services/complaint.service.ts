@@ -64,7 +64,26 @@ export class ComplaintService {
       }
     }
 
-    return complaintRepo.create(projectId, data);
+    const complaint = await complaintRepo.create(projectId, data);
+
+    // Auto-create timeline event for complaint logged
+    await prisma.projectTimeline
+      .create({
+        data: {
+          projectId,
+          title: `Complaint/Snag Logged: ${complaint.title}`,
+          description: complaint.description || `Issue reported with priority ${complaint.priority}.`,
+          eventType: "OTHER",
+          category: "COMPLAINT",
+          status: "IN_PROGRESS",
+          performedById: complaint.assignedToId || null,
+          isCustom: false,
+          isSystemGenerated: true,
+        },
+      })
+      .catch(() => {});
+
+    return complaint;
   }
 
   /**
@@ -176,7 +195,28 @@ export class ComplaintService {
       }
     }
 
-    return complaintRepo.updateStatus(id, projectId, data);
+    const updated = await complaintRepo.updateStatus(id, projectId, data);
+
+    // Auto-create timeline event when complaint is resolved or closed
+    if (data.status && data.status !== existing.status) {
+      await prisma.projectTimeline
+        .create({
+          data: {
+            projectId,
+            title: `Complaint Status: ${data.status} (${existing.title})`,
+            description: data.resolutionNotes || `Complaint status was updated to ${data.status}.`,
+            eventType: "OTHER",
+            category: "COMPLAINT",
+            status: data.status === "RESOLVED" || data.status === "CLOSED" ? "COMPLETED" : "IN_PROGRESS",
+            performedById: data.resolvedById || updated.assignedToId || null,
+            isCustom: false,
+            isSystemGenerated: true,
+          },
+        })
+        .catch(() => {});
+    }
+
+    return updated;
   }
 
   /**

@@ -42,7 +42,26 @@ export class SiteVisitService {
       }
     }
 
-    return siteVisitRepo.create(projectId, data);
+    const visit = await siteVisitRepo.create(projectId, data);
+
+    // Auto-create timeline event for scheduled site visit
+    await prisma.projectTimeline
+      .create({
+        data: {
+          projectId,
+          title: `Site Visit Scheduled: ${visit.title}`,
+          description: visit.purpose || `Site visit planned for ${new Date(visit.plannedDate).toLocaleDateString()}.`,
+          eventType: "SITE_VISIT",
+          category: visit.visitType || "SITE_VISIT",
+          status: "PLANNED",
+          performedById: visit.visitorEmployeeId || null,
+          isCustom: false,
+          isSystemGenerated: true,
+        },
+      })
+      .catch(() => {});
+
+    return visit;
   }
 
   /**
@@ -111,7 +130,26 @@ export class SiteVisitService {
       throw new ErrorResponse("Site visit not found", statusCode.Not_Found);
     }
 
-    return siteVisitRepo.complete(id, data);
+    const completed = await siteVisitRepo.complete(id, data);
+
+    // Auto-create timeline event for completed site visit
+    await prisma.projectTimeline
+      .create({
+        data: {
+          projectId: existing.projectId,
+          title: `Site Visit Completed: ${completed.title}`,
+          description: completed.summary || "Field inspection and site walkthrough completed.",
+          eventType: "SITE_VISIT",
+          category: completed.visitType || "SITE_VISIT",
+          status: "COMPLETED",
+          performedById: completed.visitorEmployeeId || null,
+          isCustom: false,
+          isSystemGenerated: true,
+        },
+      })
+      .catch(() => {});
+
+    return completed;
   }
 
   /**

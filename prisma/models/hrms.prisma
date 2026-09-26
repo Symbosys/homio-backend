@@ -367,6 +367,7 @@ model Employee {
   assignedServiceVisits       AfterSalesServiceVisit[]    @relation("EmployeeAssignedServiceVisits")
   assignedRetentionFollowUps  RetentionFollowUp[]         @relation("EmployeeAssignedRetentionFollowUps")
   supervisedProjectServices   ProjectService[]            @relation("ProjectServiceSupervisors")
+  timelineEvents              ProjectTimeline[]           @relation("EmployeeProjectTimelineEvents")
 
   @@unique([organizationId, employeeCode])
   @@index([organizationId])

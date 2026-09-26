@@ -172,7 +172,26 @@ export class DesignService {
       }
     }
 
-    return designRepo.createDesign(organizationId, projectId, data);
+    const design = await designRepo.createDesign(organizationId, projectId, data);
+
+    // Auto-create timeline event for design asset
+    await prisma.projectTimeline
+      .create({
+        data: {
+          projectId,
+          title: `Design Created: ${design.title}`,
+          description: design.description || `Design drawing/asset (${design.designType}) was created.`,
+          eventType: "WORK_APPROVAL",
+          category: "DESIGN",
+          status: "COMPLETED",
+          performedById: design.createdById || null,
+          isCustom: false,
+          isSystemGenerated: true,
+        },
+      })
+      .catch(() => {});
+
+    return design;
   }
 
   async getDesigns(projectId: string, organizationId: string, query: GetDesignsQueryInput) {
@@ -433,7 +452,7 @@ export class DesignService {
       throw new ErrorResponse("Rejection reason or review comments are required when rejecting a design version", statusCode.Bad_Request);
     }
 
-    return designRepo.createApproval(
+    const approval = await designRepo.createApproval(
       organizationId,
       projectId,
       versionId,
@@ -443,6 +462,24 @@ export class DesignService {
         customerId: effectiveCustomerId,
       }
     );
+
+    // Auto-create timeline event for design approval decision
+    await prisma.projectTimeline
+      .create({
+        data: {
+          projectId,
+          title: `Design Version ${data.decision} (v${version.versionNumber})`,
+          description: data.reviewComments || data.rejectionReason || `Client reviewed design version ${version.versionNumber} with decision: ${data.decision}.`,
+          eventType: "WORK_APPROVAL",
+          category: "DESIGN",
+          status: data.decision === "APPROVED" ? "COMPLETED" : "CANCELLED",
+          isCustom: false,
+          isSystemGenerated: true,
+        },
+      })
+      .catch(() => {});
+
+    return approval;
   }
 
   async getApprovals(projectId: string, organizationId: string, designId: string, versionId: string) {

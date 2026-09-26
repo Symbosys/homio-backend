@@ -113,6 +113,7 @@ export class MilestoneRepository {
       stage,
       status,
       priority,
+      milestoneType,
       assigneeId,
       sortBy = "orderIndex",
       sortOrder = "asc",
@@ -124,6 +125,7 @@ export class MilestoneRepository {
       ...(stage ? { stage } : {}),
       ...(status ? { status } : {}),
       ...(priority ? { priority } : {}),
+      ...(milestoneType ? { milestoneType } : {}),
       ...(assigneeId ? { assigneeId } : {}),
     };
 

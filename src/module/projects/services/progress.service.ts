@@ -68,7 +68,29 @@ export class ProgressService {
       }
     }
 
-    return progressRepo.create(projectId, data);
+    const progress = await progressRepo.create(projectId, data);
+
+    // Auto-create timeline event for progress entry
+    const progressPercentText = data.progressPercent !== undefined ? ` (${data.progressPercent}%)` : "";
+    await prisma.projectTimeline
+      .create({
+        data: {
+          projectId,
+          title: `Site Progress Logged${progressPercentText}`,
+          description: data.description || `Daily work progress recorded for date ${new Date(data.progressDate).toLocaleDateString()}.`,
+          eventType: "PROGRESS_UPDATE",
+          category: "PROGRESS",
+          status: "COMPLETED",
+          eventDate: new Date(data.progressDate),
+          performedById: data.submittedById || null,
+          createdById: userId || null,
+          isCustom: false,
+          isSystemGenerated: true,
+        },
+      })
+      .catch(() => {});
+
+    return progress;
   }
 
   /**
@@ -215,13 +237,32 @@ export class ProgressService {
       }
     }
 
-    return progressRepo.review(
+    const reviewed = await progressRepo.review(
       id,
       projectId,
       data.approvalStatus,
       approvedEmployeeId,
       data.rejectionReason,
     );
+
+    // Auto-create timeline event for progress review
+    await prisma.projectTimeline
+      .create({
+        data: {
+          projectId,
+          title: `Progress Log ${data.approvalStatus}`,
+          description: data.rejectionReason || `Site progress log was reviewed and marked ${data.approvalStatus}.`,
+          eventType: "PROGRESS_UPDATE",
+          category: "PROGRESS",
+          status: data.approvalStatus === "APPROVED" ? "COMPLETED" : "CANCELLED",
+          performedById: approvedEmployeeId || null,
+          isCustom: false,
+          isSystemGenerated: true,
+        },
+      })
+      .catch(() => {});
+
+    return reviewed;
   }
 
   /**

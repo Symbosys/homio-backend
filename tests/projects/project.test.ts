@@ -45,7 +45,9 @@ describe("Projects Module Tests", () => {
           serviceCategoryId: "c0000000-0000-4000-8000-000000000003",
           type: "TURNKEY" as const,
           status: "PLANNED" as const,
-          health: "HEALTHY" as const,
+          designStatus: "IN_PROGRESS" as const,
+          executionStatus: "NOT_STARTED" as const,
+          health: "NEED_ATTENTION" as const,
           currentStage: "PLANNING" as const,
           priority: "HIGH" as const,
           coverImageUrl: {
@@ -80,8 +82,10 @@ describe("Projects Module Tests", () => {
             propertyType: "4BHK Duplex Villa",
             floorNumber: "G+1",
             totalAreaSqft: 4500,
-            carpetAreaSqft: 3800,
+            workableAreaSqft: 3800,
+            carpetAreaSqft: 3600,
             contactPerson: "Rajesh Sharma",
+            contactPersonRelation: "Site Engineer",
             contactPhone: "+919876543210",
             contactEmail: "rajesh.sharma@example.com",
             accessInstructions: "Security pass required at Main Gate #2.",
@@ -175,6 +179,11 @@ describe("Projects Module Tests", () => {
       const parsed = createProjectSchema.parse(payload);
       expect(parsed.body.name).toBe("Villa Grandeur 4BHK Turnkey Interior");
       expect(parsed.body.customerId).toBe(MOCK_CUSTOMER_ID);
+      expect(parsed.body.designStatus).toBe("IN_PROGRESS");
+      expect(parsed.body.executionStatus).toBe("NOT_STARTED");
+      expect(parsed.body.health).toBe("NEED_ATTENTION");
+      expect(parsed.body.site?.workableAreaSqft).toBe(3800);
+      expect(parsed.body.site?.contactPersonRelation).toBe("Site Engineer");
       expect(parsed.body.serviceCategoryId).toBe("c0000000-0000-4000-8000-000000000003");
       expect(parsed.body.additionalInformation?.clientTier).toBe("VIP");
       expect(parsed.body.site?.city).toBe("Bangalore");

@@ -45,13 +45,15 @@ model Customer {
   displayName  String?             @map("display_name")
 
   // Contact Information
-  email          String? @map("email")
-  phone          String  @map("phone")
-  alternatePhone String? @map("alternate_phone")
-  companyName    String? @map("company_name")
-  gstin          String? @map("gstin")
-  panNumber      String? @map("pan_number")
-  avatarUrl      Json?   @map("avatar_url") // ImageType JSON
+  email                    String? @map("email")
+  phone                    String  @map("phone")
+  alternatePhone           String? @map("alternate_phone")
+  alternateContactRelation String? @map("alternate_contact_relation") // e.g. "Spouse", "Father", "Co-owner"
+  companyName              String? @map("company_name")
+  gstin                    String? @map("gstin")
+  panNumber                String? @map("pan_number")
+  aadhaarNumber            String? @map("aadhaar_number")
+  avatarUrl                Json?   @map("avatar_url") // ImageType JSON
 
   // Status & Classification
   status       CustomerStatus @default(ACTIVE) @map("status")

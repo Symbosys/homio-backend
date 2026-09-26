@@ -109,8 +109,42 @@ describe("Project Milestones Module Tests", () => {
       const parsed = createMilestoneSchema.parse(minimalPayload);
       expect(parsed.body.name).toBe("Design Moodboard Approval");
       expect(parsed.body.status).toBe("NOT_STARTED");
+      expect(parsed.body.milestoneType).toBe("EXECUTION");
       expect(parsed.body.priority).toBe("MEDIUM");
       expect(parsed.body.checklists).toEqual([]);
+    });
+
+    it("should validate DESIGN milestone creation and filtering", () => {
+      const designPayload = {
+        params: { projectId: MOCK_PROJECT_ID },
+        body: {
+          milestoneCode: "MS-01",
+          milestoneType: "DESIGN" as const,
+          name: "3D Visualizations & Material Board Approval",
+          startDate: "2026-10-01",
+          dueDate: "2026-10-15",
+          stage: "DESIGN" as const,
+          checklists: [
+            {
+              title: "Living room 3D render generation",
+              isCompleted: true,
+            },
+            {
+              title: "Material swatch sign-off with client",
+              isCompleted: false,
+            },
+          ],
+        },
+      };
+
+      const parsed = createMilestoneSchema.parse(designPayload);
+      expect(parsed.body.milestoneType).toBe("DESIGN");
+      expect(parsed.body.checklists?.length).toBe(2);
+
+      const queryParsed = getMilestonesQuerySchema.parse({
+        query: { milestoneType: "DESIGN" },
+      });
+      expect(queryParsed.query.milestoneType).toBe("DESIGN");
     });
 
     it("should fail validation if dueDate or startDate is invalid", () => {

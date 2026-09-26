@@ -70,7 +70,28 @@ export class ExpenseService {
       }
     }
 
-    return expenseRepo.create(organizationId, data);
+    const expense = await expenseRepo.create(organizationId, data);
+
+    // Auto-create timeline event if scoped to a project
+    if (projectId) {
+      await prisma.projectTimeline
+        .create({
+          data: {
+            projectId,
+            title: `Expense Incurred: ₹${Number(expense.amount).toLocaleString()} (${expense.title})`,
+            description: expense.description || `Commercial expense logged under payment status ${expense.paymentStatus}.`,
+            eventType: "COMMERCIAL_INVOICE",
+            category: "EXPENSE",
+            status: expense.paymentStatus === "PAID" ? "COMPLETED" : "PLANNED",
+            performedById: expense.createdById || null,
+            isCustom: false,
+            isSystemGenerated: true,
+          },
+        })
+        .catch(() => {});
+    }
+
+    return expense;
   }
 
   /**

@@ -9,6 +9,11 @@ import {
 // MILESTONE ENUMS VALIDATORS
 // ==========================================
 
+export const MilestoneTypeEnum = z.enum([
+  "DESIGN",
+  "EXECUTION",
+]);
+
 export const MilestoneStatusEnum = z.enum([
   "NOT_STARTED",
   "IN_PROGRESS",
@@ -85,6 +90,7 @@ export const createMilestoneSchema = z.object({
   }),
   body: z.object({
     milestoneCode: z.string().max(50).optional().nullable(), // If omitted, auto MS-01, MS-02
+    milestoneType: MilestoneTypeEnum.default("EXECUTION").optional(),
     name: z.string().min(1, "Milestone name is required").max(200),
     description: z.string().max(5000).optional().nullable(),
     stage: ProjectStageEnum.default("EXECUTION").optional(),
@@ -143,6 +149,7 @@ export const updateMilestoneSchema = z.object({
   }),
   body: z.object({
     milestoneCode: z.string().max(50).optional(),
+    milestoneType: MilestoneTypeEnum.optional(),
     name: z.string().min(1, "Milestone name is required").max(200).optional(),
     description: z.string().max(5000).optional().nullable(),
     stage: ProjectStageEnum.optional(),
@@ -202,6 +209,7 @@ export const getMilestonesQuerySchema = z.object({
     stage: ProjectStageEnum.optional(),
     status: MilestoneStatusEnum.optional(),
     priority: ProjectPriorityEnum.optional(),
+    milestoneType: MilestoneTypeEnum.optional(),
     assigneeId: z.string().uuid().optional(),
     sortBy: z
       .enum([

@@ -85,6 +85,7 @@ model User {
   reviewedQuotations        VendorQuotation[]       @relation("UserReviewedQuotations")
   receivedDispatches        MaterialDispatch[]      @relation("UserReceivedDispatches")
   processedCPPayouts        ChannelPartnerPayout[]  @relation("CPPayoutProcessedBy")
+  createdProjectTimelines   ProjectTimeline[]       @relation("UserProjectTimelineCreated")
 
   @@index([organizationId])
   @@index([email])

@@ -98,7 +98,26 @@ export class ProjectService {
     }
 
     // 6. Execute atomic creation via repository
-    return projectRepo.create(organizationId, { ...data, projectCode }, userId);
+    const project = await projectRepo.create(organizationId, { ...data, projectCode }, userId);
+
+    // 7. Auto-create initial project creation timeline event
+    await prisma.projectTimeline
+      .create({
+        data: {
+          projectId: project.id,
+          title: "Project Created & Initialized",
+          description: `Project '${project.name}' (${project.projectCode}) was onboarded and created.`,
+          eventType: "PROJECT_CREATED",
+          category: "ONBOARDING",
+          status: "COMPLETED",
+          isCustom: false,
+          isSystemGenerated: true,
+          createdById: userId || null,
+        },
+      })
+      .catch(() => {});
+
+    return project;
   }
 
   /**
@@ -214,7 +233,100 @@ export class ProjectService {
     }
 
     // 7. Update via repository
-    return projectRepo.update(id, organizationId, data, userId);
+    const updated = await projectRepo.update(id, organizationId, data, userId);
+
+    // 8. Auto-create timeline event entries for significant status/stage/health transitions
+    if (data.status && data.status !== existing.status) {
+      await prisma.projectTimeline
+        .create({
+          data: {
+            projectId: id,
+            title: `Project Status: ${data.status}`,
+            description: `Project status transitioned from ${existing.status} to ${data.status}.`,
+            eventType: "STATUS_CHANGED",
+            category: "LIFECYCLE",
+            status: "COMPLETED",
+            isCustom: false,
+            isSystemGenerated: true,
+            createdById: userId || null,
+          },
+        })
+        .catch(() => {});
+    }
+
+    if (data.designStatus && data.designStatus !== existing.designStatus) {
+      await prisma.projectTimeline
+        .create({
+          data: {
+            projectId: id,
+            title: `Design Phase Status: ${data.designStatus}`,
+            description: `Design status updated to ${data.designStatus}.`,
+            eventType: "STATUS_CHANGED",
+            category: "DESIGN",
+            status: "COMPLETED",
+            isCustom: false,
+            isSystemGenerated: true,
+            createdById: userId || null,
+          },
+        })
+        .catch(() => {});
+    }
+
+    if (data.executionStatus && data.executionStatus !== existing.executionStatus) {
+      await prisma.projectTimeline
+        .create({
+          data: {
+            projectId: id,
+            title: `Execution Phase Status: ${data.executionStatus}`,
+            description: `Execution status updated to ${data.executionStatus}.`,
+            eventType: "STATUS_CHANGED",
+            category: "EXECUTION",
+            status: "COMPLETED",
+            isCustom: false,
+            isSystemGenerated: true,
+            createdById: userId || null,
+          },
+        })
+        .catch(() => {});
+    }
+
+    if (data.currentStage && data.currentStage !== existing.currentStage) {
+      await prisma.projectTimeline
+        .create({
+          data: {
+            projectId: id,
+            title: `Stage Transitioned: ${data.currentStage}`,
+            description: `Project stage transitioned from ${existing.currentStage} to ${data.currentStage}.`,
+            eventType: "STAGE_CHANGED",
+            category: "STAGE",
+            status: "COMPLETED",
+            isCustom: false,
+            isSystemGenerated: true,
+            createdById: userId || null,
+          },
+        })
+        .catch(() => {});
+    }
+
+    if (data.health && data.health !== existing.health) {
+      await prisma.projectTimeline
+        .create({
+          data: {
+            projectId: id,
+            title: `Health Status: ${data.health}`,
+            description: `Project health status transitioned from ${existing.health} to ${data.health}.`,
+            eventType: "HEALTH_CHANGED",
+            category: "HEALTH",
+            status: "COMPLETED",
+            isCustom: false,
+            isSystemGenerated: true,
+            createdById: userId || null,
+          },
+        })
+        .catch(() => {});
+    }
+
+    return updated;
   }
 
   /**

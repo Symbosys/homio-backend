@@ -18,6 +18,7 @@ import designFolderRoutes from "./design-folder.routes.js";
 import designRoutes from "./design.routes.js";
 import handoverRoutes from "./handover.routes.js";
 import orgComplaintRoutes from "./org-complaint.routes.js";
+import timelineRoutes from "./timeline.routes.js";
 
 const projectRoutes = Router();
 
@@ -31,7 +32,7 @@ projectRoutes.use("/site-visits", siteVisitRoutes);
 projectRoutes.use("/handovers", handoverRoutes);
 projectRoutes.use("/complaints", orgComplaintRoutes);
 
-// Sub-routes for Milestones, Progress, Approvals, Complaints, Site Visits, Expenses, Designs & Handovers per Project
+// Sub-routes for Milestones, Progress, Approvals, Complaints, Site Visits, Expenses, Designs, Handovers & Timelines per Project
 projectRoutes.use("/:projectId/milestones", milestoneRoutes);
 projectRoutes.use("/:projectId/progress", progressRoutes);
 projectRoutes.use("/:projectId/approvals", approvalRoutes);
@@ -41,6 +42,7 @@ projectRoutes.use("/:projectId/expenses", expenseRoutes);
 projectRoutes.use("/:projectId/design-folders", designFolderRoutes);
 projectRoutes.use("/:projectId/designs", designRoutes);
 projectRoutes.use("/:projectId/handovers", handoverRoutes);
+projectRoutes.use("/:projectId/timelines", timelineRoutes);
 
 /**
  * @route   POST /api/v1/projects
