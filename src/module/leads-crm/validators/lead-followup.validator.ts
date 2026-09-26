@@ -39,7 +39,7 @@ export const createLeadFollowUpSchema = z.object({
     type: FollowUpTypeEnum.default("CALLBACK").optional(),
     scheduledAt: z.string().datetime({ message: "scheduledAt must be a valid ISO datetime" }),
     remindAt: z.string().datetime().optional().nullable(),
-    agenda: z.string().min(1, "Agenda is required").max(500),
+    agenda: z.string().max(500).optional().default("Follow-up"),
     assignedToId: z.string().uuid("Invalid employee ID").optional().nullable(),
   }),
 });

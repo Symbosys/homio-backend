@@ -19,7 +19,7 @@ export class StorageFactory {
       return this.instance;
     }
 
-    const providerType: StorageProviderType = type || ENV.STORAGE_PROVIDER || "CLOUDINARY";
+    const providerType: StorageProviderType = type || ENV.STORAGE_PROVIDER || "AWS_S3";
 
     let provider: IStorageProvider;
 

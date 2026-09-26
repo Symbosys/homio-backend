@@ -7,7 +7,7 @@ export const ENV = {
   JWT_SECRET: process.env.JWT_SECRET,
 
   // Active Storage Provider: "CLOUDINARY" | "AWS_S3" | "AZURE_BLOB" | "LOCAL"
-  STORAGE_PROVIDER: (process.env.STORAGE_PROVIDER || "CLOUDINARY") as
+  STORAGE_PROVIDER: (process.env.STORAGE_PROVIDER || "AWS_S3") as
     "CLOUDINARY" | "AWS_S3" | "AZURE_BLOB" | "LOCAL",
 
   CLOUD_NAME: process.env.CLOUD_NAME,
