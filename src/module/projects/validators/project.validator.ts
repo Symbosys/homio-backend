@@ -58,13 +58,22 @@ export const ProjectHealthEnum = z.enum([
 ]);
 
 export const ProjectStageEnum = z.enum([
-  "PLANNING",
+  "ONBOARDING",
+  "SURVEY",
   "DESIGN",
   "APPROVAL",
-  "EXECUTION",
   "PROCUREMENT",
+  "EXECUTION",
   "HANDOVER",
   "AFTER_SALES",
+]);
+
+export const StageStatusEnum = z.enum([
+  "NOT_STARTED",
+  "ASSIGNED",
+  "IN_PROGRESS",
+  "COMPLETED",
+  "ON_HOLD",
 ]);
 
 export const ProjectPriorityEnum = z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]);
@@ -252,7 +261,9 @@ export const createProjectSchema = z.object({
     designStatus: ProjectDesignStatusEnum.default("NOT_STARTED").optional(),
     executionStatus: ProjectExecutionStatusEnum.default("NOT_STARTED").optional(),
     health: ProjectHealthEnum.default("HEALTHY").optional(),
-    currentStage: ProjectStageEnum.default("PLANNING").optional(),
+    currentStage: ProjectStageEnum.default("ONBOARDING").optional(),
+    activeStages: z.array(ProjectStageEnum).default(["ONBOARDING"]).optional(),
+    stageStatuses: z.record(z.string(), z.any()).optional().nullable(),
     priority: ProjectPriorityEnum.default("MEDIUM").optional(),
     coverImageUrl: imageTypeSchema.optional().nullable(),
 
@@ -295,6 +306,8 @@ export const updateProjectSchema = z.object({
     executionStatus: ProjectExecutionStatusEnum.optional(),
     health: ProjectHealthEnum.optional(),
     currentStage: ProjectStageEnum.optional(),
+    activeStages: z.array(ProjectStageEnum).optional(),
+    stageStatuses: z.record(z.string(), z.any()).optional().nullable(),
     priority: ProjectPriorityEnum.optional(),
     coverImageUrl: imageTypeSchema.optional().nullable(),
 

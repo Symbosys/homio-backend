@@ -48,7 +48,7 @@ describe("Projects Module Tests", () => {
           designStatus: "IN_PROGRESS" as const,
           executionStatus: "NOT_STARTED" as const,
           health: "NEED_ATTENTION" as const,
-          currentStage: "PLANNING" as const,
+          currentStage: "SURVEY" as const,
           priority: "HIGH" as const,
           coverImageUrl: {
             id: "img-12345",
@@ -212,7 +212,7 @@ describe("Projects Module Tests", () => {
       expect(parsed.body.type).toBe("TURNKEY");
       expect(parsed.body.status).toBe("PLANNED");
       expect(parsed.body.health).toBe("HEALTHY");
-      expect(parsed.body.currentStage).toBe("PLANNING");
+      expect(parsed.body.currentStage).toBe("ONBOARDING");
     });
 
     it("should fail when name or customerId is missing", () => {

@@ -64,6 +64,7 @@ export class ProjectRepository {
       coverImageUrl,
       customFields,
       additionalInformation,
+      stageStatuses,
       tags,
       ...coreFields
     } = data;
@@ -75,6 +76,7 @@ export class ProjectRepository {
         createdById: createdById || null,
         coverImageUrl: coverImageUrl ? (coverImageUrl as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
         customFields: customFields ? (customFields as Prisma.InputJsonValue) : Prisma.JsonNull,
+        stageStatuses: stageStatuses ? (stageStatuses as Prisma.InputJsonValue) : Prisma.JsonNull,
         additionalInformation: additionalInformation ? (additionalInformation as Prisma.InputJsonValue) : Prisma.JsonNull,
         tags: tags || [],
 
@@ -494,6 +496,7 @@ export class ProjectRepository {
       customFields,
       tags,
       additionalInformation,
+      stageStatuses,
       ...coreFields
     } = data;
 
@@ -511,6 +514,11 @@ export class ProjectRepository {
     if (customFields !== undefined) {
       projectUpdateData.customFields = customFields
         ? (customFields as Prisma.InputJsonValue)
+        : Prisma.JsonNull;
+    }
+    if (stageStatuses !== undefined) {
+      projectUpdateData.stageStatuses = stageStatuses
+        ? (stageStatuses as Prisma.InputJsonValue)
         : Prisma.JsonNull;
     }
     if (tags !== undefined) {

@@ -56,13 +56,22 @@ enum ProjectHealth {
 }
 
 enum ProjectStage {
-  PLANNING // Scope of work & preliminary estimate
+  ONBOARDING // Initial client onboarding & requirements kickoff
+  SURVEY // Site survey, laser dimensions & measurements (replaced PLANNING)
   DESIGN // Architectural, structural & interior design
   APPROVAL // Client drawing & estimate signoff
-  EXECUTION // Site civil, electrical, carpentry & painting
   PROCUREMENT // Material sourcing & vendor purchase orders
+  EXECUTION // Site civil, electrical, carpentry & painting
   HANDOVER // Snag list resolution & key handover
   AFTER_SALES // Warranty & maintenance support
+}
+
+enum StageStatus {
+  NOT_STARTED // Unassigned / Not started (no color)
+  ASSIGNED // Assigned to personnel (blue)
+  IN_PROGRESS // Actively in progress (yellow)
+  COMPLETED // Done / Finished (green)
+  ON_HOLD // Blocked / On hold (red)
 }
 
 enum ProjectPriority {
@@ -309,7 +318,9 @@ model Project {
   designStatus    ProjectDesignStatus    @default(NOT_STARTED) @map("design_status")
   executionStatus ProjectExecutionStatus @default(NOT_STARTED) @map("execution_status")
   health          ProjectHealth          @default(HEALTHY) @map("health")
-  currentStage    ProjectStage           @default(PLANNING) @map("current_stage")
+  currentStage    ProjectStage           @default(ONBOARDING) @map("current_stage")
+  activeStages    ProjectStage[]         @default([ONBOARDING]) @map("active_stages")
+  stageStatuses   Json?                  @map("stage_statuses") // Map of { [ProjectStage]: { status: StageStatus, progressPercent?: number, ... } }
   priority        ProjectPriority        @default(MEDIUM) @map("priority")
 
   // Cloud Media (ImageType JSON: { id, url, bytes, format, provider })
