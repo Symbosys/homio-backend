@@ -101,6 +101,7 @@ model Organization {
   channelPartners         ChannelPartner[]                  @relation("OrganizationChannelPartners")
   channelPartnerLeads     ChannelPartnerLead[]              @relation("OrganizationChannelPartnerLeads")
   channelPartnerPayouts   ChannelPartnerPayout[]            @relation("OrganizationCPPayouts")
+  projectPayments         ProjectPayment[]                  @relation("OrganizationProjectPayments")
 
   @@index([slug])
   @@index([status])

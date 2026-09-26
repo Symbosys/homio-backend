@@ -293,6 +293,56 @@ enum HandoverSnagStatus {
 }
 
 // ==========================================
+// PROJECT PAYMENT & COMMERCIAL ENUMS
+// ==========================================
+
+enum ProjectPaymentType {
+  DESIGN_FEE              // Architectural & 3D Interior Design fee
+  MATERIAL_PAYMENT        // Raw & finishing material procurement
+  LABOUR_PAYMENT          // Site carpentry, civil & MEP workforce
+  SUPERVISION_FEE         // Site engineer / PMC supervision fee
+  TURNKEY_PACKAGE         // End-to-end turnkey milestone installment
+  CONSULTING_PERCENTAGE   // % of estimated/actual project cost
+  CONSULTING_LUMP_SUM     // Fixed lump sum consulting fee
+  CONSULTING_SQFT         // Rate per square foot fee
+  MOBILIZATION_ADVANCE    // Initial project kickoff / booking advance
+  RETENTION_RELEASE       // Handover & snag resolution retention release
+  VARIATION_ORDER         // Client change request / additional scope
+  OTHER                   // Miscellaneous / Custom commercial head
+}
+
+enum PaymentFlowDirection {
+  INFLOW    // Received from Client / Customer
+  OUTFLOW   // Paid out for Project (Vendor, Contractor, Labour, Consultant)
+}
+
+enum ProjectPaymentStatus {
+  PENDING       // Initiated / Awaiting bank confirmation
+  COMPLETED     // Successfully received / paid & reconciled
+  FAILED        // Transaction bounced / failed
+  CANCELLED     // Voided by administrator
+  REFUNDED      // Partially or fully refunded
+}
+
+enum ProjectPricingModel {
+  TURNKEY_WITH_MATERIALS   // Material + Labour + Design in milestone tranches
+  CONSULTING_PERCENTAGE    // % fee on estimated / actual site expense
+  CONSULTING_LUMP_SUM      // Fixed project management / consulting lumpsum
+  DESIGN_CONSULTING_SQFT   // Per sqft architectural & styling fee
+}
+
+enum ProjectPaymentMethod {
+  BANK_TRANSFER // NEFT / RTGS / IMPS
+  UPI           // Google Pay / PhonePe / Paytm / BHIM
+  CHEQUE        // Bank Cheque / Demand Draft
+  CASH          // Cash transaction (with receipt)
+  CREDIT_CARD   // Corporate or Client Credit Card
+  DEBIT_CARD    // Debit Card
+  PAYMENT_GATEWAY // Razorpay / Stripe / PayU
+  OTHER
+}
+
+// ==========================================
 // 1. CORE PROJECT MODEL (Tenant Root)
 // ==========================================
 
@@ -379,6 +429,7 @@ model Project {
   services                  ProjectService[]           @relation("ProjectServices")
   labourBookings            LabourBooking[]            @relation("ProjectLabourBookings")
   timelines                 ProjectTimeline[]          @relation("ProjectTimelines")
+  payments                  ProjectPayment[]           @relation("ProjectPayments")
 
   @@unique([organizationId, projectCode])
   @@index([organizationId])
@@ -550,12 +601,25 @@ model ProjectCommercial {
 
   currency String @default("INR") @map("currency")
 
-  // Approved Contract Amount & Project Finance (Design, Material, Labour, Supervision)
+  // Pricing Model Structure
+  pricingModel ProjectPricingModel @default(TURNKEY_WITH_MATERIALS) @map("pricing_model")
+
+  // Approved Contract Ceilings & Estimates
   contractAmount  Decimal @default(0) @map("contract_amount") @db.Decimal(14, 2)
+  initialEstimate Decimal @default(0) @map("initial_estimate") @db.Decimal(14, 2)
+  revisedEstimate Decimal @default(0) @map("revised_estimate") @db.Decimal(14, 2)
+
+  // Commercial Head Allocations
   designFee       Decimal @default(0) @map("design_fee") @db.Decimal(14, 2)
   materialPayment Decimal @default(0) @map("material_payment") @db.Decimal(14, 2)
   labourPayment   Decimal @default(0) @map("labour_payment") @db.Decimal(14, 2)
   supervisionFee  Decimal @default(0) @map("supervision_fee") @db.Decimal(14, 2)
+
+  // Consulting Model Parameters
+  consultingPercentage Float?   @map("consulting_percentage") // e.g. 10.5%
+  consultingLumpSum    Decimal? @map("consulting_lump_sum") @db.Decimal(14, 2)
+  consultingRateSqft   Decimal? @map("consulting_rate_sqft") @db.Decimal(10, 2) // e.g. ₹150 / sqft
+  billableAreaSqft     Float?   @map("billable_area_sqft")
 
   additionalInformation Json? @map("additional_information")
 
@@ -599,6 +663,7 @@ model ProjectMilestone {
   approvalRequired Boolean  @default(false) @map("approval_required")
   paymentRequired  Boolean  @default(false) @map("payment_required")
   budgetAmount     Decimal? @map("budget_amount") @db.Decimal(14, 2)
+  targetAmount     Decimal? @map("target_amount") @db.Decimal(14, 2)
 
   // Cloud Attachments (Array of ImageType JSON)
   attachments Json? @map("attachments")
@@ -617,6 +682,7 @@ model ProjectMilestone {
   siteVisits      ProjectSiteVisit[]   @relation("MilestoneSiteVisits")
   expenses        Expense[]            @relation("MilestoneExpenses")
   designs         ProjectDesign[]      @relation("MilestoneDesigns")
+  payments        ProjectPayment[]     @relation("MilestonePayments")
 
   @@unique([projectId, milestoneCode])
   @@index([projectId])
@@ -627,6 +693,76 @@ model ProjectMilestone {
   @@index([orderIndex])
   @@index([isDeleted, deletedAt])
   @@map("project_milestones")
+}
+
+// ==========================================
+// 8. PROJECT PAYMENT (History Ledger & Milestone Linkage)
+// ==========================================
+
+model ProjectPayment {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationProjectPayments", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Project Association (Mandatory)
+  projectId String  @map("project_id") @db.Uuid
+  project   Project @relation("ProjectPayments", fields: [projectId], references: [id], onDelete: Cascade)
+
+  // Optional Milestone Association
+  milestoneId String?           @map("milestone_id") @db.Uuid
+  milestone   ProjectMilestone? @relation("MilestonePayments", fields: [milestoneId], references: [id], onDelete: SetNull)
+
+  // Client / Payer Reference
+  customerId String?   @map("customer_id") @db.Uuid
+  customer   Customer? @relation("CustomerProjectPayments", fields: [customerId], references: [id], onDelete: SetNull)
+
+  // Identification & Reference
+  paymentNumber String @map("payment_number") // e.g. "PAY-PRJ-2026-001"
+  title         String @map("title")          // e.g. "Advance 20% for 3D Concept Signoff"
+
+  // Financial Classification
+  paymentType   ProjectPaymentType   @default(TURNKEY_PACKAGE) @map("payment_type")
+  flowDirection PaymentFlowDirection @default(INFLOW) @map("flow_direction")
+  status        ProjectPaymentStatus @default(COMPLETED) @map("status")
+
+  // Amount
+  amount Decimal @map("amount") @db.Decimal(14, 2)
+
+  // Payment Execution Details
+  paymentDate          DateTime             @map("payment_date") @db.Date
+  paymentMethod        ProjectPaymentMethod @default(BANK_TRANSFER) @map("payment_method")
+  transactionReference String?              @map("transaction_reference") // UTR / IMPS / Cheque #
+  bankName             String?              @map("bank_name")
+
+  // Recorded By / Verified By Personnel
+  recordedById String?   @map("recorded_by_id") @db.Uuid
+  recordedBy   Employee? @relation("PaymentRecordedBy", fields: [recordedById], references: [id], onDelete: SetNull)
+
+  // Cloud Attachments (Receipts & Bank Acknowledgements)
+  receiptUrl  Json? @map("receipt_url") // Structured ImageType JSON
+  attachments Json? @map("attachments") // Array of ImageType JSON
+
+  // Remarks & Additional Custom Information
+  notes                 String? @map("notes") @db.Text
+  additionalInformation Json?   @map("additional_information")
+
+  // Soft Delete & Timestamps
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@unique([organizationId, paymentNumber])
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([milestoneId])
+  @@index([customerId])
+  @@index([paymentType])
+  @@index([flowDirection])
+  @@index([status])
+  @@index([paymentDate])
+  @@index([isDeleted, deletedAt])
+  @@map("project_payments")
 }
 
 // ==========================================

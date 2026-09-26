@@ -368,6 +368,7 @@ model Employee {
   assignedRetentionFollowUps  RetentionFollowUp[]         @relation("EmployeeAssignedRetentionFollowUps")
   supervisedProjectServices   ProjectService[]            @relation("ProjectServiceSupervisors")
   timelineEvents              ProjectTimeline[]           @relation("EmployeeProjectTimelineEvents")
+  recordedProjectPayments     ProjectPayment[]            @relation("PaymentRecordedBy")
 
   @@unique([organizationId, employeeCode])
   @@index([organizationId])

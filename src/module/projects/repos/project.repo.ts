@@ -151,11 +151,24 @@ export class ProjectRepository {
           ? {
               create: {
                 currency: commercial.currency || "INR",
+                pricingModel: commercial.pricingModel || "TURNKEY_WITH_MATERIALS",
                 contractAmount: new Prisma.Decimal(commercial.contractAmount ?? 0),
+                initialEstimate: new Prisma.Decimal(commercial.initialEstimate ?? 0),
+                revisedEstimate: new Prisma.Decimal(commercial.revisedEstimate ?? 0),
                 designFee: new Prisma.Decimal(commercial.designFee ?? 0),
                 materialPayment: new Prisma.Decimal(commercial.materialPayment ?? 0),
                 labourPayment: new Prisma.Decimal(commercial.labourPayment ?? 0),
                 supervisionFee: new Prisma.Decimal(commercial.supervisionFee ?? 0),
+                consultingPercentage: commercial.consultingPercentage !== undefined ? commercial.consultingPercentage : null,
+                consultingLumpSum:
+                  commercial.consultingLumpSum !== undefined && commercial.consultingLumpSum !== null
+                    ? new Prisma.Decimal(commercial.consultingLumpSum)
+                    : null,
+                consultingRateSqft:
+                  commercial.consultingRateSqft !== undefined && commercial.consultingRateSqft !== null
+                    ? new Prisma.Decimal(commercial.consultingRateSqft)
+                    : null,
+                billableAreaSqft: commercial.billableAreaSqft !== undefined ? commercial.billableAreaSqft : null,
                 additionalInformation: commercial.additionalInformation
                   ? (commercial.additionalInformation as Prisma.InputJsonValue)
                   : Prisma.JsonNull,
@@ -713,11 +726,24 @@ export class ProjectRepository {
       } else {
         const commercialCreateData: Prisma.ProjectCommercialCreateWithoutProjectInput = {
           currency: commercial.currency || "INR",
+          pricingModel: commercial.pricingModel || "TURNKEY_WITH_MATERIALS",
           contractAmount: new Prisma.Decimal(commercial.contractAmount ?? 0),
+          initialEstimate: new Prisma.Decimal(commercial.initialEstimate ?? 0),
+          revisedEstimate: new Prisma.Decimal(commercial.revisedEstimate ?? 0),
           designFee: new Prisma.Decimal(commercial.designFee ?? 0),
           materialPayment: new Prisma.Decimal(commercial.materialPayment ?? 0),
           labourPayment: new Prisma.Decimal(commercial.labourPayment ?? 0),
           supervisionFee: new Prisma.Decimal(commercial.supervisionFee ?? 0),
+          consultingPercentage: commercial.consultingPercentage !== undefined ? commercial.consultingPercentage : null,
+          consultingLumpSum:
+            commercial.consultingLumpSum !== undefined && commercial.consultingLumpSum !== null
+              ? new Prisma.Decimal(commercial.consultingLumpSum)
+              : null,
+          consultingRateSqft:
+            commercial.consultingRateSqft !== undefined && commercial.consultingRateSqft !== null
+              ? new Prisma.Decimal(commercial.consultingRateSqft)
+              : null,
+          billableAreaSqft: commercial.billableAreaSqft !== undefined ? commercial.billableAreaSqft : null,
           additionalInformation: commercial.additionalInformation
             ? (commercial.additionalInformation as Prisma.InputJsonValue)
             : Prisma.JsonNull,
@@ -725,8 +751,13 @@ export class ProjectRepository {
 
         const commercialUpdateData: Prisma.ProjectCommercialUpdateInput = {};
         if (commercial.currency !== undefined) commercialUpdateData.currency = commercial.currency;
+        if (commercial.pricingModel !== undefined) commercialUpdateData.pricingModel = commercial.pricingModel;
         if (commercial.contractAmount !== undefined)
           commercialUpdateData.contractAmount = new Prisma.Decimal(commercial.contractAmount);
+        if (commercial.initialEstimate !== undefined)
+          commercialUpdateData.initialEstimate = new Prisma.Decimal(commercial.initialEstimate);
+        if (commercial.revisedEstimate !== undefined)
+          commercialUpdateData.revisedEstimate = new Prisma.Decimal(commercial.revisedEstimate);
         if (commercial.designFee !== undefined)
           commercialUpdateData.designFee = new Prisma.Decimal(commercial.designFee);
         if (commercial.materialPayment !== undefined)
@@ -735,6 +766,16 @@ export class ProjectRepository {
           commercialUpdateData.labourPayment = new Prisma.Decimal(commercial.labourPayment);
         if (commercial.supervisionFee !== undefined)
           commercialUpdateData.supervisionFee = new Prisma.Decimal(commercial.supervisionFee);
+        if (commercial.consultingPercentage !== undefined)
+          commercialUpdateData.consultingPercentage = commercial.consultingPercentage;
+        if (commercial.consultingLumpSum !== undefined)
+          commercialUpdateData.consultingLumpSum =
+            commercial.consultingLumpSum !== null ? new Prisma.Decimal(commercial.consultingLumpSum) : null;
+        if (commercial.consultingRateSqft !== undefined)
+          commercialUpdateData.consultingRateSqft =
+            commercial.consultingRateSqft !== null ? new Prisma.Decimal(commercial.consultingRateSqft) : null;
+        if (commercial.billableAreaSqft !== undefined)
+          commercialUpdateData.billableAreaSqft = commercial.billableAreaSqft;
         if (commercial.additionalInformation !== undefined)
           commercialUpdateData.additionalInformation = commercial.additionalInformation
             ? (commercial.additionalInformation as Prisma.InputJsonValue)

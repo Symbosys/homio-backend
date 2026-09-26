@@ -9,6 +9,7 @@ import {
   StageStatus,
   ProjectPriority,
   ProjectMemberRole,
+  ProjectPricingModel,
 } from "../../../types/types";
 
 // ==========================================
@@ -24,6 +25,7 @@ export const ProjectStageEnum = z.nativeEnum(ProjectStage);
 export const StageStatusEnum = z.nativeEnum(StageStatus);
 export const ProjectPriorityEnum = z.nativeEnum(ProjectPriority);
 export const ProjectMemberRoleEnum = z.nativeEnum(ProjectMemberRole);
+export const ProjectPricingModelEnum = z.nativeEnum(ProjectPricingModel);
 
 // ==========================================
 // SUB-MODEL INPUT SCHEMAS
@@ -132,11 +134,18 @@ export const projectMetricInputSchema = z.object({
 
 export const projectCommercialInputSchema = z.object({
   currency: z.string().max(10).default("INR").optional(),
+  pricingModel: ProjectPricingModelEnum.default("TURNKEY_WITH_MATERIALS").optional(),
   contractAmount: z.number().nonnegative().default(0).optional(),
+  initialEstimate: z.number().nonnegative().default(0).optional(),
+  revisedEstimate: z.number().nonnegative().default(0).optional(),
   designFee: z.number().nonnegative().default(0).optional(),
   materialPayment: z.number().nonnegative().default(0).optional(),
   labourPayment: z.number().nonnegative().default(0).optional(),
   supervisionFee: z.number().nonnegative().default(0).optional(),
+  consultingPercentage: z.number().nonnegative().max(100).optional().nullable(),
+  consultingLumpSum: z.number().nonnegative().optional().nullable(),
+  consultingRateSqft: z.number().nonnegative().optional().nullable(),
+  billableAreaSqft: z.number().nonnegative().optional().nullable(),
   additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
 });
 
