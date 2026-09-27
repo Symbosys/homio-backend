@@ -5,7 +5,12 @@ export const createVendorSchema = z.object({
     name: z.string().trim().min(1, "Vendor name is required"),
     code: z.string().trim().optional().nullable(),
     contactPerson: z.string().trim().optional().nullable(),
-    email: z.string().trim().email("Invalid email format").optional().nullable(),
+    email: z
+      .string()
+      .trim()
+      .email("Invalid email format")
+      .optional()
+      .nullable(),
     phone: z.string().trim().optional().nullable(),
     address: z.string().trim().optional().nullable(),
     city: z.string().trim().optional().nullable(),
@@ -25,7 +30,12 @@ export const updateVendorSchema = z.object({
     name: z.string().trim().min(1).optional(),
     code: z.string().trim().optional().nullable(),
     contactPerson: z.string().trim().optional().nullable(),
-    email: z.string().trim().email("Invalid email format").optional().nullable(),
+    email: z
+      .string()
+      .trim()
+      .email("Invalid email format")
+      .optional()
+      .nullable(),
     phone: z.string().trim().optional().nullable(),
     address: z.string().trim().optional().nullable(),
     city: z.string().trim().optional().nullable(),
@@ -51,7 +61,9 @@ export const getVendorsQuerySchema = z.object({
     limit: z
       .string()
       .optional()
-      .transform((val) => (val ? Math.min(100, Math.max(1, parseInt(val, 10))) : 20)),
+      .transform((val) =>
+        val ? Math.min(100, Math.max(1, parseInt(val, 10))) : 20,
+      ),
   }),
 });
 

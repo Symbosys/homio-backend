@@ -11,19 +11,14 @@ import type {
 } from "../validators/vendor-rfq.validator.js";
 
 const rfqItemInclude = {
-  materialProduct: {
+  product: {
     select: {
       id: true,
       name: true,
       sku: true,
-      unitOfMeasure: true,
+      unit: true,
       coverImageUrl: true,
-      category: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
+      materialDetails: true,
     },
   },
   materialRequestItem: {
@@ -219,7 +214,7 @@ export class VendorRfqRepository {
               create: items.map((item) => ({
                 organizationId,
                 materialRequestItemId: item.materialRequestItemId || null,
-                materialProductId: item.materialProductId || null,
+                productId: item.productId || null,
                 name: item.name,
                 specifications: item.specifications || null,
                 brand: item.brand || null,
@@ -438,7 +433,7 @@ export class VendorRfqRepository {
       organizationId,
       rfqId,
       materialRequestItemId: itemData.materialRequestItemId || null,
-      materialProductId: itemData.materialProductId || null,
+      productId: itemData.productId || null,
       name: itemData.name,
       specifications: itemData.specifications || null,
       brand: itemData.brand || null,
@@ -464,7 +459,7 @@ export class VendorRfqRepository {
   ) {
     const updatePayload: Prisma.VendorRfqItemUncheckedUpdateInput = {
       ...(data.materialRequestItemId !== undefined ? { materialRequestItemId: data.materialRequestItemId || null } : {}),
-      ...(data.materialProductId !== undefined ? { materialProductId: data.materialProductId || null } : {}),
+      ...(data.productId !== undefined ? { productId: data.productId || null } : {}),
       ...(data.name ? { name: data.name } : {}),
       ...(data.specifications !== undefined ? { specifications: data.specifications } : {}),
       ...(data.brand !== undefined ? { brand: data.brand } : {}),

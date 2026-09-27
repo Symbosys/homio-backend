@@ -208,12 +208,12 @@ export class VendorQuotationService {
   async addItem(quotationId: string, organizationId: string, itemData: CreateQuotationItemInput) {
     await this.getVendorQuotationById(quotationId, organizationId);
 
-    if (itemData.materialProductId) {
-      const product = await prisma.materialProduct.findFirst({
-        where: { id: itemData.materialProductId, organizationId },
+    if (itemData.productId) {
+      const product = await prisma.product.findFirst({
+        where: { id: itemData.productId, organizationId },
       });
       if (!product) {
-        throw new ErrorResponse("Material product not found in catalog", statusCode.Not_Found);
+        throw new ErrorResponse("Product not found in catalog", statusCode.Not_Found);
       }
     }
 

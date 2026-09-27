@@ -25,7 +25,7 @@ export const dateOrDatetimeSchema = z
  */
 export const createQuotationItemSchema = z.object({
   rfqItemId: z.string().uuid("Invalid RFQ Item ID").optional().nullable(),
-  materialProductId: z.string().uuid("Invalid Material Product ID").optional().nullable(),
+  productId: z.string().uuid("Invalid Product ID").optional().nullable(),
   name: z.string().min(1, "Item name is required").max(255),
   brand: z.string().max(100).optional().nullable(),
   specifications: z.string().optional().nullable(),

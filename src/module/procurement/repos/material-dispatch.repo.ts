@@ -10,19 +10,14 @@ import type {
 } from "../validators/material-dispatch.validator.js";
 
 const dispatchItemInclude = {
-  materialProduct: {
+  product: {
     select: {
       id: true,
       name: true,
       sku: true,
-      unitOfMeasure: true,
+      unit: true,
       coverImageUrl: true,
-      category: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
+      materialDetails: true,
     },
   },
 };
@@ -193,7 +188,7 @@ export class MaterialDispatchRepository {
           ? {
               create: items.map((item) => ({
                 organizationId,
-                materialProductId: item.materialProductId || null,
+                productId: item.productId || null,
                 name: item.name,
                 unit: item.unit,
                 dispatchedQuantity: item.dispatchedQuantity,
@@ -427,7 +422,7 @@ export class MaterialDispatchRepository {
     const createItemData: Prisma.MaterialDispatchItemUncheckedCreateInput = {
       organizationId,
       dispatchId,
-      materialProductId: itemData.materialProductId || null,
+      productId: itemData.productId || null,
       name: itemData.name,
       unit: itemData.unit,
       dispatchedQuantity: itemData.dispatchedQuantity,
@@ -453,7 +448,7 @@ export class MaterialDispatchRepository {
     data: UpdateDispatchItemInput
   ) {
     const updatePayload: Prisma.MaterialDispatchItemUncheckedUpdateInput = {
-      ...(data.materialProductId !== undefined ? { materialProductId: data.materialProductId || null } : {}),
+      ...(data.productId !== undefined ? { productId: data.productId || null } : {}),
       ...(data.name ? { name: data.name } : {}),
       ...(data.unit ? { unit: data.unit } : {}),
       ...(data.dispatchedQuantity !== undefined ? { dispatchedQuantity: data.dispatchedQuantity } : {}),
@@ -532,12 +527,12 @@ export class MaterialDispatchRepository {
 
         for (const dItem of dispatchItems) {
           if (dItem.acceptedQuantity && Number(dItem.acceptedQuantity) > 0) {
-            // Find corresponding request item by name or materialProductId
+            // Find corresponding request item by name or productId
             const matchWhere: Prisma.MaterialRequestItemWhereInput = {
               requestId: updatedDispatch.materialRequestId,
               organizationId,
-              ...(dItem.materialProductId
-                ? { materialProductId: dItem.materialProductId }
+              ...(dItem.productId
+                ? { productId: dItem.productId }
                 : { name: { equals: dItem.name, mode: "insensitive" } }),
             };
 

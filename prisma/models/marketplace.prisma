@@ -2,18 +2,22 @@
 // HOMIO CRM MARKETPLACE ENUMS
 // =============================================================================
 
-enum MarketplaceType {
+enum ProductType {
   DIGITAL_ASSET
   HOME_DECOR
   PROPERTIES
   MATERIALS
-  OTHER
 }
 
 enum ProductStatus {
   DRAFT
   PUBLISHED
   ARCHIVED
+}
+
+enum ProductOwnershipType {
+  SELF_OWNED
+  VENDOR_OWNED
 }
 
 enum PropertyVerificationStatus {
@@ -29,138 +33,14 @@ enum PropertyType {
   BUILDER_FLOOR
   VILLA
   COMMERCIAL
-}
-
-enum ListingIntent {
-  RENT
-  SALE
-}
-
-enum DigitalFileFormat {
-  PDF
-  EPUB
-  ZIP
-  DWG
-  DXF
-  RVT
-  SKP
-  OBJ
-  FBX
-  DOCX
-  XLSX
+  PLOT
   OTHER
 }
 
-enum AffiliatePartner {
-  AMAZON
-  PEPPERFRY
-  URBAN_LADDER
-  WEST_ELM
-  IKEA
-  CUSTOM
-}
-
-enum ProductOwnershipType {
-  SELF_OWNED
-  VENDOR_OWNED
-}
-
-/// Trade Unit of Measurement for Wholesale Materials
-enum MaterialUnit {
-  // Count
-  PIECE
-  SET
-  PAIR
-
-  // Weight
-  GRAM
-  KG
-  TON
-
-  // Length
-  MM
-  CM
-  METER
-  KM
-
-  // Area
-  SQ_FT
-  SQ_M
-
-  // Volume
-  ML
-  LITRE
-
-  // Packaging
-  SHEET
-  BOX
-  PACK
-  ROLL
-  DRUM
-  BAG
-  BUNDLE
-}
-
-// =============================================================================
-// MASTER CATEGORY & SELLER TRACKING
-// =============================================================================
-
-model MarketplaceCategory {
-  id              String          @id @default(uuid()) @db.Uuid
-  name            String          @map("name")
-  code            String          @unique @map("code")
-  slug            String          @map("slug")
-  marketplaceType MarketplaceType @map("marketplace_type")
-  description     String?         @map("description")
-  icon            String?         @map("icon")
-  imageUrl        Json?           @map("image_url")
-  sortOrder       Int             @default(0) @map("sort_order")
-  isActive        Boolean         @default(true) @map("is_active")
-  commissionRate  Decimal         @default(5) @map("commission_rate") @db.Decimal(5, 2) // Default 5% platform gets on product sale
-
-  // Parent-Child Hierarchy
-  parentId String?               @map("parent_id") @db.Uuid
-  parent   MarketplaceCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children MarketplaceCategory[] @relation("CategoryHierarchy")
-
-  // Product Relations
-  digitalProducts   DigitalProduct[]   @relation("CategoryDigitalProducts")
-  homeDecorProducts HomeDecorProduct[] @relation("CategoryHomeDecorProducts")
-  propertyListings  PropertyListing[]  @relation("CategoryPropertyListings")
-  materialProducts  MaterialProduct[]  @relation("CategoryMaterialProducts")
-
-  // Seller Tracking
-  sellerAssignments OrganizationMarketplaceCategory[] @relation("CategorySellerAssignments")
-
-  isDeleted Boolean   @default(false) @map("is_deleted")
-  deletedAt DateTime? @map("deleted_at")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-
-  @@unique([marketplaceType, slug])
-  @@index([marketplaceType, isActive])
-  @@map("marketplace_categories")
-}
-
-model OrganizationMarketplaceCategory {
-  id             String              @id @default(uuid()) @db.Uuid
-  organizationId String              @map("organization_id") @db.Uuid
-  organization   Organization        @relation("OrganizationMarketplaceCategories", fields: [organizationId], references: [id], onDelete: Cascade)
-  categoryId     String              @map("category_id") @db.Uuid
-  category       MarketplaceCategory @relation("CategorySellerAssignments", fields: [categoryId], references: [id], onDelete: Cascade)
-
-  marketplaceType MarketplaceType @map("marketplace_type")
-  isApproved      Boolean         @default(false) @map("is_approved")
-  isActive        Boolean         @default(true) @map("is_active")
-  commissionRate  Decimal?        @map("commission_rate") @db.Decimal(5, 2)
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  @@unique([organizationId, categoryId])
-  @@index([organizationId])
-  @@index([categoryId])
-  @@map("organization_marketplace_categories")
+enum ListingIntent {
+  SALE
+  RENT
+  LEASE
 }
 
 // =============================================================================
@@ -199,12 +79,11 @@ model Vendor {
   isActive              Boolean  @default(true) @map("is_active")
 
   // Associated Relations
-  homeDecorOfferings HomeDecorProductVendor[] @relation("VendorHomeDecorOfferings")
-  materialOfferings  MaterialProductVendor[]  @relation("VendorMaterialOfferings")
-  expenses           Expense[]                @relation("VendorExpenses")
-  rfqInvites         VendorRfqInvite[]        @relation("VendorRfqInvites")
-  quotations         VendorQuotation[]        @relation("VendorQuotations")
-  dispatches         MaterialDispatch[]       @relation("VendorDispatches")
+  products   Product[]          @relation("VendorProducts")
+  expenses   Expense[]          @relation("VendorExpenses")
+  rfqInvites VendorRfqInvite[]  @relation("VendorRfqInvites")
+  quotations VendorQuotation[]  @relation("VendorQuotations")
+  dispatches MaterialDispatch[] @relation("VendorDispatches")
 
   isDeleted Boolean   @default(false) @map("is_deleted")
   deletedAt DateTime? @map("deleted_at")
@@ -219,147 +98,172 @@ model Vendor {
 }
 
 // =============================================================================
-// 1. DIGITAL ASSET & PUBLICATIONS
+// 1. CORE UNIFIED PRODUCT TABLE
 // =============================================================================
 
-model DigitalProduct {
-  id             String              @id @default(uuid()) @db.Uuid
-  organizationId String              @map("organization_id") @db.Uuid
-  organization   Organization        @relation("OrganizationDigitalProducts", fields: [organizationId], references: [id], onDelete: Cascade)
-  categoryId     String              @map("category_id") @db.Uuid
-  category       MarketplaceCategory @relation("CategoryDigitalProducts", fields: [categoryId], references: [id], onDelete: Restrict)
+model Product {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationProducts", fields: [organizationId], references: [id], onDelete: Cascade)
 
-  name        String   @map("name")
-  sku         String   @map("sku")
-  urlSlug     String   @map("url_slug")
-  description String?  @map("description") @db.Text
-  tags        String[] @default([]) @map("tags")
-  authorName  String?  @map("author_name")
+  // Core Identifiers & Metadata
+  name        String      @map("name")
+  slug        String      @map("slug")
+  sku         String?     @map("sku")
+  type        ProductType @map("type")
+  description String?     @map("description") @db.Text
+  tags        String[]    @default([]) @map("tags")
 
-  // File Details
-  fileUrl       String            @map("file_url")
-  fileFormat    DigitalFileFormat @default(PDF) @map("file_format")
-  fileSize      String?           @map("file_size")
-  coverImageUrl Json?             @map("cover_image_url")
-  previewImages Json?             @map("preview_images")
+  // Media (Multi-Cloud Structured JSON ImageType Standard)
+  coverImageUrl Json? @map("cover_image_url") // Structured ImageType { id, url, bytes, format, provider }
+  images        Json? @map("images")          // Array of ImageType
 
-  // Access & Limits
+  // Ownership & Vendor Sourcing
+  ownershipType ProductOwnershipType @default(SELF_OWNED) @map("ownership_type")
+  vendorId      String?              @map("vendor_id") @db.Uuid
+  vendor        Vendor?              @relation("VendorProducts", fields: [vendorId], references: [id], onDelete: SetNull)
+
+  // Universal Pricing & Taxation
+  currency        String   @default("INR") @map("currency")
+  mrp             Decimal  @default(0) @map("mrp") @db.Decimal(14, 2)
+  sellingPrice    Decimal  @default(0) @map("selling_price") @db.Decimal(14, 2)
+  costPrice       Decimal? @default(0) @map("cost_price") @db.Decimal(14, 2)
+  taxRate         Decimal  @default(18.00) @map("tax_rate") @db.Decimal(5, 2)
+  isTaxInclusive  Boolean  @default(false) @map("is_tax_inclusive")
+  discountPercent Decimal  @default(0) @map("discount_percent") @db.Decimal(5, 2)
+
+  // Universal Stock, Inventory & Measurement
+  unit             String? @default("piece") @map("unit") // e.g. "piece", "sq.ft", "kg", "box", "ton", "sheet"
+  inStock          Boolean @default(true) @map("in_stock")
+  stockQuantity    Int     @default(0) @map("stock_quantity")
+  minOrderQuantity Int     @default(1) @map("min_order_quantity")
+  lowStockAlert    Int     @default(5) @map("low_stock_alert")
+
+  // Ratings & Telemetry
+  rating       Decimal @default(0.0) @map("rating") @db.Decimal(3, 2)
+  reviewsCount Int     @default(0) @map("reviews_count")
+  totalSales   Int     @default(0) @map("total_sales")
+
+  // Publishing & Visibility
+  status      ProductStatus @default(DRAFT) @map("status")
+  isFeatured  Boolean       @default(false) @map("is_featured")
+  isPublished Boolean       @default(false) @map("is_published")
+
+  // Universal Additional Information JSON
+  additionalInformation Json? @map("additional_information")
+
+  // Audit Information
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdBy   User?     @relation("ProductCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  isDeleted   Boolean   @default(false) @map("is_deleted")
+  deletedAt   DateTime? @map("deleted_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // 1-to-1 Type Specific Extension Relations
+  digitalDetails   DigitalProductDetails?   @relation("ProductDigitalDetails")
+  homeDecorDetails HomeDecorProductDetails? @relation("ProductHomeDecorDetails")
+  propertyDetails  PropertyListingDetails?  @relation("ProductPropertyDetails")
+  materialDetails  MaterialProductDetails?  @relation("ProductMaterialDetails")
+
+  // Procurement Module Relations
+  materialRequestItems MaterialRequestItem[]  @relation("ProductMaterialRequestItems")
+  rfqItems             VendorRfqItem[]        @relation("ProductRfqItems")
+  quotationItems       VendorQuotationItem[]  @relation("ProductQuotationItems")
+  dispatchItems        MaterialDispatchItem[] @relation("ProductDispatchItems")
+
+  @@unique([organizationId, slug])
+  @@unique([organizationId, sku])
+  @@index([organizationId, type, status])
+  @@index([organizationId, ownershipType])
+  @@index([vendorId])
+  @@index([isDeleted, deletedAt])
+  @@map("products")
+}
+
+// =============================================================================
+// 2. 1-to-1 TYPE EXTENSION: DIGITAL ASSET DETAILS
+// =============================================================================
+
+model DigitalProductDetails {
+  id        String  @id @default(uuid()) @db.Uuid
+  productId String  @unique @map("product_id") @db.Uuid
+  product   Product @relation("ProductDigitalDetails", fields: [productId], references: [id], onDelete: Cascade)
+
+  // File Delivery & Specifications
+  fileUrl            String  @map("file_url")
+  fileFormat         String  @map("file_format") // e.g. "PDF", "DWG", "RVT", "SKP", "ZIP", "OBJ", "FBX"
+  fileSize           String? @map("file_size")   // e.g. "45.8 MB"
+  previewImages      Json?   @map("preview_images")
+  authorName         String? @map("author_name")
+  version            String? @default("1.0.0") @map("version")
+  compatibleSoftware String? @map("compatible_software") // e.g. "AutoCAD 2024+, Revit 2023, SketchUp"
+  licenseType        String? @default("Standard Commercial") @map("license_type")
+
+  // Access Security & Limits
   downloadLinkExpiryHours Int @default(48) @map("download_link_expiry_hours")
   maxDownloads            Int @default(5) @map("max_downloads")
 
-  // Pricing
-  mrp          Decimal @default(0) @map("mrp") @db.Decimal(12, 2)
-  sellingPrice Decimal @default(0) @map("selling_price") @db.Decimal(12, 2)
-  taxRate      Decimal @default(18.00) @map("tax_rate") @db.Decimal(5, 2)
+  // Custom Extension Attributes
+  additionalInformation Json? @map("additional_information")
 
-  // Status & Metrics
-  status         ProductStatus @default(DRAFT) @map("status")
-  isFeatured     Boolean       @default(false) @map("is_featured")
-  totalPurchases Int           @default(0) @map("total_purchases")
-  rating         Decimal       @default(0.0) @map("rating") @db.Decimal(3, 2)
-  reviewsCount   Int           @default(0) @map("reviews_count")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  isDeleted Boolean   @default(false) @map("is_deleted")
-  deletedAt DateTime? @map("deleted_at")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-
-  @@unique([organizationId, sku])
-  @@unique([organizationId, urlSlug])
-  @@index([organizationId, status])
-  @@index([categoryId])
-  @@map("digital_products")
+  @@index([productId])
+  @@map("digital_product_details")
 }
 
 // =============================================================================
-// 2. HOME DECOR & AFFILIATE PRODUCTS
+// 3. 1-to-1 TYPE EXTENSION: HOME DECOR DETAILS
 // =============================================================================
 
-model HomeDecorProduct {
-  id             String              @id @default(uuid()) @db.Uuid
-  organizationId String              @map("organization_id") @db.Uuid
-  organization   Organization        @relation("OrganizationHomeDecorProducts", fields: [organizationId], references: [id], onDelete: Cascade)
-  categoryId     String              @map("category_id") @db.Uuid
-  category       MarketplaceCategory @relation("CategoryHomeDecorProducts", fields: [categoryId], references: [id], onDelete: Restrict)
+model HomeDecorProductDetails {
+  id        String  @id @default(uuid()) @db.Uuid
+  productId String  @unique @map("product_id") @db.Uuid
+  product   Product @relation("ProductHomeDecorDetails", fields: [productId], references: [id], onDelete: Cascade)
 
-  // Ownership & Sourcing
-  ownershipType ProductOwnershipType @default(SELF_OWNED) @map("ownership_type")
+  // Brand & Material Specifications
+  brandName        String? @map("brand_name")
+  material         String? @map("material")          // e.g. "Teak Wood", "Velvet Fabric", "Brass", "Ceramic"
+  color            String? @map("color")             // e.g. "Emerald Green / Gold"
+  dimensions       String? @map("dimensions")        // e.g. "L: 210cm x W: 90cm x H: 85cm"
+  roomType         String? @map("room_type")         // e.g. "Living Room", "Bedroom", "Dining"
+  style            String? @map("style")             // e.g. "Mid-Century Modern", "Minimalist", "Boho"
+  assemblyRequired Boolean @default(false) @map("assembly_required")
+  careInstructions String? @map("care_instructions") @db.Text
 
-  // Multi-Vendor Offerings
-  vendorOfferings HomeDecorProductVendor[] @relation("HomeDecorVendorOfferings")
+  // Samples & Logistics
+  sampleAvailable Boolean  @default(false) @map("sample_available")
+  samplePrice     Decimal? @default(0) @map("sample_price") @db.Decimal(12, 2)
+  leadTimeDays    Int?     @default(5) @map("lead_time_days")
 
-  name        String   @map("name")
-  sku         String   @map("sku")
-  brandName   String?  @map("brand_name")
-  description String?  @map("description") @db.Text
-  tags        String[] @default([]) @map("tags")
+  // Custom Extension Attributes
+  additionalInformation Json? @map("additional_information")
 
-  // Specifications
-  material   String? @map("material")
-  color      String? @map("color")
-  dimensions String? @map("dimensions")
-  roomType   String? @map("room_type")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  // Media
-  coverImageUrl Json? @map("cover_image_url")
-  galleryUrls   Json? @map("gallery_urls")
-
-  // Pricing & Inventory
-  mrp              Decimal @default(0) @map("mrp") @db.Decimal(12, 2)
-  sellingPrice     Decimal @default(0) @map("selling_price") @db.Decimal(12, 2)
-  taxRate          Decimal @default(18.00) @map("tax_rate") @db.Decimal(5, 2)
-  inStock          Boolean @default(true) @map("in_stock")
-  stockCount       Int     @default(0) @map("stock_count")
-  minOrderQuantity Int     @default(1) @map("min_order_quantity")
-
-  // Sample
-  sampleAvailable Boolean @default(false) @map("sample_available")
-  samplePrice     Decimal @default(0) @map("sample_price") @db.Decimal(12, 2)
-
-  // Affiliate
-  isAffiliateEnabled Boolean           @default(false) @map("is_affiliate_enabled")
-  affiliatePartner   AffiliatePartner? @map("affiliate_partner")
-  affiliateUrl       String?           @map("affiliate_url")
-  commissionRate     Decimal           @default(0) @map("commission_rate") @db.Decimal(8, 2)
-
-  // Status
-  status       ProductStatus @default(DRAFT) @map("status")
-  isFeatured   Boolean       @default(false) @map("is_featured")
-  rating       Decimal       @default(0.0) @map("rating") @db.Decimal(3, 2)
-  reviewsCount Int           @default(0) @map("reviews_count")
-
-  isDeleted Boolean   @default(false) @map("is_deleted")
-  deletedAt DateTime? @map("deleted_at")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-
-  @@unique([organizationId, sku])
-  @@index([organizationId, status])
-  @@index([categoryId])
-  @@map("home_decor_products")
+  @@index([productId])
+  @@map("home_decor_product_details")
 }
 
 // =============================================================================
-// 3. VERIFIED REAL ESTATE PROPERTIES
+// 4. 1-to-1 TYPE EXTENSION: PROPERTY LISTING DETAILS
 // =============================================================================
 
-model PropertyListing {
-  id             String               @id @default(uuid()) @db.Uuid
-  organizationId String               @map("organization_id") @db.Uuid
-  organization   Organization         @relation("OrganizationPropertyListings", fields: [organizationId], references: [id], onDelete: Cascade)
-  categoryId     String?              @map("category_id") @db.Uuid
-  category       MarketplaceCategory? @relation("CategoryPropertyListings", fields: [categoryId], references: [id], onDelete: SetNull)
+model PropertyListingDetails {
+  id        String  @id @default(uuid()) @db.Uuid
+  productId String  @unique @map("product_id") @db.Uuid
+  product   Product @relation("ProductPropertyDetails", fields: [productId], references: [id], onDelete: Cascade)
 
-  title        String        @map("title")
-  slug         String        @map("slug")
-  propertyType PropertyType  @default(APARTMENT) @map("property_type")
-  intent       ListingIntent @default(SALE) @map("intent")
-
-  // Verification
+  // Property Classification
+  propertyType       PropertyType               @default(APARTMENT) @map("property_type")
+  intent             ListingIntent              @default(SALE) @map("intent")
   verificationStatus PropertyVerificationStatus @default(DRAFT) @map("verification_status")
 
-  // Specifications
-  bhk                 String    @map("bhk")
+  // Layout & Spatial Specs
+  bhk                 String    @map("bhk")               // e.g. "3 BHK", "4 BHK Penthouse"
   bedrooms            Int       @map("bedrooms")
   bathrooms           Int       @map("bathrooms")
   balconies           Int       @default(0) @map("balconies")
@@ -367,11 +271,26 @@ model PropertyListing {
   superBuiltUpSqft    Int?      @map("super_built_up_sqft")
   floorNumber         Int?      @map("floor_number")
   totalFloors         Int?      @map("total_floors")
-  furnishingStatus    String    @default("Unfurnished") @map("furnishing_status")
+  furnishingStatus    String    @default("Unfurnished") @map("furnishing_status") // "Unfurnished", "Semi-Furnished", "Fully Furnished"
   coveredParkingSlots Int       @default(0) @map("covered_parking_slots")
   availableFrom       DateTime? @map("available_from")
+  reraRegistration    String?   @map("rera_registration")
 
-  // Location
+  // Financials & Negotiation
+  maintenanceMonthly Decimal @default(0) @map("maintenance_monthly") @db.Decimal(12, 2)
+  isNegotiable       Boolean @default(true) @map("is_negotiable")
+
+  // Monetization & Contact Unlocks
+  contactUnlockFee          Decimal @default(500) @map("contact_unlock_fee") @db.Decimal(10, 2)
+  contactUnlockDurationDays Int     @default(30) @map("contact_unlock_duration_days")
+  totalContactUnlocks       Int     @default(0) @map("total_contact_unlocks")
+
+  // Owner / Developer Contact (Unlocked after lead or purchase)
+  ownerName  String  @map("owner_name")
+  ownerPhone String  @map("owner_phone")
+  ownerEmail String? @map("owner_email")
+
+  // Location & Geocoding
   addressLine String?  @map("address_line")
   locality    String   @map("locality")
   city        String   @map("city")
@@ -380,190 +299,48 @@ model PropertyListing {
   latitude    Decimal? @map("latitude") @db.Decimal(10, 7)
   longitude   Decimal? @map("longitude") @db.Decimal(10, 7)
 
-  // Pricing
-  price              Decimal @default(0) @map("price") @db.Decimal(14, 2)
-  maintenanceMonthly Decimal @default(0) @map("maintenance_monthly") @db.Decimal(12, 2)
-  isNegotiable       Boolean @default(true) @map("is_negotiable")
+  // Amenities & Custom Extension Attributes
+  amenities             String[] @default([]) @map("amenities")
+  additionalInformation Json?    @map("additional_information")
 
-  // Contact Unlock Monetization (Access time & fee)
-  contactUnlockFee          Decimal @default(500) @map("contact_unlock_fee") @db.Decimal(10, 2)
-  contactUnlockDurationDays Int     @default(30) @map("contact_unlock_duration_days") // Kitne din tak access kar sakta hai purchase karne ke baad
-  totalContactUnlocks       Int     @default(0) @map("total_contact_unlocks")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  // Owner Contact Details (Unlocked after purchase)
-  ownerName  String  @map("owner_name")
-  ownerPhone String  @map("owner_phone")
-  ownerEmail String? @map("owner_email")
-
-  // Amenities & Media
-  amenities     String[] @default([]) @map("amenities")
-  description   String?  @map("description") @db.Text
-  coverImageUrl Json?    @map("cover_image_url")
-  images        Json?    @map("images")
-
-  // Status
-  status     ProductStatus @default(DRAFT) @map("status")
-  isFeatured Boolean       @default(false) @map("is_featured")
-
-  isDeleted Boolean   @default(false) @map("is_deleted")
-  deletedAt DateTime? @map("deleted_at")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-
-  @@unique([organizationId, slug])
-  @@index([organizationId, status])
+  @@index([productId])
   @@index([city, locality])
   @@index([propertyType, intent])
-  @@map("property_listings")
+  @@map("property_listing_details")
 }
 
 // =============================================================================
-// 4. WHOLESALE MATERIALS PROCUREMENT
+// 5. 1-to-1 TYPE EXTENSION: WHOLESALE MATERIAL DETAILS
 // =============================================================================
 
-model MaterialProduct {
-  id             String              @id @default(uuid()) @db.Uuid
-  organizationId String              @map("organization_id") @db.Uuid
-  organization   Organization        @relation("OrganizationMaterialProducts", fields: [organizationId], references: [id], onDelete: Cascade)
-  categoryId     String              @map("category_id") @db.Uuid
-  category       MarketplaceCategory @relation("CategoryMaterialProducts", fields: [categoryId], references: [id], onDelete: Restrict)
+model MaterialProductDetails {
+  id        String  @id @default(uuid()) @db.Uuid
+  productId String  @unique @map("product_id") @db.Uuid
+  product   Product @relation("ProductMaterialDetails", fields: [productId], references: [id], onDelete: Cascade)
 
-  // Ownership & Sourcing
-  ownershipType ProductOwnershipType @default(SELF_OWNED) @map("ownership_type")
+  // Specifications
+  brandName       String? @map("brand_name")
+  materialType    String? @map("material_type")     // e.g. "Italian Marble", "Plywood BWP", "Vitrified Tile"
+  grade           String? @map("grade")             // e.g. "Commercial Grade A", "IS 710", "FE 550D"
+  dimensions      String? @map("dimensions")        // e.g. "8ft x 4ft x 18mm", "600mm x 1200mm"
+  thickness       String? @map("thickness")         // e.g. "18mm", "12mm", "20mm"
+  application     String? @map("application")       // e.g. "Flooring", "Wet Areas", "Structural"
+  coveragePerUnit String? @map("coverage_per_unit") // e.g. "32 sq.ft per sheet", "15.5 sq.ft per box"
+  warrantyYears   Int?    @default(0) @map("warranty_years")
+  technicalDocUrl String? @map("technical_doc_url")
 
-  // Multi-Vendor Offerings
-  vendorOfferings MaterialProductVendor[] @relation("MaterialVendorOfferings")
+  // Procurement & Logistics
+  leadTimeDays Int? @default(7) @map("lead_time_days")
 
-  name        String   @map("name")
-  sku         String   @map("sku")
-  brandName   String?  @map("brand_name")
-  description String?  @map("description") @db.Text
-  tags        String[] @default([]) @map("tags")
-
-  // Material Specifications
-  materialType String? @map("material_type")
-  grade        String? @map("grade")
-  dimensions   String? @map("dimensions")
-  thickness    String? @map("thickness")
-  application  String? @map("application")
-
-  // Media
-  coverImageUrl Json? @map("cover_image_url")
-  images        Json? @map("images")
-
-  // Pricing & Measurement
-  unitOfMeasure  MaterialUnit @default(PIECE) @map("unit_of_measure")
-  wholesalePrice Decimal      @default(0) @map("wholesale_price") @db.Decimal(12, 2)
-  retailPrice    Decimal      @default(0) @map("retail_price") @db.Decimal(12, 2)
-  taxRate        Decimal      @default(18.00) @map("tax_rate") @db.Decimal(5, 2)
-
-  // Inventory
-  minOrderQuantity    Int @default(1) @map("min_order_quantity")
-  stockAvailableUnits Int @default(0) @map("stock_available_units")
-
-  // Status
-  status      ProductStatus @default(DRAFT) @map("status")
-  isFeatured  Boolean       @default(false) @map("is_featured")
-  rating      Decimal       @default(0.0) @map("rating") @db.Decimal(3, 2)
-  ordersCount Int           @default(0) @map("orders_count")
-
-  // Procurement & Site Requisition Relations
-  materialRequestItems MaterialRequestItem[]  @relation("CatalogMaterialRequestItems")
-  rfqItems             VendorRfqItem[]        @relation("CatalogRfqItems")
-  quotationItems       VendorQuotationItem[]  @relation("CatalogQuotationItems")
-  dispatchItems        MaterialDispatchItem[] @relation("CatalogDispatchItems")
-
-  isDeleted Boolean   @default(false) @map("is_deleted")
-  deletedAt DateTime? @map("deleted_at")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-
-  @@unique([organizationId, sku])
-  @@index([organizationId, status])
-  @@index([categoryId])
-  @@index([unitOfMeasure])
-  @@map("material_products")
-}
-
-// =============================================================================
-// 5. MULTI-VENDOR PRODUCT OFFERINGS & COMMISSION RATES
-// =============================================================================
-
-model HomeDecorProductVendor {
-  id             String       @id @default(uuid()) @db.Uuid
-  organizationId String       @map("organization_id") @db.Uuid
-  organization   Organization @relation("OrganizationHomeDecorProductVendors", fields: [organizationId], references: [id], onDelete: Cascade)
-
-  productId String           @map("product_id") @db.Uuid
-  product   HomeDecorProduct @relation("HomeDecorVendorOfferings", fields: [productId], references: [id], onDelete: Cascade)
-
-  vendorId String @map("vendor_id") @db.Uuid
-  vendor   Vendor @relation("VendorHomeDecorOfferings", fields: [vendorId], references: [id], onDelete: Cascade)
-
-  // Vendor Specific Cataloging & Pricing
-  vendorSku      String?  @map("vendor_sku")
-  supplyPrice    Decimal? @map("supply_price") @db.Decimal(12, 2)
-  sellingPrice   Decimal? @map("selling_price") @db.Decimal(12, 2)
-  commissionRate Decimal  @map("commission_rate") @db.Decimal(5, 2) // % Commission org earns on sales from this vendor
-
-  // Stock & Fulfillment
-  stockCount       Int     @default(0) @map("stock_count")
-  inStock          Boolean @default(true) @map("in_stock")
-  minOrderQuantity Int     @default(1) @map("min_order_quantity")
-  leadTimeDays     Int?    @default(3) @map("lead_time_days")
-
-  // Flags
-  isPrimary Boolean @default(false) @map("is_primary")
-  isActive  Boolean @default(true) @map("is_active")
-
-  // Universal Custom Fields Standard
+  // Custom Extension Attributes
   additionalInformation Json? @map("additional_information")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@unique([productId, vendorId])
-  @@index([organizationId])
   @@index([productId])
-  @@index([vendorId])
-  @@map("home_decor_product_vendors")
-}
-
-model MaterialProductVendor {
-  id             String       @id @default(uuid()) @db.Uuid
-  organizationId String       @map("organization_id") @db.Uuid
-  organization   Organization @relation("OrganizationMaterialProductVendors", fields: [organizationId], references: [id], onDelete: Cascade)
-
-  productId String          @map("product_id") @db.Uuid
-  product   MaterialProduct @relation("MaterialVendorOfferings", fields: [productId], references: [id], onDelete: Cascade)
-
-  vendorId String @map("vendor_id") @db.Uuid
-  vendor   Vendor @relation("VendorMaterialOfferings", fields: [vendorId], references: [id], onDelete: Cascade)
-
-  // Vendor Specific Wholesale & Retail
-  vendorSku      String?  @map("vendor_sku")
-  wholesalePrice Decimal? @map("wholesale_price") @db.Decimal(12, 2)
-  retailPrice    Decimal? @map("retail_price") @db.Decimal(12, 2)
-  commissionRate Decimal  @map("commission_rate") @db.Decimal(5, 2) // % Commission org earns on material order
-
-  // Inventory & Logistics
-  stockAvailableUnits Int  @default(0) @map("stock_available_units")
-  minOrderQuantity    Int  @default(1) @map("min_order_quantity")
-  leadTimeDays        Int? @default(7) @map("lead_time_days")
-
-  // Flags
-  isPrimary Boolean @default(false) @map("is_primary")
-  isActive  Boolean @default(true) @map("is_active")
-
-  // Universal Custom Fields Standard
-  additionalInformation Json? @map("additional_information")
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  @@unique([productId, vendorId])
-  @@index([organizationId])
-  @@index([productId])
-  @@index([vendorId])
-  @@map("material_product_vendors")
+  @@map("material_product_details")
 }

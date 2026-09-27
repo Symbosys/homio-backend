@@ -6,7 +6,10 @@ export class VendorService {
   async createVendor(organizationId: string, data: any) {
     const existing = await vendorRepo.findByName(data.name, organizationId);
     if (existing) {
-      throw new ErrorResponse(`Vendor with name '${data.name}' already exists in your organization`, statusCode.Conflict);
+      throw new ErrorResponse(
+        `Vendor with name '${data.name}' already exists in your organization`,
+        statusCode.Conflict,
+      );
     }
 
     return vendorRepo.create({
@@ -15,12 +18,15 @@ export class VendorService {
     });
   }
 
-  async getVendors(organizationId: string, params: {
-    search?: string;
-    isActive?: boolean;
-    page: number;
-    limit: number;
-  }) {
+  async getVendors(
+    organizationId: string,
+    params: {
+      search?: string;
+      isActive?: boolean;
+      page: number;
+      limit: number;
+    },
+  ) {
     const { page, limit, ...filters } = params;
     const skip = (page - 1) * limit;
 
@@ -59,7 +65,10 @@ export class VendorService {
     if (data.name && data.name !== existing.name) {
       const duplicate = await vendorRepo.findByName(data.name, organizationId);
       if (duplicate) {
-        throw new ErrorResponse(`Vendor with name '${data.name}' already exists in your organization`, statusCode.Conflict);
+        throw new ErrorResponse(
+          `Vendor with name '${data.name}' already exists in your organization`,
+          statusCode.Conflict,
+        );
       }
     }
 

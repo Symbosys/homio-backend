@@ -36,7 +36,7 @@ export const dateOrDatetimeSchema = z
  * Schema for single Material Dispatch Item creation
  */
 export const createDispatchItemSchema = z.object({
-  materialProductId: z.string().uuid("Invalid Material Product ID").optional().nullable(),
+  productId: z.string().uuid("Invalid Product ID").optional().nullable(),
   name: z.string().min(1, "Item name is required").max(255),
   unit: z.string().min(1, "Unit is required").max(50),
   dispatchedQuantity: z.number().positive("Dispatched quantity must be greater than 0"),

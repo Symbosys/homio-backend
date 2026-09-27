@@ -9,19 +9,14 @@ import type {
 } from "../validators/vendor-quotation.validator.js";
 
 const quotationItemInclude = {
-  materialProduct: {
+  product: {
     select: {
       id: true,
       name: true,
       sku: true,
-      unitOfMeasure: true,
+      unit: true,
       coverImageUrl: true,
-      category: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
+      materialDetails: true,
     },
   },
   rfqItem: {
@@ -239,7 +234,7 @@ export class VendorQuotationRepository {
                 return {
                   organizationId,
                   rfqItemId: item.rfqItemId || null,
-                  materialProductId: item.materialProductId || null,
+                  productId: item.productId || null,
                   name: item.name,
                   brand: item.brand || null,
                   specifications: item.specifications || null,
@@ -507,7 +502,7 @@ export class VendorQuotationRepository {
         organizationId,
         quotationId,
         rfqItemId: itemData.rfqItemId || null,
-        materialProductId: itemData.materialProductId || null,
+        productId: itemData.productId || null,
         name: itemData.name,
         brand: itemData.brand || null,
         specifications: itemData.specifications || null,
@@ -576,7 +571,7 @@ export class VendorQuotationRepository {
 
       const updatePayload: Prisma.VendorQuotationItemUncheckedUpdateInput = {
         ...(data.rfqItemId !== undefined ? { rfqItemId: data.rfqItemId || null } : {}),
-        ...(data.materialProductId !== undefined ? { materialProductId: data.materialProductId || null } : {}),
+        ...(data.productId !== undefined ? { productId: data.productId || null } : {}),
         ...(data.name ? { name: data.name } : {}),
         ...(data.brand !== undefined ? { brand: data.brand } : {}),
         ...(data.specifications !== undefined ? { specifications: data.specifications } : {}),

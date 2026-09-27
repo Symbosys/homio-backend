@@ -9,19 +9,14 @@ import type {
 } from "../validators/material-request.validator.js";
 
 const materialRequestItemInclude = {
-  materialProduct: {
+  product: {
     select: {
       id: true,
       name: true,
       sku: true,
-      unitOfMeasure: true,
+      unit: true,
       coverImageUrl: true,
-      category: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
+      materialDetails: true,
     },
   },
 };
@@ -190,7 +185,7 @@ export class MaterialRequestRepository {
           ? {
               create: items.map((item) => ({
                 organizationId,
-                materialProductId: item.materialProductId || null,
+                productId: item.productId || null,
                 name: item.name,
                 sku: item.sku || null,
                 brand: item.brand || null,
@@ -447,7 +442,7 @@ export class MaterialRequestRepository {
       const createItemData: Prisma.MaterialRequestItemUncheckedCreateInput = {
         organizationId,
         requestId,
-        materialProductId: itemData.materialProductId || null,
+        productId: itemData.productId || null,
         name: itemData.name,
         sku: itemData.sku || null,
         brand: itemData.brand || null,
@@ -515,7 +510,7 @@ export class MaterialRequestRepository {
       const amount = data.estimatedAmount !== undefined ? Number(data.estimatedAmount) : qty * rate;
 
       const updatePayload: Prisma.MaterialRequestItemUncheckedUpdateInput = {
-        ...(data.materialProductId !== undefined ? { materialProductId: data.materialProductId || null } : {}),
+        ...(data.productId !== undefined ? { productId: data.productId || null } : {}),
         ...(data.name ? { name: data.name } : {}),
         ...(data.sku !== undefined ? { sku: data.sku } : {}),
         ...(data.brand !== undefined ? { brand: data.brand } : {}),

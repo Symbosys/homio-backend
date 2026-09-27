@@ -140,9 +140,9 @@ model MaterialRequestItem {
   requestId      String          @map("request_id") @db.Uuid
   request        MaterialRequest @relation("MaterialRequestItems", fields: [requestId], references: [id], onDelete: Cascade)
 
-  // Linkage to Wholesale Catalog (Optional)
-  materialProductId String?          @map("material_product_id") @db.Uuid
-  materialProduct   MaterialProduct? @relation("CatalogMaterialRequestItems", fields: [materialProductId], references: [id], onDelete: SetNull)
+  // Linkage to Wholesale Product Catalog (Optional)
+  productId String?  @map("product_id") @db.Uuid
+  product   Product? @relation("ProductMaterialRequestItems", fields: [productId], references: [id], onDelete: SetNull)
 
   // Item Identity & Specs
   name           String  @map("name")
@@ -173,7 +173,7 @@ model MaterialRequestItem {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([organizationId, requestId])
-  @@index([materialProductId])
+  @@index([productId])
   @@map("material_request_items")
 }
 
@@ -275,8 +275,8 @@ model VendorRfqItem {
   materialRequestItemId String?              @map("material_request_item_id") @db.Uuid
   materialRequestItem   MaterialRequestItem? @relation("RequestItemRfqItems", fields: [materialRequestItemId], references: [id], onDelete: SetNull)
 
-  materialProductId String?          @map("material_product_id") @db.Uuid
-  materialProduct   MaterialProduct? @relation("CatalogRfqItems", fields: [materialProductId], references: [id], onDelete: SetNull)
+  productId String?  @map("product_id") @db.Uuid
+  product   Product? @relation("ProductRfqItems", fields: [productId], references: [id], onDelete: SetNull)
 
   name           String   @map("name")
   specifications String?  @map("specifications") @db.Text
@@ -384,8 +384,8 @@ model VendorQuotationItem {
   rfqItemId String?        @map("rfq_item_id") @db.Uuid
   rfqItem   VendorRfqItem? @relation("RfqItemQuotationItems", fields: [rfqItemId], references: [id], onDelete: SetNull)
 
-  materialProductId String?          @map("material_product_id") @db.Uuid
-  materialProduct   MaterialProduct? @relation("CatalogQuotationItems", fields: [materialProductId], references: [id], onDelete: SetNull)
+  productId String?  @map("product_id") @db.Uuid
+  product   Product? @relation("ProductQuotationItems", fields: [productId], references: [id], onDelete: SetNull)
 
   name           String  @map("name")
   brand          String? @map("brand")
@@ -489,8 +489,8 @@ model MaterialDispatchItem {
   dispatchId     String           @map("dispatch_id") @db.Uuid
   dispatch       MaterialDispatch @relation("DispatchItems", fields: [dispatchId], references: [id], onDelete: Cascade)
 
-  materialProductId String?          @map("material_product_id") @db.Uuid
-  materialProduct   MaterialProduct? @relation("CatalogDispatchItems", fields: [materialProductId], references: [id], onDelete: SetNull)
+  productId String?  @map("product_id") @db.Uuid
+  product   Product? @relation("ProductDispatchItems", fields: [productId], references: [id], onDelete: SetNull)
 
   name               String                @map("name")
   unit               String                @map("unit")

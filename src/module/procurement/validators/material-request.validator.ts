@@ -51,7 +51,7 @@ export const materialRequestStatusEnum = z.enum([
  * Schema for single Material Request Item creation
  */
 export const createMaterialRequestItemSchema = z.object({
-  materialProductId: z.string().uuid("Invalid Material Product ID").optional().nullable(),
+  productId: z.string().uuid("Invalid Product ID").optional().nullable(),
   name: z.string().min(1, "Item name is required").max(255),
   sku: z.string().max(100).optional().nullable(),
   brand: z.string().max(100).optional().nullable(),

@@ -27,8 +27,7 @@ export class VendorRepository {
       include: {
         _count: {
           select: {
-            homeDecorOfferings: { where: { isActive: true } },
-            materialOfferings: { where: { isActive: true } },
+            products: { where: { isDeleted: false } },
           },
         },
       },
@@ -74,8 +73,7 @@ export class VendorRepository {
         include: {
           _count: {
             select: {
-              homeDecorOfferings: { where: { isActive: true } },
-              materialOfferings: { where: { isActive: true } },
+              products: { where: { isDeleted: false } },
             },
           },
         },

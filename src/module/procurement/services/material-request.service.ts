@@ -27,16 +27,16 @@ export class MaterialRequestService {
       throw new ErrorResponse("Project not found in your organization", statusCode.Not_Found);
     }
 
-    // Validate optional MaterialProduct IDs if items are provided
+    // Validate optional Product IDs if items are provided
     if (data.items && data.items.length > 0) {
       for (const item of data.items) {
-        if (item.materialProductId) {
-          const product = await prisma.materialProduct.findFirst({
-            where: { id: item.materialProductId, organizationId },
+        if (item.productId) {
+          const product = await prisma.product.findFirst({
+            where: { id: item.productId, organizationId },
           });
           if (!product) {
             throw new ErrorResponse(
-              `Material product '${item.materialProductId}' not found in catalog`,
+              `Product '${item.productId}' not found in catalog`,
               statusCode.Not_Found
             );
           }
@@ -121,12 +121,12 @@ export class MaterialRequestService {
   ) {
     await this.getMaterialRequestById(requestId, organizationId);
 
-    if (itemData.materialProductId) {
-      const product = await prisma.materialProduct.findFirst({
-        where: { id: itemData.materialProductId, organizationId },
+    if (itemData.productId) {
+      const product = await prisma.product.findFirst({
+        where: { id: itemData.productId, organizationId },
       });
       if (!product) {
-        throw new ErrorResponse("Material product not found in catalog", statusCode.Not_Found);
+        throw new ErrorResponse("Product not found in catalog", statusCode.Not_Found);
       }
     }
 
@@ -144,12 +144,12 @@ export class MaterialRequestService {
   ) {
     await this.getMaterialRequestById(requestId, organizationId);
 
-    if (data.materialProductId) {
-      const product = await prisma.materialProduct.findFirst({
-        where: { id: data.materialProductId, organizationId },
+    if (data.productId) {
+      const product = await prisma.product.findFirst({
+        where: { id: data.productId, organizationId },
       });
       if (!product) {
-        throw new ErrorResponse("Material product not found in catalog", statusCode.Not_Found);
+        throw new ErrorResponse("Product not found in catalog", statusCode.Not_Found);
       }
     }
 
