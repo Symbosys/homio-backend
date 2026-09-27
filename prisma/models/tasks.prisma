@@ -51,8 +51,10 @@ model Task {
   leadId String? @map("lead_id") @db.Uuid
   lead   Lead?   @relation("LeadTasks", fields: [leadId], references: [id], onDelete: SetNull)
 
-  // 2. Project Association (Future-proof for Project Management module)
-  projectId String? @map("project_id") @db.Uuid
+  // 2. Project Association & Stage Assignment
+  projectId String?       @map("project_id") @db.Uuid
+  project   Project?      @relation("ProjectTasks", fields: [projectId], references: [id], onDelete: Cascade)
+  stage     ProjectStage? @map("stage")
 
   // Task Information
   title       String       @map("title")
@@ -73,7 +75,12 @@ model Task {
   submittedForReviewAt DateTime? @map("submitted_for_review_at") // Recorded when task is submitted under review
   completedAt          DateTime? @map("completed_at")           // Recorded when verified and marked completed
 
-  // Task Review & Verification Approval
+  // Task Reviewer & Verification Approval
+  reviewerId    String?   @map("reviewer_id") @db.Uuid
+  reviewer      Employee? @relation("TaskReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  reviewedAt    DateTime? @map("reviewed_at")
+  reviewRemarks String?   @map("review_remarks")
+
   approvedById    String?   @map("approved_by_id") @db.Uuid
   approvedBy      Employee? @relation("TaskApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
   approvedAt      DateTime? @map("approved_at")
@@ -120,6 +127,8 @@ model Task {
   @@index([organizationId])
   @@index([leadId])
   @@index([projectId])
+  @@index([stage])
+  @@index([reviewerId])
   @@index([assignedToId])
   @@index([approvedById])
   @@index([categoryId])

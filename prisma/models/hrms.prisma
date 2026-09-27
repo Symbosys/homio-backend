@@ -342,6 +342,7 @@ model Employee {
   meetingAttendances          MeetingAttendee[]           @relation("EmployeeMeetingAttendees")
   assignedTasks               Task[]                      @relation("TaskAssignedTo")
   approvedTasks               Task[]                      @relation("TaskApprovedBy")
+  reviewedTasks               Task[]                      @relation("TaskReviewer")
   taskAssignments             TaskAssignee[]              @relation("EmployeeTaskAssignments")
   performedTaskActivities     TaskActivity[]              @relation("TaskActivityPerformedBy")
   projectMemberships          ProjectMember[]             @relation("EmployeeProjectMembers")
