@@ -460,6 +460,7 @@ model ProjectSite {
   state                 String?  @map("state")
   country               String   @default("IN") @map("country")
   pincode               String?  @map("pincode")
+  
   gpsLat                Float?   @map("gps_lat")
   gpsLng                Float?   @map("gps_lng")
   punchRadiusMeters     Int      @default(200) @map("punch_radius_meters")
