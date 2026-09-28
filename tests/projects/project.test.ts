@@ -268,6 +268,29 @@ describe("Projects Module Tests", () => {
       expect(parsed.body.commercial?.materialPayment).toBe(4000000);
       expect(parsed.body.commercial?.additionalInformation?.discountApprovedBy).toBe("CEO");
     });
+
+    it("should parse and validate site geofence coordinates and strict attendance radius", () => {
+      const siteGeofencePayload = {
+        params: {
+          id: "99999999-9999-4999-8999-999999999999",
+        },
+        body: {
+          site: {
+            siteName: "Brigade Gateway Site #101",
+            gpsLat: 13.01254,
+            gpsLng: 77.55589,
+            punchRadiusMeters: 250,
+            isPunchGeofenceStrict: true,
+          },
+        },
+      };
+
+      const parsed = updateProjectSchema.parse(siteGeofencePayload);
+      expect(parsed.body.site?.gpsLat).toBe(13.01254);
+      expect(parsed.body.site?.gpsLng).toBe(77.55589);
+      expect(parsed.body.site?.punchRadiusMeters).toBe(250);
+      expect(parsed.body.site?.isPunchGeofenceStrict).toBe(true);
+    });
   });
 
   // =========================================================================

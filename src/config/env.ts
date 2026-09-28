@@ -28,4 +28,5 @@ export const ENV = {
   azure_storage_connection_string: process.env.AZURE_STORAGE_CONNECTION_STRING,
 
   MODE: process.env.MODE as "DEVELOPMENT" | "PRODUCTION",
+  OLA_MAPS_API_KEY: process.env.OLA_MAPS_API_KEY || "AbLgb9uuCk5EsknyN9nd1hol4dk85ehUH7izgU1e",
 };

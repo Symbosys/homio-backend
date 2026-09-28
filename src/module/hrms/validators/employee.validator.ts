@@ -50,10 +50,38 @@ export const departmentMemberRoleEnum = z.enum([
   "INTERN",
 ]);
 
+export const userStatusEnum = z.enum(["ACTIVE", "INACTIVE", "SUSPENDED", "PENDING_VERIFICATION"]);
+export const userTypeEnum = z.enum(["PLATFORM_ADMIN", "ADMIN", "USER"]);
+
 export const createEmployeeSchema = z.object({
   body: z.object({
-    // Optional link to User account
+    // Optional link to existing User account
     userId: z.string().uuid("Invalid user ID format").nullable().optional(),
+
+    // User Account & Credentials for Onboarding / Login Access
+    createUserAccount: z
+      .union([
+        z.boolean(),
+        z.string().transform((v) => v === "true" || v === "1"),
+      ])
+      .optional(),
+    userEmail: z.string().trim().email("Invalid user login email").nullable().optional(),
+    userPassword: z.string().trim().min(6, "Password must be at least 6 characters").nullable().optional(),
+    userRoleIds: z
+      .union([
+        z.array(z.string().uuid("Invalid role ID")),
+        z.string().transform((val) => {
+          try {
+            const parsed = JSON.parse(val);
+            return Array.isArray(parsed) ? parsed : [val];
+          } catch {
+            return val ? val.split(",").map((s) => s.trim()).filter(Boolean) : [];
+          }
+        }),
+      ])
+      .optional(),
+    userStatus: userStatusEnum.default("ACTIVE").optional(),
+    userType: userTypeEnum.default("USER").optional(),
 
     // Employee Identification
     employeeCode: z.string().trim().min(1, "Employee code cannot be empty").optional(), // Auto-generated if omitted

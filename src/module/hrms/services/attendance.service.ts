@@ -37,9 +37,7 @@ export class AttendanceService {
         isDeleted: false,
       },
       include: {
-        shift: {
-          where: { isDeleted: false, status: "ACTIVE" },
-        },
+        shift: true,
         geofences: {
           where: { isDeleted: false, status: "ACTIVE" },
         },
@@ -74,6 +72,19 @@ export class AttendanceService {
 
     const employee = await this.resolveEmployeeForUser(userId, organizationId);
     const today = getNormalizedDate();
+
+    // 0. Verify employee is assigned to an active shift
+    if (
+      !employee.shiftId ||
+      !employee.shift ||
+      employee.shift.isDeleted ||
+      employee.shift.status !== "ACTIVE"
+    ) {
+      throw new ErrorResponse(
+        "You are not assigned to any active shift. Please contact your HR administrator before punching in/out.",
+        statusCode.Forbidden
+      );
+    }
 
     // 1. Check if already punched in for today
     const existing = await attendanceRepo.findByEmployeeAndDate(employee.id, organizationId, today);
@@ -181,6 +192,19 @@ export class AttendanceService {
 
     const employee = await this.resolveEmployeeForUser(userId, organizationId);
     const today = getNormalizedDate();
+
+    // 0. Verify employee is assigned to an active shift
+    if (
+      !employee.shiftId ||
+      !employee.shift ||
+      employee.shift.isDeleted ||
+      employee.shift.status !== "ACTIVE"
+    ) {
+      throw new ErrorResponse(
+        "You are not assigned to any active shift. Please contact your HR administrator before punching in/out.",
+        statusCode.Forbidden
+      );
+    }
 
     // 1. Verify punch-in exists for today
     const existing = await attendanceRepo.findByEmployeeAndDate(employee.id, organizationId, today);
@@ -294,7 +318,10 @@ export class AttendanceService {
       employeeCode: employee.employeeCode,
       displayName: employee.displayName || `${employee.firstName} ${employee.lastName || ""}`.trim(),
       allowAttendanceFromAnywhere: employee.allowAttendanceFromAnywhere,
-      shift: employee.shift,
+      shift:
+        employee.shift && !employee.shift.isDeleted && employee.shift.status === "ACTIVE"
+          ? employee.shift
+          : null,
       assignedGeofences: employee.geofences,
       hasPunchedIn: !!attendance?.punchInTime,
       hasPunchedOut: !!attendance?.punchOutTime,

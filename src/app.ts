@@ -18,6 +18,7 @@ import masterDataRouter from "./module/master-data/routes/index.js";
 import labourRouter from "./module/labour/routes/index.js";
 import channelPartnerRouter from "./module/channel-partner/routes/index.js";
 import taskRouter from "./module/tasks/routes/index.js";
+import mapsRouter from "./module/maps/maps.routes.js";
 
 const app = express();
 
@@ -104,6 +105,11 @@ app.use("/api/v1/labour", labourRouter);
  * Dedicated Task Management Module Routes (Project Stage Tasks, Reviewers, Auto Progress Engine)
  */
 app.use("/api/v1/tasks", taskRouter);
+
+/**
+ * Maps & Location Search Proxy Routes (Ola Maps Backend Proxy)
+ */
+app.use("/api/v1/maps", mapsRouter);
 
 app.use(errorMiddleware);
 

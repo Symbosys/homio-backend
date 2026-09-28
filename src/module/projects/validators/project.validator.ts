@@ -40,6 +40,8 @@ export const projectSiteInputSchema = z.object({
   pincode: z.string().max(20).optional().nullable(),
   gpsLat: z.number().min(-90).max(90).optional().nullable(),
   gpsLng: z.number().min(-180).max(180).optional().nullable(),
+  punchRadiusMeters: z.number().int().min(10).max(50000).default(200).optional(),
+  isPunchGeofenceStrict: z.boolean().default(true).optional(),
   propertyType: z.string().max(100).optional().nullable(),
   floorNumber: z.string().max(50).optional().nullable(),
   totalAreaSqft: z.number().nonnegative().optional().nullable(),

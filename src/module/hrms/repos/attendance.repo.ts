@@ -136,6 +136,7 @@ export class AttendanceRepository {
             avatarUrl: true,
             designation: true,
             allowAttendanceFromAnywhere: true,
+            shift: true,
           },
         },
         shift: true,
@@ -214,16 +215,15 @@ export class AttendanceRepository {
               lastName: true,
               avatarUrl: true,
               designation: true,
+              shift: true,
             },
           },
-          shift: {
-            select: { id: true, name: true, code: true, startTime: true, endTime: true },
-          },
+          shift: true,
           punchInGeofence: {
-            select: { id: true, name: true, code: true },
+            select: { id: true, name: true, code: true, address: true, radiusMeters: true },
           },
           punchOutGeofence: {
-            select: { id: true, name: true, code: true },
+            select: { id: true, name: true, code: true, address: true, radiusMeters: true },
           },
         },
       }),
@@ -272,14 +272,23 @@ export class AttendanceRepository {
         take: limit,
         orderBy: { attendanceDate: "desc" },
         include: {
-          shift: {
-            select: { id: true, name: true, code: true, startTime: true, endTime: true },
+          employee: {
+            select: {
+              id: true,
+              employeeCode: true,
+              firstName: true,
+              lastName: true,
+              avatarUrl: true,
+              designation: true,
+              shift: true,
+            },
           },
+          shift: true,
           punchInGeofence: {
-            select: { id: true, name: true, code: true },
+            select: { id: true, name: true, code: true, address: true, radiusMeters: true },
           },
           punchOutGeofence: {
-            select: { id: true, name: true, code: true },
+            select: { id: true, name: true, code: true, address: true, radiusMeters: true },
           },
         },
       }),

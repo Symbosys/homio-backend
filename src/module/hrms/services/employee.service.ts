@@ -1,6 +1,8 @@
+import bcrypt from "bcryptjs";
 import { employeeRepo } from "../repos/employee.repo.js";
 import { departmentRepo } from "../repos/department.repo.js";
 import { teamRepo } from "../repos/team.repo.js";
+import { userRepo } from "../../user/repos/user.repo.js";
 import { storageService } from "../../../lib/storage/storage.service.js";
 import { ErrorResponse } from "../../../utils/response.util.js";
 import { statusCode, type ImageType } from "../../../types/types.js";
@@ -30,7 +32,7 @@ export class EmployeeService {
   }
 
   /**
-   * Create an employee with optional avatar upload and tenant validations
+   * Create an employee with optional user login account, avatar upload and tenant validations
    */
   async createEmployee(
     organizationId: string,
@@ -52,8 +54,66 @@ export class EmployeeService {
       }
     }
 
-    // 2. Validate linked User if provided
-    if (data.userId) {
+    // 2. Handle User Login Account Creation or Linkage
+    if (data.createUserAccount || data.userPassword) {
+      const loginEmail =
+        data.userEmail?.trim().toLowerCase() ||
+        data.workEmail?.trim().toLowerCase() ||
+        data.personalEmail?.trim().toLowerCase();
+
+      if (!loginEmail) {
+        throw new ErrorResponse(
+          "An email address (work or login email) is required to create an employee user account",
+          statusCode.Bad_Request
+        );
+      }
+
+      if (!data.userPassword || data.userPassword.trim().length < 6) {
+        throw new ErrorResponse(
+          "A password of at least 6 characters is required to create a user login account",
+          statusCode.Bad_Request
+        );
+      }
+
+      // Check if email already registered
+      const existingUser = await userRepo.findByEmail(loginEmail);
+      if (existingUser) {
+        throw new ErrorResponse(
+          `A user account with email "${loginEmail}" already exists`,
+          statusCode.Conflict
+        );
+      }
+
+      // Validate roles if provided
+      if (data.userRoleIds && data.userRoleIds.length > 0) {
+        const rolesInOrg = await prisma.role.findMany({
+          where: { id: { in: data.userRoleIds }, organizationId, isDeleted: false },
+          select: { id: true },
+        });
+        if (rolesInOrg.length !== data.userRoleIds.length) {
+          throw new ErrorResponse("One or more selected roles are invalid for this organization", statusCode.Bad_Request);
+        }
+      }
+
+      // Hash password and create User
+      const salt = await bcrypt.genSalt(10);
+      const passwordHash = await bcrypt.hash(data.userPassword.trim(), salt);
+
+      const createdUser = await userRepo.create({
+        organizationId,
+        email: loginEmail,
+        passwordHash,
+        firstName: data.firstName.trim(),
+        lastName: data.lastName ? data.lastName.trim() : null,
+        phone: data.workPhone?.trim() || data.personalPhone?.trim() || null,
+        status: data.userStatus || "ACTIVE",
+        userType: data.userType || "USER",
+        invitedById: createdById,
+        roleIds: data.userRoleIds && data.userRoleIds.length > 0 ? data.userRoleIds : undefined,
+      });
+
+      data.userId = createdUser.id;
+    } else if (data.userId) {
       const existingUser = await prisma.user.findFirst({
         where: { id: data.userId, organizationId, isDeleted: false },
       });
@@ -149,7 +209,7 @@ export class EmployeeService {
   }
 
   /**
-   * Update employee profile
+   * Update employee profile and sync user credentials / login access
    */
   async updateEmployee(
     id: string,
@@ -172,6 +232,106 @@ export class EmployeeService {
           statusCode.Conflict
         );
       }
+    }
+
+    // Handle User account creation or updates
+    if (existing.userId) {
+      // 1. Password update
+      if (data.userPassword && data.userPassword.trim().length >= 6) {
+        const salt = await bcrypt.genSalt(10);
+        const passwordHash = await bcrypt.hash(data.userPassword.trim(), salt);
+        await prisma.user.update({
+          where: { id: existing.userId },
+          data: { passwordHash, passwordChangedAt: new Date() },
+        });
+      }
+
+      // 2. Email update
+      if (data.userEmail) {
+        const newEmail = data.userEmail.trim().toLowerCase();
+        const currentUser = await prisma.user.findUnique({ where: { id: existing.userId } });
+        if (currentUser && currentUser.email !== newEmail) {
+          const duplicate = await userRepo.findByEmail(newEmail);
+          if (duplicate && duplicate.id !== existing.userId) {
+            throw new ErrorResponse(`User with email "${newEmail}" already exists`, statusCode.Conflict);
+          }
+          await prisma.user.update({
+            where: { id: existing.userId },
+            data: { email: newEmail },
+          });
+        }
+      }
+
+      // 3. Status or UserType update
+      if (data.userStatus || data.userType) {
+        await prisma.user.update({
+          where: { id: existing.userId },
+          data: {
+            ...(data.userStatus ? { status: data.userStatus } : {}),
+            ...(data.userType ? { userType: data.userType } : {}),
+          },
+        });
+      }
+
+      // 4. Role synchronization
+      if (data.userRoleIds !== undefined) {
+        await prisma.userRole.deleteMany({
+          where: { userId: existing.userId },
+        });
+        if (data.userRoleIds && data.userRoleIds.length > 0) {
+          await prisma.userRole.createMany({
+            data: data.userRoleIds.map((roleId) => ({
+              userId: existing.userId!,
+              roleId,
+              assignedById: updatedById,
+            })),
+          });
+        }
+      }
+    } else if (data.createUserAccount || data.userPassword) {
+      // Create new user account for existing employee
+      const loginEmail =
+        data.userEmail?.trim().toLowerCase() ||
+        data.workEmail?.trim().toLowerCase() ||
+        existing.workEmail?.trim().toLowerCase() ||
+        existing.personalEmail?.trim().toLowerCase();
+
+      if (!loginEmail) {
+        throw new ErrorResponse(
+          "An email address is required to create an employee user account",
+          statusCode.Bad_Request
+        );
+      }
+
+      if (!data.userPassword || data.userPassword.trim().length < 6) {
+        throw new ErrorResponse(
+          "A password of at least 6 characters is required to create a user login account",
+          statusCode.Bad_Request
+        );
+      }
+
+      const existingUser = await userRepo.findByEmail(loginEmail);
+      if (existingUser) {
+        throw new ErrorResponse(`A user with email "${loginEmail}" already exists`, statusCode.Conflict);
+      }
+
+      const salt = await bcrypt.genSalt(10);
+      const passwordHash = await bcrypt.hash(data.userPassword.trim(), salt);
+
+      const createdUser = await userRepo.create({
+        organizationId,
+        email: loginEmail,
+        passwordHash,
+        firstName: (data.firstName || existing.firstName).trim(),
+        lastName: (data.lastName !== undefined ? data.lastName : existing.lastName)?.trim() || null,
+        phone: data.workPhone?.trim() || existing.workPhone?.trim() || null,
+        status: data.userStatus || "ACTIVE",
+        userType: data.userType || "USER",
+        invitedById: updatedById,
+        roleIds: data.userRoleIds && data.userRoleIds.length > 0 ? data.userRoleIds : undefined,
+      });
+
+      data.userId = createdUser.id;
     }
 
     // Prevent reporting manager circular reference / self-reporting

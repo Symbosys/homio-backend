@@ -36,6 +36,12 @@ export class EmployeeRepository {
       departmentId,
       teamId,
       departmentRole,
+      createUserAccount,
+      userEmail,
+      userPassword,
+      userRoleIds,
+      userStatus,
+      userType,
       ...directFields
     } = data;
 
@@ -61,6 +67,18 @@ export class EmployeeRepository {
               lastName: true,
               status: true,
               userType: true,
+              phone: true,
+              roles: {
+                include: {
+                  role: {
+                    select: {
+                      id: true,
+                      name: true,
+                      slug: true,
+                    },
+                  },
+                },
+              },
             },
           },
           reportingManager: {
@@ -129,6 +147,18 @@ export class EmployeeRepository {
             lastName: true,
             status: true,
             userType: true,
+            phone: true,
+            roles: {
+              include: {
+                role: {
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                  },
+                },
+              },
+            },
           },
         },
         reportingManager: {
@@ -257,6 +287,19 @@ export class EmployeeRepository {
               firstName: true,
               lastName: true,
               status: true,
+              userType: true,
+              phone: true,
+              roles: {
+                include: {
+                  role: {
+                    select: {
+                      id: true,
+                      name: true,
+                      slug: true,
+                    },
+                  },
+                },
+              },
             },
           },
           reportingManager: {
@@ -333,6 +376,12 @@ export class EmployeeRepository {
       departmentId,
       teamId,
       departmentRole,
+      createUserAccount,
+      userEmail,
+      userPassword,
+      userRoleIds,
+      userStatus,
+      userType,
       ...directFields
     } = data;
 
