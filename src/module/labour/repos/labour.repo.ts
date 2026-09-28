@@ -24,7 +24,22 @@ export class LabourRepo {
    */
   async create(organizationId: string, data: CreateLabourInput, tx?: Prisma.TransactionClient) {
     const db = tx || prisma;
-    const { kyc, dailyRate, hourlyRate, photoUrl, aadhaarDoc, additionalInformation, ...labourData } = data;
+    const {
+      kyc,
+      dailyRate,
+      hourlyRate,
+      photoUrl,
+      aadhaarDoc,
+      additionalInformation,
+      createUserAccount,
+      userEmail,
+      userPhone,
+      userPassword,
+      userRoleIds,
+      userStatus,
+      userType,
+      ...labourData
+    } = data;
 
     const labour = await db.labour.create({
       data: {
@@ -48,6 +63,26 @@ export class LabourRepo {
       },
       include: {
         kycDocument: true,
+        user: {
+          select: {
+            id: true,
+            email: true,
+            phone: true,
+            status: true,
+            userType: true,
+            roles: {
+              include: {
+                role: {
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
@@ -90,6 +125,25 @@ export class LabourRepo {
         orderBy: { [sortBy]: sortOrder },
         include: {
           kycDocument: true,
+          user: {
+            select: {
+              id: true,
+              email: true,
+              status: true,
+              userType: true,
+              roles: {
+                include: {
+                  role: {
+                    select: {
+                      id: true,
+                      name: true,
+                      slug: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
           _count: {
             select: {
               bookings: true,
@@ -129,6 +183,25 @@ export class LabourRepo {
       },
       include: {
         kycDocument: true,
+        user: {
+          select: {
+            id: true,
+            email: true,
+            status: true,
+            userType: true,
+            roles: {
+              include: {
+                role: {
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                  },
+                },
+              },
+            },
+          },
+        },
         bookings: {
           take: 10,
           orderBy: { createdAt: "desc" },
@@ -176,7 +249,22 @@ export class LabourRepo {
    */
   async update(id: string, organizationId: string, data: UpdateLabourInput, tx?: Prisma.TransactionClient) {
     const db = tx || prisma;
-    const { kyc, dailyRate, hourlyRate, photoUrl, aadhaarDoc, additionalInformation, ...labourData } = data;
+    const {
+      kyc,
+      dailyRate,
+      hourlyRate,
+      photoUrl,
+      aadhaarDoc,
+      additionalInformation,
+      createUserAccount,
+      userEmail,
+      userPhone,
+      userPassword,
+      userRoleIds,
+      userStatus,
+      userType,
+      ...labourData
+    } = data;
 
     const updateData: Prisma.LabourUpdateInput = {
       ...labourData,
@@ -217,6 +305,26 @@ export class LabourRepo {
       data: updateData,
       include: {
         kycDocument: true,
+        user: {
+          select: {
+            id: true,
+            email: true,
+            phone: true,
+            status: true,
+            userType: true,
+            roles: {
+              include: {
+                role: {
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
   }

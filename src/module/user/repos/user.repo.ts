@@ -1,5 +1,5 @@
 import { prisma } from "../../../lib/prisma.js";
-import type { User } from "../../../types/types.js";
+import type { User, Prisma } from "../../../types/types.js";
 
 export class UserRepository {
   /**
@@ -17,10 +17,11 @@ export class UserRepository {
     userType?: any;
     invitedById?: string | null;
     roleIds?: string[];
-  }) {
+  }, tx?: Prisma.TransactionClient) {
+    const db = tx || prisma;
     const { roleIds, ...userData } = data;
 
-    return prisma.user.create({
+    return db.user.create({
       data: {
         ...userData,
         roles: roleIds && roleIds.length > 0

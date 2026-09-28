@@ -2,6 +2,7 @@ import { Router } from "express";
 import { authenticate } from "../../../middlewares/auth.middleware.js";
 import { upload } from "../../../middlewares/upload.middleware.js";
 import {
+  getTodayStatus,
   punchIn,
   punchOut,
   createManualAttendance,
@@ -16,6 +17,12 @@ const router = Router();
 
 // Protect all attendance endpoints with authentication
 router.use(authenticate);
+
+/**
+ * @route   GET /api/v1/labour/attendances/today-status
+ * @desc    Get today's active booking, project site geofence, and punch status
+ */
+router.get("/attendances/today-status", getTodayStatus);
 
 /**
  * @route   POST /api/v1/labour/attendances/punch-in

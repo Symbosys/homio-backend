@@ -21,7 +21,7 @@ export const createLabour = asyncHandler(async (req, res) => {
   }
 
   const parsed = createLabourSchema.parse({ body: req.body });
-  const result = await labourService.createLabour(organizationId, parsed.body, req.file);
+  const result = await labourService.createLabour(organizationId, parsed.body, req.file, req.user?.id);
   return SuccessResponse(res, "Labour onboarded successfully", result, statusCode.Created);
 });
 
@@ -69,7 +69,7 @@ export const updateLabour = asyncHandler(async (req, res) => {
   }
 
   const parsed = updateLabourSchema.parse({ params: req.params, body: req.body });
-  const result = await labourService.updateLabour(parsed.params.id, organizationId, parsed.body, req.file);
+  const result = await labourService.updateLabour(parsed.params.id, organizationId, parsed.body, req.file, req.user?.id);
   return SuccessResponse(res, "Labour profile updated successfully", result, statusCode.OK);
 });
 

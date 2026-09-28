@@ -66,6 +66,7 @@ export const createEmployeeSchema = z.object({
       ])
       .optional(),
     userEmail: z.string().trim().email("Invalid user login email").nullable().optional(),
+    userPhone: z.string().trim().max(20).nullable().optional().or(z.literal("")),
     userPassword: z.string().trim().min(6, "Password must be at least 6 characters").nullable().optional(),
     userRoleIds: z
       .union([

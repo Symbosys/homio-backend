@@ -101,6 +101,35 @@ export const createLabourSchema = z.object({
     ifscCode: z.string().optional().nullable(),
     upiId: z.string().optional().nullable(),
 
+    // Optional link to existing User account
+    userId: z.string().uuid("Invalid user ID format").nullable().optional(),
+
+    // User Account & Credentials for Onboarding / Login Access (SaaS RBAC)
+    createUserAccount: z
+      .union([
+        z.boolean(),
+        z.string().transform((v) => v === "true" || v === "1"),
+      ])
+      .optional(),
+    userEmail: z.string().trim().email("Invalid user login email").nullable().optional().or(z.literal("")),
+    userPhone: z.string().trim().max(20).nullable().optional().or(z.literal("")),
+    userPassword: z.string().trim().min(6, "Password must be at least 6 characters").nullable().optional().or(z.literal("")),
+    userRoleIds: z
+      .union([
+        z.array(z.string().uuid("Invalid role ID")),
+        z.string().transform((val) => {
+          try {
+            const parsed = JSON.parse(val);
+            return Array.isArray(parsed) ? parsed : [val];
+          } catch {
+            return val ? val.split(",").map((s) => s.trim()).filter(Boolean) : [];
+          }
+        }),
+      ])
+      .optional(),
+    userStatus: z.enum(["ACTIVE", "INACTIVE", "SUSPENDED", "PENDING_VERIFICATION"]).optional(),
+    userType: z.enum(["PLATFORM_ADMIN", "ADMIN", "USER"]).optional(),
+
     // Emergency Contact
     emergencyContact: z.string().optional().nullable(),
     emergencyPhone: z.string().optional().nullable(),
@@ -144,6 +173,35 @@ export const updateLabourSchema = z.object({
     bankAccountNo: z.string().optional().nullable(),
     ifscCode: z.string().optional().nullable(),
     upiId: z.string().optional().nullable(),
+
+    // Optional link to existing User account
+    userId: z.string().uuid("Invalid user ID format").nullable().optional(),
+
+    // User Account & Credentials for Onboarding / Login Access (SaaS RBAC)
+    createUserAccount: z
+      .union([
+        z.boolean(),
+        z.string().transform((v) => v === "true" || v === "1"),
+      ])
+      .optional(),
+    userEmail: z.string().trim().email("Invalid user login email").nullable().optional().or(z.literal("")),
+    userPhone: z.string().trim().max(20).nullable().optional().or(z.literal("")),
+    userPassword: z.string().trim().min(6, "Password must be at least 6 characters").nullable().optional().or(z.literal("")),
+    userRoleIds: z
+      .union([
+        z.array(z.string().uuid("Invalid role ID")),
+        z.string().transform((val) => {
+          try {
+            const parsed = JSON.parse(val);
+            return Array.isArray(parsed) ? parsed : [val];
+          } catch {
+            return val ? val.split(",").map((s) => s.trim()).filter(Boolean) : [];
+          }
+        }),
+      ])
+      .optional(),
+    userStatus: z.enum(["ACTIVE", "INACTIVE", "SUSPENDED", "PENDING_VERIFICATION"]).optional(),
+    userType: z.enum(["PLATFORM_ADMIN", "ADMIN", "USER"]).optional(),
 
     emergencyContact: z.string().optional().nullable(),
     emergencyPhone: z.string().optional().nullable(),

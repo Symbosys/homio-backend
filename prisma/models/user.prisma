@@ -62,6 +62,7 @@ model User {
   assignedRoles             UserRole[]              @relation("RoleAssignedBy")
   grantedPermissions        UserPermission[]        @relation("PermissionGrantedBy")
   employee                  Employee?               @relation("UserEmployee")
+  labour                    Labour?                 @relation("UserLabour")
   customers                 Customer[]              @relation("UserCustomers")
   assignedLeads             Lead[]                  @relation("LeadAssignedBy")
   convertedLeads            Lead[]                  @relation("LeadConvertedBy")

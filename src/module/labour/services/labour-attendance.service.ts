@@ -83,6 +83,118 @@ export class LabourAttendanceService {
   }
 
   /**
+   * Fetch today's attendance status, active project service booking, and project site geofence
+   * @param organizationId - Tenant organization UUID
+   * @param labourId - Optional Labour UUID (if supervisor/admin queries)
+   * @param userId - Optional User UUID (if logged-in labour queries)
+   */
+  async getTodayStatus(organizationId: string, labourId?: string, userId?: string) {
+    let labour = null;
+    if (labourId) {
+      labour = await labourRepo.findById(labourId, organizationId);
+    } else if (userId) {
+      labour = await prisma.labour.findFirst({
+        where: { userId, organizationId, isDeleted: false },
+        include: {
+          kycDocument: true,
+          user: {
+            select: { id: true, email: true, status: true, userType: true },
+          },
+        },
+      });
+    }
+
+    if (!labour) {
+      throw new ErrorResponse("Labour worker profile not found in this organization", statusCode.Not_Found);
+    }
+
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+
+    // Find active booking for today or current date range
+    const now = new Date();
+    const activeBooking = await prisma.labourBooking.findFirst({
+      where: {
+        labourId: labour.id,
+        isDeleted: false,
+        startDate: { lte: now },
+        endDate: { gte: today },
+        status: { in: ["CONFIRMED", "IN_PROGRESS", "PENDING"] },
+      },
+      include: {
+        project: {
+          select: {
+            id: true,
+            name: true,
+            projectCode: true,
+            site: {
+              select: {
+                id: true,
+                siteName: true,
+                address: true,
+                city: true,
+                state: true,
+                gpsLat: true,
+                gpsLng: true,
+                punchRadiusMeters: true,
+                isPunchGeofenceStrict: true,
+              },
+            },
+          },
+        },
+        projectService: {
+          select: {
+            id: true,
+            title: true,
+            serviceCode: true,
+            category: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const projectSite = activeBooking?.project?.site || null;
+
+    // Check if attendance already exists for today
+    let attendance = null;
+    if (projectSite) {
+      attendance = await labourAttendanceRepo.findByUniqueDate(
+        projectSite.id,
+        labour.id,
+        today
+      );
+    }
+    
+    if (!attendance) {
+      attendance = await prisma.labourAttendance.findFirst({
+        where: {
+          labourId: labour.id,
+          attendanceDate: today,
+        },
+        include: {
+          projectSite: true,
+        },
+      });
+    }
+
+    let status: "NOT_PUNCHED_IN" | "PUNCHED_IN" | "COMPLETED" = "NOT_PUNCHED_IN";
+    if (attendance?.punchOutTime) {
+      status = "COMPLETED";
+    } else if (attendance?.punchInTime) {
+      status = "PUNCHED_IN";
+    }
+
+    return {
+      labour,
+      activeBooking,
+      projectSite,
+      attendance,
+      status,
+    };
+  }
+
+  /**
    * 1. GEOFENCED PUNCH IN
    */
   async punchIn(

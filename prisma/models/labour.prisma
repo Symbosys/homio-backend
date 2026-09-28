@@ -14,6 +14,10 @@ model Labour {
   organizationId String       @map("organization_id") @db.Uuid
   organization   Organization @relation("OrganizationLabours", fields: [organizationId], references: [id], onDelete: Cascade)
 
+  // Optional 1-to-1 linkage to SaaS User (for login / RBAC)
+  userId String? @unique @map("user_id") @db.Uuid
+  user   User?   @relation("UserLabour", fields: [userId], references: [id], onDelete: SetNull)
+
   // Worker Personal Info
   name     String  @map("name")
   phone    String  @map("phone")

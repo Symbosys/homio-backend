@@ -104,6 +104,7 @@ export const getAttendancesQuerySchema = z.object({
   query: z.object({
     page: z.coerce.number().int().positive().default(1),
     limit: z.coerce.number().int().positive().max(100).default(10),
+    search: z.string().optional(),
     projectSiteId: z.string().uuid().optional(),
     labourId: z.string().uuid().optional(),
     bookingId: z.string().uuid().optional(),

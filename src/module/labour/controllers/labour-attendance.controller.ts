@@ -13,6 +13,24 @@ import {
 } from "../validators/labour-attendance.validator.js";
 
 /**
+ * @route   GET /api/v1/labour/attendances/today-status
+ * @desc    Fetch today's attendance status, active booking, and project site geofence
+ * @access  Private (Authenticated Tenant User)
+ */
+export const getTodayStatus = asyncHandler(async (req, res) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+  }
+
+  const labourId = typeof req.query.labourId === "string" ? req.query.labourId : undefined;
+  const userId = req.user?.id;
+
+  const result = await labourAttendanceService.getTodayStatus(organizationId, labourId, userId);
+  return SuccessResponse(res, "Today's attendance status retrieved successfully", result, statusCode.OK);
+});
+
+/**
  * @route   POST /api/v1/labour/attendances/punch-in
  * @desc    Geofenced punch-in with live camera selfie and GPS distance calculation
  * @access  Private (Authenticated Tenant User)

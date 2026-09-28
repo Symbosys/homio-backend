@@ -54,16 +54,62 @@ export class EmployeeService {
       }
     }
 
-    // 2. Handle User Login Account Creation or Linkage
+    // 2. Validate Employee Profile Email & Phone Uniqueness (Independent of SaaS User)
+    if (data.workEmail && data.workEmail.trim()) {
+      const existingWorkEmail = await prisma.employee.findFirst({
+        where: { organizationId, workEmail: data.workEmail.trim().toLowerCase(), isDeleted: false },
+      });
+      if (existingWorkEmail) {
+        throw new ErrorResponse(
+          `An employee with work email "${data.workEmail}" already exists in this organization`,
+          statusCode.Conflict
+        );
+      }
+    }
+
+    if (data.personalEmail && data.personalEmail.trim()) {
+      const existingPersonalEmail = await prisma.employee.findFirst({
+        where: { organizationId, personalEmail: data.personalEmail.trim().toLowerCase(), isDeleted: false },
+      });
+      if (existingPersonalEmail) {
+        throw new ErrorResponse(
+          `An employee with personal email "${data.personalEmail}" already exists in this organization`,
+          statusCode.Conflict
+        );
+      }
+    }
+
+    if (data.workPhone && data.workPhone.trim()) {
+      const existingWorkPhone = await prisma.employee.findFirst({
+        where: { organizationId, workPhone: data.workPhone.trim(), isDeleted: false },
+      });
+      if (existingWorkPhone) {
+        throw new ErrorResponse(
+          `An employee with work phone "${data.workPhone}" already exists in this organization`,
+          statusCode.Conflict
+        );
+      }
+    }
+
+    if (data.personalPhone && data.personalPhone.trim()) {
+      const existingPersonalPhone = await prisma.employee.findFirst({
+        where: { organizationId, personalPhone: data.personalPhone.trim(), isDeleted: false },
+      });
+      if (existingPersonalPhone) {
+        throw new ErrorResponse(
+          `An employee with personal phone "${data.personalPhone}" already exists in this organization`,
+          statusCode.Conflict
+        );
+      }
+    }
+
+    // 3. Handle SaaS User Login Account Creation or Linkage (Purely based on User section)
     if (data.createUserAccount || data.userPassword) {
-      const loginEmail =
-        data.userEmail?.trim().toLowerCase() ||
-        data.workEmail?.trim().toLowerCase() ||
-        data.personalEmail?.trim().toLowerCase();
+      const loginEmail = data.userEmail?.trim().toLowerCase();
 
       if (!loginEmail) {
         throw new ErrorResponse(
-          "An email address (work or login email) is required to create an employee user account",
+          "A valid login email address is required in the User Account section to create portal access",
           statusCode.Bad_Request
         );
       }
@@ -75,19 +121,33 @@ export class EmployeeService {
         );
       }
 
-      // Check if email already registered
+      // Check if user email already registered in SaaS users table
       const existingUser = await userRepo.findByEmail(loginEmail);
       if (existingUser) {
         throw new ErrorResponse(
-          `A user account with email "${loginEmail}" already exists`,
+          `A user account with login email "${loginEmail}" already exists`,
           statusCode.Conflict
         );
+      }
+
+      // Check user phone if provided in User section
+      const loginPhone = data.userPhone?.trim() || null;
+      if (loginPhone) {
+        const existingPhoneUser = await prisma.user.findFirst({
+          where: { phone: loginPhone, isDeleted: false },
+        });
+        if (existingPhoneUser) {
+          throw new ErrorResponse(
+            `A user account with phone number "${loginPhone}" already exists`,
+            statusCode.Conflict
+          );
+        }
       }
 
       // Validate roles if provided
       if (data.userRoleIds && data.userRoleIds.length > 0) {
         const rolesInOrg = await prisma.role.findMany({
-          where: { id: { in: data.userRoleIds }, organizationId, isDeleted: false },
+          where: { id: { in: data.userRoleIds }, organizationId },
           select: { id: true },
         });
         if (rolesInOrg.length !== data.userRoleIds.length) {
@@ -105,7 +165,7 @@ export class EmployeeService {
         passwordHash,
         firstName: data.firstName.trim(),
         lastName: data.lastName ? data.lastName.trim() : null,
-        phone: data.workPhone?.trim() || data.personalPhone?.trim() || null,
+        phone: loginPhone,
         status: data.userStatus || "ACTIVE",
         userType: data.userType || "USER",
         invitedById: createdById,
@@ -234,7 +294,44 @@ export class EmployeeService {
       }
     }
 
-    // Handle User account creation or updates
+    // Validate Employee Profile Email & Phone Uniqueness on Update
+    if (data.workEmail && data.workEmail.trim() !== existing.workEmail) {
+      const existingWorkEmail = await prisma.employee.findFirst({
+        where: { organizationId, workEmail: data.workEmail.trim().toLowerCase(), id: { not: id }, isDeleted: false },
+      });
+      if (existingWorkEmail) {
+        throw new ErrorResponse(`An employee with work email "${data.workEmail}" already exists in this organization`, statusCode.Conflict);
+      }
+    }
+
+    if (data.personalEmail && data.personalEmail.trim() !== existing.personalEmail) {
+      const existingPersonalEmail = await prisma.employee.findFirst({
+        where: { organizationId, personalEmail: data.personalEmail.trim().toLowerCase(), id: { not: id }, isDeleted: false },
+      });
+      if (existingPersonalEmail) {
+        throw new ErrorResponse(`An employee with personal email "${data.personalEmail}" already exists in this organization`, statusCode.Conflict);
+      }
+    }
+
+    if (data.workPhone && data.workPhone.trim() !== existing.workPhone) {
+      const existingWorkPhone = await prisma.employee.findFirst({
+        where: { organizationId, workPhone: data.workPhone.trim(), id: { not: id }, isDeleted: false },
+      });
+      if (existingWorkPhone) {
+        throw new ErrorResponse(`An employee with work phone "${data.workPhone}" already exists in this organization`, statusCode.Conflict);
+      }
+    }
+
+    if (data.personalPhone && data.personalPhone.trim() !== existing.personalPhone) {
+      const existingPersonalPhone = await prisma.employee.findFirst({
+        where: { organizationId, personalPhone: data.personalPhone.trim(), id: { not: id }, isDeleted: false },
+      });
+      if (existingPersonalPhone) {
+        throw new ErrorResponse(`An employee with personal phone "${data.personalPhone}" already exists in this organization`, statusCode.Conflict);
+      }
+    }
+
+    // Handle User account creation or updates (Independent of Employee Profile email/phone)
     if (existing.userId) {
       // 1. Password update
       if (data.userPassword && data.userPassword.trim().length >= 6) {
@@ -253,7 +350,7 @@ export class EmployeeService {
         if (currentUser && currentUser.email !== newEmail) {
           const duplicate = await userRepo.findByEmail(newEmail);
           if (duplicate && duplicate.id !== existing.userId) {
-            throw new ErrorResponse(`User with email "${newEmail}" already exists`, statusCode.Conflict);
+            throw new ErrorResponse(`A user account with login email "${newEmail}" already exists`, statusCode.Conflict);
           }
           await prisma.user.update({
             where: { id: existing.userId },
@@ -262,7 +359,24 @@ export class EmployeeService {
         }
       }
 
-      // 3. Status or UserType update
+      // 3. User Phone update
+      if (data.userPhone !== undefined) {
+        const newPhone = data.userPhone ? data.userPhone.trim() : null;
+        if (newPhone) {
+          const duplicatePhone = await prisma.user.findFirst({
+            where: { phone: newPhone, id: { not: existing.userId }, isDeleted: false },
+          });
+          if (duplicatePhone) {
+            throw new ErrorResponse(`A user account with phone number "${newPhone}" already exists`, statusCode.Conflict);
+          }
+        }
+        await prisma.user.update({
+          where: { id: existing.userId },
+          data: { phone: newPhone },
+        });
+      }
+
+      // 4. Status or UserType update
       if (data.userStatus || data.userType) {
         await prisma.user.update({
           where: { id: existing.userId },
@@ -273,7 +387,7 @@ export class EmployeeService {
         });
       }
 
-      // 4. Role synchronization
+      // 5. Role synchronization
       if (data.userRoleIds !== undefined) {
         await prisma.userRole.deleteMany({
           where: { userId: existing.userId },
@@ -290,15 +404,11 @@ export class EmployeeService {
       }
     } else if (data.createUserAccount || data.userPassword) {
       // Create new user account for existing employee
-      const loginEmail =
-        data.userEmail?.trim().toLowerCase() ||
-        data.workEmail?.trim().toLowerCase() ||
-        existing.workEmail?.trim().toLowerCase() ||
-        existing.personalEmail?.trim().toLowerCase();
+      const loginEmail = data.userEmail?.trim().toLowerCase();
 
       if (!loginEmail) {
         throw new ErrorResponse(
-          "An email address is required to create an employee user account",
+          "A valid login email address is required in the User Account section to create portal access",
           statusCode.Bad_Request
         );
       }
@@ -312,7 +422,17 @@ export class EmployeeService {
 
       const existingUser = await userRepo.findByEmail(loginEmail);
       if (existingUser) {
-        throw new ErrorResponse(`A user with email "${loginEmail}" already exists`, statusCode.Conflict);
+        throw new ErrorResponse(`A user account with login email "${loginEmail}" already exists`, statusCode.Conflict);
+      }
+
+      const loginPhone = data.userPhone?.trim() || null;
+      if (loginPhone) {
+        const existingPhoneUser = await prisma.user.findFirst({
+          where: { phone: loginPhone, isDeleted: false },
+        });
+        if (existingPhoneUser) {
+          throw new ErrorResponse(`A user account with phone number "${loginPhone}" already exists`, statusCode.Conflict);
+        }
       }
 
       const salt = await bcrypt.genSalt(10);
@@ -324,7 +444,7 @@ export class EmployeeService {
         passwordHash,
         firstName: (data.firstName || existing.firstName).trim(),
         lastName: (data.lastName !== undefined ? data.lastName : existing.lastName)?.trim() || null,
-        phone: data.workPhone?.trim() || existing.workPhone?.trim() || null,
+        phone: loginPhone,
         status: data.userStatus || "ACTIVE",
         userType: data.userType || "USER",
         invitedById: updatedById,

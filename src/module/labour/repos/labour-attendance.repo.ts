@@ -129,7 +129,7 @@ export class LabourAttendanceRepo {
    * Find all paginated attendance records with filters
    */
   async findAll(query: GetAttendancesQuery, organizationId: string) {
-    const { page, limit, projectSiteId, labourId, bookingId, status, startDate, endDate, supervisorApproved } = query;
+    const { page, limit, search, projectSiteId, labourId, bookingId, status, startDate, endDate, supervisorApproved } = query;
     const skip = (page - 1) * limit;
 
     const where: Prisma.LabourAttendanceWhereInput = {
@@ -147,6 +147,17 @@ export class LabourAttendanceRepo {
             },
           }
         : {}),
+      ...(search
+        ? {
+            OR: [
+              { labour: { name: { contains: search, mode: "insensitive" } } },
+              { labour: { phone: { contains: search, mode: "insensitive" } } },
+              { labour: { trade: { contains: search, mode: "insensitive" } } },
+              { projectSite: { siteName: { contains: search, mode: "insensitive" } } },
+              { projectSite: { project: { name: { contains: search, mode: "insensitive" } } } },
+            ],
+          }
+        : {}),
     };
 
     const [total, attendances] = await Promise.all([
@@ -155,7 +166,7 @@ export class LabourAttendanceRepo {
         where,
         skip,
         take: limit,
-        orderBy: { attendanceDate: "desc" },
+        orderBy: [{ attendanceDate: "desc" }, { createdAt: "desc" }],
         include: {
           labour: {
             select: {
@@ -163,12 +174,19 @@ export class LabourAttendanceRepo {
               name: true,
               phone: true,
               trade: true,
+              dailyRate: true,
+              photoUrl: true,
             },
           },
           projectSite: {
             select: {
               id: true,
               siteName: true,
+              address: true,
+              gpsLat: true,
+              gpsLng: true,
+              punchRadiusMeters: true,
+              isPunchGeofenceStrict: true,
               project: {
                 select: {
                   id: true,
@@ -176,6 +194,14 @@ export class LabourAttendanceRepo {
                   projectCode: true,
                 },
               },
+            },
+          },
+          booking: {
+            select: {
+              id: true,
+              bookingNumber: true,
+              workTitle: true,
+              agreedDailyRate: true,
             },
           },
         },
