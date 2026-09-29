@@ -21,7 +21,7 @@ import {
 
 /**
  * @route   POST /api/v1/projects/:projectId/bills or POST /api/v1/projects/bills
- * @desc    Create a new Project Bill (MATERIAL, LABOUR, DESIGN, SUPERVISION)
+ * @desc    Create a new Project Bill (MATERIAL, LABOUR, DESIGN, SUPERVISION) with optional embedded file uploads
  * @access  Private (Authenticated Tenant User)
  */
 export const createProjectBill = asyncHandler(async (req, res) => {
@@ -37,7 +37,8 @@ export const createProjectBill = asyncHandler(async (req, res) => {
     ...(paramProjectId && { projectId: paramProjectId }),
   };
 
-  const result = await projectBillingService.createBill(organizationId, payload);
+  const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+  const result = await projectBillingService.createBill(organizationId, payload, files);
   return SuccessResponse(res, "Project bill created successfully", result, statusCode.Created);
 });
 
@@ -81,7 +82,7 @@ export const getProjectBillById = asyncHandler(async (req, res) => {
 
 /**
  * @route   PATCH /api/v1/projects/bills/:id
- * @desc    Update a Project Bill (Rule 5: Dirty updates & auto-prunes media)
+ * @desc    Update a Project Bill (Rule 5: Dirty updates & auto-prunes replaced media)
  * @access  Private (Authenticated Tenant User)
  */
 export const updateProjectBill = asyncHandler(async (req, res) => {
@@ -91,10 +92,12 @@ export const updateProjectBill = asyncHandler(async (req, res) => {
   }
 
   const parsed = updateProjectBillSchema.parse({ params: req.params, body: req.body });
+  const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
   const result = await projectBillingService.updateBill(
     parsed.params.id,
     organizationId,
-    parsed.body
+    parsed.body,
+    files
   );
   return SuccessResponse(res, "Project bill updated successfully", result, statusCode.OK);
 });
@@ -122,7 +125,7 @@ export const updateProjectBillStatus = asyncHandler(async (req, res) => {
 
 /**
  * @route   DELETE /api/v1/projects/bills/:id
- * @desc    Soft delete a Project Bill (Auto-prunes cloud documents)
+ * @desc    Soft delete a Project Bill (Auto-prunes cloud documents per Rule 4)
  * @access  Private (Authenticated Tenant User)
  */
 export const deleteProjectBill = asyncHandler(async (req, res) => {
@@ -136,29 +139,13 @@ export const deleteProjectBill = asyncHandler(async (req, res) => {
   return SuccessResponse(res, "Project bill deleted successfully", result, statusCode.OK);
 });
 
-/**
- * @route   POST /api/v1/projects/bills/upload
- * @desc    Upload bill invoice / attachment to cloud storage
- * @access  Private (Authenticated Tenant User)
- */
-export const uploadProjectBillDocument = asyncHandler(async (req, res) => {
-  const file = req.file;
-  if (!file) {
-    throw new ErrorResponse("No file uploaded", statusCode.Bad_Request);
-  }
-
-  const folder = `homio/organizations/${req.user?.organizationId || "shared"}/project-bills`;
-  const result = await projectBillingService.uploadToCloud(file, folder, "auto");
-  return SuccessResponse(res, "Bill document uploaded successfully", result, statusCode.OK);
-});
-
 // =============================================================================
 // 2. PROJECT PAYMENT RECORD CONTROLLER ENDPOINTS
 // =============================================================================
 
 /**
  * @route   POST /api/v1/projects/:projectId/payment-records or POST /api/v1/projects/payment-records
- * @desc    Record a new payment transaction against a project or bill
+ * @desc    Record a new payment transaction against a project or bill with optional embedded receipt upload
  * @access  Private (Authenticated Tenant User)
  */
 export const createProjectPaymentRecord = asyncHandler(async (req, res) => {
@@ -174,7 +161,8 @@ export const createProjectPaymentRecord = asyncHandler(async (req, res) => {
     ...(paramProjectId && { projectId: paramProjectId }),
   };
 
-  const result = await projectBillingService.createPaymentRecord(organizationId, payload);
+  const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+  const result = await projectBillingService.createPaymentRecord(organizationId, payload, files);
   return SuccessResponse(
     res,
     "Project payment record created successfully",
@@ -233,7 +221,7 @@ export const getProjectPaymentRecordById = asyncHandler(async (req, res) => {
 
 /**
  * @route   PATCH /api/v1/projects/payment-records/:id
- * @desc    Update a Project Payment Record and rebalance linked bill
+ * @desc    Update a Project Payment Record (Auto-prunes replaced vouchers per Rule 4)
  * @access  Private (Authenticated Tenant User)
  */
 export const updateProjectPaymentRecord = asyncHandler(async (req, res) => {
@@ -243,10 +231,12 @@ export const updateProjectPaymentRecord = asyncHandler(async (req, res) => {
   }
 
   const parsed = updateProjectPaymentRecordSchema.parse({ params: req.params, body: req.body });
+  const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
   const result = await projectBillingService.updatePaymentRecord(
     parsed.params.id,
     organizationId,
-    parsed.body
+    parsed.body,
+    files
   );
   return SuccessResponse(
     res,
@@ -258,7 +248,7 @@ export const updateProjectPaymentRecord = asyncHandler(async (req, res) => {
 
 /**
  * @route   DELETE /api/v1/projects/payment-records/:id
- * @desc    Soft delete a Project Payment Record and rebalance linked bill
+ * @desc    Soft delete a Project Payment Record, rebalance linked bill dues, and prune vouchers
  * @access  Private (Authenticated Tenant User)
  */
 export const deleteProjectPaymentRecord = asyncHandler(async (req, res) => {
@@ -271,35 +261,19 @@ export const deleteProjectPaymentRecord = asyncHandler(async (req, res) => {
   const result = await projectBillingService.deletePaymentRecord(params.id, organizationId);
   return SuccessResponse(
     res,
-    "Project payment record deleted successfully",
+    "Project payment record deleted and dues rebalanced successfully",
     result,
     statusCode.OK
   );
 });
 
-/**
- * @route   POST /api/v1/projects/payment-records/upload
- * @desc    Upload payment receipt / counterfoil to cloud storage
- * @access  Private (Authenticated Tenant User)
- */
-export const uploadProjectPaymentReceipt = asyncHandler(async (req, res) => {
-  const file = req.file;
-  if (!file) {
-    throw new ErrorResponse("No file uploaded", statusCode.Bad_Request);
-  }
-
-  const folder = `homio/organizations/${req.user?.organizationId || "shared"}/project-payments`;
-  const result = await projectBillingService.uploadToCloud(file, folder, "auto");
-  return SuccessResponse(res, "Payment receipt uploaded successfully", result, statusCode.OK);
-});
-
 // =============================================================================
-// 3. COMMERCIAL SUMMARY ANALYTICS CONTROLLER
+// 3. PROJECT COMMERCIAL SUMMARY
 // =============================================================================
 
 /**
- * @route   GET /api/v1/projects/:projectId/commercials/summary
- * @desc    Fetch commercial summary analytics (Material, Labour, Design, Supervision totals)
+ * @route   GET /api/v1/projects/:projectId/commercial-summary or GET /api/v1/projects/commercial-summary
+ * @desc    Get commercial summary calculations across disciplines, margins, and commissions
  * @access  Private (Authenticated Tenant User)
  */
 export const getProjectCommercialSummary = asyncHandler(async (req, res) => {
@@ -308,22 +282,25 @@ export const getProjectCommercialSummary = asyncHandler(async (req, res) => {
     throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
   }
 
-  const paramProjectId = req.params?.projectId;
-  const paramId = req.params?.id;
-  const projectId = typeof paramProjectId === "string" ? paramProjectId : typeof paramId === "string" ? paramId : "";
+  const parsedQuery = getProjectCommercialSummaryQuerySchema.parse({
+    params: req.params,
+    query: req.query,
+  });
+
+  const projectId = (req.params?.projectId || parsedQuery.query.projectId) as string;
   if (!projectId) {
-    throw new ErrorResponse("Project ID parameter required", statusCode.Bad_Request);
+    throw new ErrorResponse("Project ID parameter is required", statusCode.Bad_Request);
   }
 
-  const parsedQuery = getProjectCommercialSummaryQuerySchema.parse({ query: req.query });
   const result = await projectBillingService.getCommercialSummary(
-    organizationId,
     projectId,
+    organizationId,
     parsedQuery.query
   );
+
   return SuccessResponse(
     res,
-    "Commercial summary retrieved successfully",
+    "Project commercial summary calculated successfully",
     result,
     statusCode.OK
   );

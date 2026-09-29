@@ -25,7 +25,7 @@ import type {
 
 /**
  * Service Layer for Project Bills, Invoices & Payment Records
- * Adheres to Multi-Tenant SaaS, Structured ImageType Cloud Storage, and Automatic Media Cleanup (Rule 4)
+ * Adheres to Multi-Tenant SaaS, Embedded File Uploads, Structured ImageType Cloud Storage, and Automatic Media Cleanup (Rule 4)
  */
 export class ProjectBillingService {
   /**
@@ -69,13 +69,16 @@ export class ProjectBillingService {
   }
 
   /**
-   * Upload file buffer to cloud storage via centralized StorageService
+   * Upload file buffer to cloud storage via centralized StorageService with automatic compression
    */
   async uploadToCloud(
     file: Express.Multer.File,
     folder: string,
     resourceType: "image" | "raw" | "auto" = "auto"
   ): Promise<ImageType> {
+    const isDoc = file.mimetype.includes("pdf") || file.mimetype.includes("msword") || file.mimetype.includes("officedocument");
+    const targetResourceType = isDoc ? "auto" : resourceType;
+
     const uploadResult = await storageService.upload(
       {
         buffer: file.buffer,
@@ -83,7 +86,7 @@ export class ProjectBillingService {
         mimetype: file.mimetype,
         size: file.size,
       },
-      { folder, resourceType }
+      { folder, resourceType: targetResourceType }
     );
 
     return {
@@ -100,9 +103,13 @@ export class ProjectBillingService {
   // =========================================================================
 
   /**
-   * Create a Project Bill with relational validation
+   * Create a Project Bill with relational validation & embedded file upload processing
    */
-  async createBill(organizationId: string, data: CreateProjectBillInput) {
+  async createBill(
+    organizationId: string,
+    data: CreateProjectBillInput,
+    files?: { [fieldname: string]: Express.Multer.File[] } | Express.Multer.File[]
+  ) {
     const { projectId, billType, vendorId, labourId, createdById, approvedById } = data;
 
     // 1. Verify Project belongs to Organization
@@ -158,6 +165,29 @@ export class ProjectBillingService {
       }
     }
 
+    // 5. Process embedded file uploads if present
+    if (files && typeof files === "object") {
+      const fileMap = Array.isArray(files) ? {} : files;
+      const billDocFile = fileMap["billDocument"]?.[0];
+      if (billDocFile) {
+        data.billDocumentUrl = await this.uploadToCloud(
+          billDocFile,
+          `organizations/${organizationId}/project-bills`,
+          "auto"
+        );
+      }
+
+      const attachmentFiles = fileMap["attachments"];
+      if (attachmentFiles && attachmentFiles.length > 0) {
+        const uploadedAttachments = await Promise.all(
+          attachmentFiles.map((f) =>
+            this.uploadToCloud(f, `organizations/${organizationId}/project-bills/attachments`, "auto")
+          )
+        );
+        data.attachments = [...(data.attachments || []), ...uploadedAttachments];
+      }
+    }
+
     const bill = await projectBillRepo.create(organizationId, data);
 
     // Auto-create Project Timeline Event
@@ -208,9 +238,14 @@ export class ProjectBillingService {
   }
 
   /**
-   * Update Project Bill with automatic media pruning & balance re-evaluation
+   * Update Project Bill with embedded file replacement, automatic media pruning (Rule 4), & balance re-evaluation
    */
-  async updateBill(id: string, organizationId: string, data: UpdateProjectBillInput) {
+  async updateBill(
+    id: string,
+    organizationId: string,
+    data: UpdateProjectBillInput,
+    files?: { [fieldname: string]: Express.Multer.File[] } | Express.Multer.File[]
+  ) {
     const existing = await this.getBillById(id, organizationId);
 
     // Validate relationships if changed
@@ -241,55 +276,55 @@ export class ProjectBillingService {
       }
     }
 
-    // Media pruning on replacement (Rule 4)
-    if (data.billDocumentUrl !== undefined && existing.billDocumentUrl) {
-      const oldDoc = existing.billDocumentUrl as any;
-      const newDoc = data.billDocumentUrl as any;
-      if (oldDoc?.id && oldDoc.id !== newDoc?.id) {
-        await this.pruneCloudAsset(oldDoc);
+    // Process embedded uploaded files if any
+    if (files && typeof files === "object") {
+      const fileMap = Array.isArray(files) ? {} : files;
+      const billDocFile = fileMap["billDocument"]?.[0];
+      if (billDocFile) {
+        const uploadedDoc = await this.uploadToCloud(
+          billDocFile,
+          `organizations/${organizationId}/project-bills`,
+          "auto"
+        );
+        // Prune old bill document before assigning new one
+        if (existing.billDocumentUrl) {
+          await this.pruneCloudAsset(existing.billDocumentUrl);
+        }
+        data.billDocumentUrl = uploadedDoc;
+      }
+
+      const attachmentFiles = fileMap["attachments"];
+      if (attachmentFiles && attachmentFiles.length > 0) {
+        const uploadedAttachments = await Promise.all(
+          attachmentFiles.map((f) =>
+            this.uploadToCloud(f, `organizations/${organizationId}/project-bills/attachments`, "auto")
+          )
+        );
+        data.attachments = [...(data.attachments || (existing.attachments as any[]) || []), ...uploadedAttachments];
       }
     }
 
-    if (data.attachments !== undefined && existing.attachments) {
+    // Prune removed bill document if explicitly set to null/empty
+    if (data.billDocumentUrl === null && existing.billDocumentUrl) {
+      await this.pruneCloudAsset(existing.billDocumentUrl);
+    } else if (
+      data.billDocumentUrl &&
+      existing.billDocumentUrl &&
+      (data.billDocumentUrl as any).id !== (existing.billDocumentUrl as any).id
+    ) {
+      await this.pruneCloudAsset(existing.billDocumentUrl);
+    }
+
+    // Prune removed attachments (Rule 4)
+    if (data.attachments !== undefined) {
       await this.pruneCloudAssetArray(existing.attachments, data.attachments);
     }
 
-    // Recompute amounts if totals changed
-    const updatedTotalAmount = data.totalAmount ?? Number(existing.totalAmount);
-    const updatedTaxAmount = data.taxAmount ?? Number(existing.taxAmount);
-    const calculatedGrandTotal = data.grandTotal ?? updatedTotalAmount + updatedTaxAmount;
-
-    const paidAmount = Number(existing.paidAmount);
-    const newDueAmount = Math.max(0, calculatedGrandTotal - paidAmount);
-
-    let status = data.status || existing.status;
-    if (status !== ProjectBillStatus.DRAFT && status !== ProjectBillStatus.CANCELLED) {
-      if (paidAmount >= calculatedGrandTotal && calculatedGrandTotal > 0) {
-        status = ProjectBillStatus.PAID;
-      } else if (paidAmount > 0) {
-        status = ProjectBillStatus.PARTIALLY_PAID;
-      }
-    }
-
-    const updatePayload: UpdateProjectBillInput = {
-      ...data,
-      grandTotal: calculatedGrandTotal,
-    };
-
-    const updated = await projectBillRepo.update(id, organizationId, updatePayload);
-
-    // Apply rebalanced dues
-    return projectBillRepo.rebalanceBill(
-      id,
-      organizationId,
-      paidAmount,
-      newDueAmount,
-      status
-    );
+    return projectBillRepo.update(id, organizationId, data);
   }
 
   /**
-   * Update Bill Status Transition
+   * Update Bill status lifecycle transition
    */
   async updateBillStatus(
     id: string,
@@ -297,39 +332,25 @@ export class ProjectBillingService {
     status: ProjectBillStatus,
     notes?: string
   ) {
-    const existing = await this.getBillById(id, organizationId);
-
-    const updatePayload: UpdateProjectBillInput = {
-      status,
-      ...(notes && { notes: existing.notes ? `${existing.notes}\n${notes}` : notes }),
-    };
-
-    return projectBillRepo.update(id, organizationId, updatePayload);
+    await this.getBillById(id, organizationId);
+    return projectBillRepo.updateStatus(id, organizationId, status, notes);
   }
 
   /**
-   * Delete Project Bill & prune cloud assets
+   * Soft delete a Project Bill and prune all associated cloud assets (Rule 4)
    */
   async deleteBill(id: string, organizationId: string) {
     const existing = await this.getBillById(id, organizationId);
 
-    // Check if payments exist
-    const linkedPaymentsCount = await prisma.projectPaymentRecord.count({
-      where: {
-        billId: id,
-        organizationId,
-        isDeleted: false,
-      },
-    });
-
-    if (linkedPaymentsCount > 0) {
+    // Guard: Prevent deleting bills that have recorded payments against them
+    if (Number(existing.paidAmount) > 0) {
       throw new ErrorResponse(
-        "Cannot delete bill with associated payment records. Please delete or reallocate payments first.",
-        statusCode.Conflict
+        `Cannot delete bill ${existing.billNumber} because payments totaling ₹${Number(existing.paidAmount).toLocaleString()} have already been disbursed against it. Void the payments first.`,
+        statusCode.Bad_Request
       );
     }
 
-    // Prune media assets (Rule 4)
+    // Prune associated cloud media per Rule 4
     if (existing.billDocumentUrl) {
       await this.pruneCloudAsset(existing.billDocumentUrl);
     }
@@ -345,12 +366,16 @@ export class ProjectBillingService {
   // =========================================================================
 
   /**
-   * Create a Payment Record & atomically rebalance the linked Bill
+   * Create a Payment Record & atomic balance recalculation with optional embedded receipt upload
    */
-  async createPaymentRecord(organizationId: string, data: CreateProjectPaymentRecordInput) {
-    const { projectId, billId, recordedById, amount, status } = data;
+  async createPaymentRecord(
+    organizationId: string,
+    data: CreateProjectPaymentRecordInput,
+    files?: { [fieldname: string]: Express.Multer.File[] } | Express.Multer.File[]
+  ) {
+    const { projectId, billId, amount, recordedById } = data;
 
-    // 1. Verify Project belongs to Organization
+    // 1. Verify Project
     const project = await prisma.project.findFirst({
       where: { id: projectId, organizationId, isDeleted: false },
     });
@@ -358,106 +383,108 @@ export class ProjectBillingService {
       throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
     }
 
-    // 2. Validate Bill if provided
+    // 2. Verify Bill if linked
     let linkedBill: any = null;
     if (billId) {
       linkedBill = await prisma.projectBill.findFirst({
         where: { id: billId, organizationId, isDeleted: false },
       });
       if (!linkedBill) {
-        throw new ErrorResponse("Linked Project Bill not found in this organization", statusCode.Bad_Request);
+        throw new ErrorResponse("Linked bill not found in this organization", statusCode.Not_Found);
       }
-      if (linkedBill.projectId !== projectId) {
-        throw new ErrorResponse("Linked Bill does not belong to this project", statusCode.Bad_Request);
+
+      if (Number(linkedBill.dueAmount) <= 0) {
+        throw new ErrorResponse(
+          `Bill ${linkedBill.billNumber} is already fully paid (Dues: ₹0).`,
+          statusCode.Bad_Request
+        );
+      }
+
+      if (amount > Number(linkedBill.dueAmount)) {
+        throw new ErrorResponse(
+          `Payment amount (₹${amount.toLocaleString()}) exceeds the remaining due amount (₹${Number(linkedBill.dueAmount).toLocaleString()}) for bill ${linkedBill.billNumber}.`,
+          statusCode.Bad_Request
+        );
       }
     }
 
-    // 3. Validate RecordedBy Employee
+    // 3. Verify RecordedBy Employee
     if (recordedById) {
       const employee = await prisma.employee.findFirst({
         where: { id: recordedById, organizationId, isDeleted: false },
       });
       if (!employee) {
-        throw new ErrorResponse("Employee recordedById not found in this organization", statusCode.Bad_Request);
+        throw new ErrorResponse("Recording employee not found in this organization", statusCode.Bad_Request);
       }
     }
 
-    // 4. Atomic Transaction: create payment & rebalance bill
-    const createdPayment = await prisma.$transaction(async (tx) => {
-      const payment = await projectPaymentRecordRepo.create(organizationId, data, tx as any);
-
-      if (billId && status === ProjectPaymentRecordStatus.SUCCESS) {
-        await this.rebalanceBillInternal(billId, organizationId, tx as any);
+    // 4. Process embedded file uploads if present
+    if (files && typeof files === "object") {
+      const fileMap = Array.isArray(files) ? {} : files;
+      const receiptFile = fileMap["receipt"]?.[0];
+      if (receiptFile) {
+        data.receiptUrl = await this.uploadToCloud(
+          receiptFile,
+          `organizations/${organizationId}/payment-receipts`,
+          "auto"
+        );
       }
 
-      return payment;
-    });
-
-    // Auto-create Project Timeline Event
-    await prisma.projectTimeline
-      .create({
-        data: {
-          projectId,
-          title: `Payment Disbursed: ₹${Number(amount).toLocaleString()} (${createdPayment.paymentMethod})`,
-          description: `Payment ${createdPayment.paymentNumber} processed. Ref: ${createdPayment.transactionReference || "N/A"}.`,
-          eventType: "COMMERCIAL_INVOICE",
-          category: "PAYMENT",
-          status: status === ProjectPaymentRecordStatus.SUCCESS ? "COMPLETED" : "PLANNED",
-          performedById: createdPayment.recordedById || null,
-          isCustom: false,
-          isSystemGenerated: true,
-        },
-      })
-      .catch(() => {});
-
-    return createdPayment;
-  }
-
-  /**
-   * Internal helper to recalculate bill totals inside a transaction
-   */
-  private async rebalanceBillInternal(
-    billId: string,
-    organizationId: string,
-    tx: Prisma.TransactionClient
-  ) {
-    const bill = await tx.projectBill.findFirst({
-      where: { id: billId, organizationId, isDeleted: false },
-    });
-    if (!bill) return;
-
-    const totalPaidAggregate = await tx.projectPaymentRecord.aggregate({
-      where: {
-        billId,
-        organizationId,
-        isDeleted: false,
-        status: ProjectPaymentRecordStatus.SUCCESS,
-      },
-      _sum: { amount: true },
-    });
-
-    const totalPaid = totalPaidAggregate._sum.amount ? Number(totalPaidAggregate._sum.amount) : 0;
-    const grandTotal = Number(bill.grandTotal);
-    const dueAmount = Math.max(0, grandTotal - totalPaid);
-
-    let nextStatus = bill.status;
-    if (bill.status !== ProjectBillStatus.CANCELLED && bill.status !== ProjectBillStatus.DRAFT) {
-      if (totalPaid >= grandTotal && grandTotal > 0) {
-        nextStatus = ProjectBillStatus.PAID;
-      } else if (totalPaid > 0) {
-        nextStatus = ProjectBillStatus.PARTIALLY_PAID;
-      } else {
-        nextStatus = ProjectBillStatus.APPROVED;
+      const attachmentFiles = fileMap["attachments"];
+      if (attachmentFiles && attachmentFiles.length > 0) {
+        const uploadedAttachments = await Promise.all(
+          attachmentFiles.map((f) =>
+            this.uploadToCloud(f, `organizations/${organizationId}/payment-receipts/attachments`, "auto")
+          )
+        );
+        data.attachments = [...(data.attachments || []), ...uploadedAttachments];
       }
     }
 
-    await tx.projectBill.update({
-      where: { id: billId, organizationId },
-      data: {
-        paidAmount: new Prisma.Decimal(totalPaid),
-        dueAmount: new Prisma.Decimal(dueAmount),
-        status: nextStatus,
-      },
+    // Execute in Prisma Transaction for Atomic Rebalancing
+    return prisma.$transaction(async (tx) => {
+      const paymentRecord = await projectPaymentRecordRepo.create(organizationId, data, tx);
+
+      if (billId && linkedBill && data.status === ProjectPaymentRecordStatus.SUCCESS) {
+        const newPaid = Number(linkedBill.paidAmount) + Number(amount);
+        const grandTotal = Number(linkedBill.grandTotal);
+        const newDue = Math.max(0, grandTotal - newPaid);
+
+        let newStatus: ProjectBillStatus = linkedBill.status;
+        if (newDue === 0) {
+          newStatus = ProjectBillStatus.PAID;
+        } else if (newPaid > 0) {
+          newStatus = ProjectBillStatus.PARTIALLY_PAID;
+        }
+
+        await tx.projectBill.update({
+          where: { id: billId },
+          data: {
+            paidAmount: new Prisma.Decimal(newPaid),
+            dueAmount: new Prisma.Decimal(newDue),
+            status: newStatus,
+          },
+        });
+      }
+
+      // Auto-create Project Timeline Transaction Event
+      await tx.projectTimeline
+        .create({
+          data: {
+            projectId,
+            title: `Payment Disbursed: ₹${Number(amount).toLocaleString()} (${data.paymentMethod})`,
+            description: `Payment ${paymentRecord.paymentNumber} recorded for ${data.title}.${linkedBill ? ` Linked Bill: ${linkedBill.billNumber}.` : ""}`,
+            eventType: "COMMERCIAL_INVOICE",
+            category: "EXPENSE",
+            status: "COMPLETED",
+            performedById: recordedById || null,
+            isCustom: false,
+            isSystemGenerated: true,
+          },
+        })
+        .catch(() => {});
+
+      return paymentRecord;
     });
   }
 
@@ -481,60 +508,125 @@ export class ProjectBillingService {
    * Get single Payment Record by ID
    */
   async getPaymentRecordById(id: string, organizationId: string) {
-    const record = await projectPaymentRecordRepo.findById(id, organizationId);
-    if (!record) {
-      throw new ErrorResponse("Project payment record not found", statusCode.Not_Found);
+    const payment = await projectPaymentRecordRepo.findById(id, organizationId);
+    if (!payment) {
+      throw new ErrorResponse("Payment record not found", statusCode.Not_Found);
     }
-    return record;
+    return payment;
   }
 
   /**
-   * Update Payment Record with media pruning and bill rebalancing
+   * Update Payment Record with embedded receipt replacement and automatic media pruning (Rule 4)
    */
   async updatePaymentRecord(
     id: string,
     organizationId: string,
-    data: UpdateProjectPaymentRecordInput
+    data: UpdateProjectPaymentRecordInput,
+    files?: { [fieldname: string]: Express.Multer.File[] } | Express.Multer.File[]
   ) {
     const existing = await this.getPaymentRecordById(id, organizationId);
 
-    // Media pruning (Rule 4)
-    if (data.receiptUrl !== undefined && existing.receiptUrl) {
-      const oldDoc = existing.receiptUrl as any;
-      const newDoc = data.receiptUrl as any;
-      if (oldDoc?.id && oldDoc.id !== newDoc?.id) {
-        await this.pruneCloudAsset(oldDoc);
+    // Process embedded uploaded files if any
+    if (files && typeof files === "object") {
+      const fileMap = Array.isArray(files) ? {} : files;
+      const receiptFile = fileMap["receipt"]?.[0];
+      if (receiptFile) {
+        const uploadedReceipt = await this.uploadToCloud(
+          receiptFile,
+          `organizations/${organizationId}/payment-receipts`,
+          "auto"
+        );
+        // Prune old receipt voucher
+        if (existing.receiptUrl) {
+          await this.pruneCloudAsset(existing.receiptUrl);
+        }
+        data.receiptUrl = uploadedReceipt;
+      }
+
+      const attachmentFiles = fileMap["attachments"];
+      if (attachmentFiles && attachmentFiles.length > 0) {
+        const uploadedAttachments = await Promise.all(
+          attachmentFiles.map((f) =>
+            this.uploadToCloud(f, `organizations/${organizationId}/payment-receipts/attachments`, "auto")
+          )
+        );
+        data.attachments = [...(data.attachments || (existing.attachments as any[]) || []), ...uploadedAttachments];
       }
     }
 
-    if (data.attachments !== undefined && existing.attachments) {
+    // Prune removed receipt if set to null
+    if (data.receiptUrl === null && existing.receiptUrl) {
+      await this.pruneCloudAsset(existing.receiptUrl);
+    } else if (
+      data.receiptUrl &&
+      existing.receiptUrl &&
+      (data.receiptUrl as any).id !== (existing.receiptUrl as any).id
+    ) {
+      await this.pruneCloudAsset(existing.receiptUrl);
+    }
+
+    // Prune removed attachments (Rule 4)
+    if (data.attachments !== undefined) {
       await this.pruneCloudAssetArray(existing.attachments, data.attachments);
     }
 
-    const updatedPayment = await prisma.$transaction(async (tx) => {
-      const updated = await projectPaymentRecordRepo.update(id, organizationId, data, tx as any);
+    return prisma.$transaction(async (tx) => {
+      const updated = await projectPaymentRecordRepo.update(id, organizationId, data, tx);
 
-      // If bill changed or amount/status changed, rebalance both old and new bills
-      if (existing.billId) {
-        await this.rebalanceBillInternal(existing.billId, organizationId, tx as any);
-      }
-      if (data.billId && data.billId !== existing.billId) {
-        await this.rebalanceBillInternal(data.billId, organizationId, tx as any);
+      // Rebalance linked bill if amount or status changed
+      if (
+        existing.billId &&
+        (data.amount !== undefined || data.status !== undefined) &&
+        (data.amount !== Number(existing.amount) || data.status !== existing.status)
+      ) {
+        const allPayments = await tx.projectPaymentRecord.findMany({
+          where: {
+            billId: existing.billId,
+            organizationId,
+            isDeleted: false,
+            status: ProjectPaymentRecordStatus.SUCCESS,
+          },
+        });
+
+        const totalPaid = allPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+        const bill = await tx.projectBill.findFirst({
+          where: { id: existing.billId },
+        });
+
+        if (bill) {
+          const grandTotal = Number(bill.grandTotal);
+          const newDue = Math.max(0, grandTotal - totalPaid);
+          let newStatus: ProjectBillStatus = bill.status;
+          if (newDue === 0) {
+            newStatus = ProjectBillStatus.PAID;
+          } else if (totalPaid > 0) {
+            newStatus = ProjectBillStatus.PARTIALLY_PAID;
+          } else {
+            newStatus = ProjectBillStatus.APPROVED;
+          }
+
+          await tx.projectBill.update({
+            where: { id: existing.billId },
+            data: {
+              paidAmount: new Prisma.Decimal(totalPaid),
+              dueAmount: new Prisma.Decimal(newDue),
+              status: newStatus,
+            },
+          });
+        }
       }
 
       return updated;
     });
-
-    return updatedPayment;
   }
 
   /**
-   * Delete Payment Record with media pruning and bill rebalancing
+   * Delete Payment Record, restore bill dues, and prune receipt voucher from cloud storage (Rule 4)
    */
   async deletePaymentRecord(id: string, organizationId: string) {
     const existing = await this.getPaymentRecordById(id, organizationId);
 
-    // Prune media
+    // Prune receipt vouchers per Rule 4
     if (existing.receiptUrl) {
       await this.pruneCloudAsset(existing.receiptUrl);
     }
@@ -542,140 +634,74 @@ export class ProjectBillingService {
       await this.pruneCloudAssetArray(existing.attachments, []);
     }
 
-    const deleted = await prisma.$transaction(async (tx) => {
-      const res = await projectPaymentRecordRepo.softDelete(id, organizationId, tx as any);
+    return prisma.$transaction(async (tx) => {
+      const deleted = await projectPaymentRecordRepo.softDelete(id, organizationId, tx);
 
-      if (existing.billId) {
-        await this.rebalanceBillInternal(existing.billId, organizationId, tx as any);
+      // If linked to a bill, restore dues
+      if (existing.billId && existing.status === ProjectPaymentRecordStatus.SUCCESS) {
+        const remainingPayments = await tx.projectPaymentRecord.findMany({
+          where: {
+            billId: existing.billId,
+            organizationId,
+            isDeleted: false,
+            id: { not: id },
+            status: ProjectPaymentRecordStatus.SUCCESS,
+          },
+        });
+
+        const totalPaid = remainingPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+        const bill = await tx.projectBill.findFirst({
+          where: { id: existing.billId },
+        });
+
+        if (bill) {
+          const grandTotal = Number(bill.grandTotal);
+          const newDue = Math.max(0, grandTotal - totalPaid);
+          let newStatus: ProjectBillStatus = bill.status;
+          if (newDue === 0) {
+            newStatus = ProjectBillStatus.PAID;
+          } else if (totalPaid > 0) {
+            newStatus = ProjectBillStatus.PARTIALLY_PAID;
+          } else {
+            newStatus = ProjectBillStatus.APPROVED;
+          }
+
+          await tx.projectBill.update({
+            where: { id: existing.billId },
+            data: {
+              paidAmount: new Prisma.Decimal(totalPaid),
+              dueAmount: new Prisma.Decimal(newDue),
+              status: newStatus,
+            },
+          });
+        }
       }
 
-      return res;
+      return deleted;
     });
-
-    return deleted;
   }
 
   // =========================================================================
-  // 3. COMMERCIAL SUMMARY ANALYTICS
+  // 3. COMMERCIAL SUMMARY & MARGIN ENGINE
   // =========================================================================
 
   /**
-   * Aggregated commercial insights for project
+   * Compute comprehensive project financial summary, margins, and commissions
    */
   async getCommercialSummary(
-    organizationId: string,
     projectId: string,
+    organizationId: string,
     query?: GetProjectCommercialSummaryQuery
   ) {
     const project = await prisma.project.findFirst({
       where: { id: projectId, organizationId, isDeleted: false },
-      include: {
-        commercial: true,
-      },
+      include: { commercial: true },
     });
-
     if (!project) {
       throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
     }
 
-    const whereBills: Prisma.ProjectBillWhereInput = {
-      organizationId,
-      projectId,
-      isDeleted: false,
-      ...(query?.stage && { stage: query.stage }),
-      ...(query?.startDate &&
-        query?.endDate && {
-          billDate: {
-            gte: new Date(query.startDate),
-            lte: new Date(query.endDate),
-          },
-        }),
-    };
-
-    const bills = await prisma.projectBill.findMany({
-      where: whereBills,
-      select: {
-        billType: true,
-        grandTotal: true,
-        paidAmount: true,
-        dueAmount: true,
-        commissionAmount: true,
-        commissionStatus: true,
-        status: true,
-      },
-    });
-
-    // Compute Category Breakdowns
-    const categories: Record<
-      ProjectBillType,
-      {
-        totalBilled: number;
-        totalPaid: number;
-        totalDue: number;
-        commissionTotal: number;
-        count: number;
-      }
-    > = {
-      MATERIAL: { totalBilled: 0, totalPaid: 0, totalDue: 0, commissionTotal: 0, count: 0 },
-      LABOUR: { totalBilled: 0, totalPaid: 0, totalDue: 0, commissionTotal: 0, count: 0 },
-      DESIGN: { totalBilled: 0, totalPaid: 0, totalDue: 0, commissionTotal: 0, count: 0 },
-      SUPERVISION: { totalBilled: 0, totalPaid: 0, totalDue: 0, commissionTotal: 0, count: 0 },
-    };
-
-    let grandTotalBilled = 0;
-    let grandTotalPaid = 0;
-    let grandTotalDue = 0;
-    let totalCommissionDue = 0;
-    let totalCommissionPaid = 0;
-
-    for (const bill of bills) {
-      const bTotal = Number(bill.grandTotal);
-      const bPaid = Number(bill.paidAmount);
-      const bDue = Number(bill.dueAmount);
-      const bComm = Number(bill.commissionAmount);
-
-      grandTotalBilled += bTotal;
-      grandTotalPaid += bPaid;
-      grandTotalDue += bDue;
-
-      if (bill.commissionStatus === "PAID") {
-        totalCommissionPaid += bComm;
-      } else if (bill.commissionStatus === "DUE") {
-        totalCommissionDue += bComm;
-      }
-
-      if (categories[bill.billType]) {
-        categories[bill.billType].totalBilled += bTotal;
-        categories[bill.billType].totalPaid += bPaid;
-        categories[bill.billType].totalDue += bDue;
-        categories[bill.billType].commissionTotal += bComm;
-        categories[bill.billType].count += 1;
-      }
-    }
-
-    const contractAmount = project.commercial?.contractAmount
-      ? Number(project.commercial.contractAmount)
-      : 0;
-
-    const grossMargin = contractAmount > 0 ? contractAmount - grandTotalBilled : 0;
-    const grossMarginPercent = contractAmount > 0 ? (grossMargin / contractAmount) * 100 : 0;
-
-    return {
-      projectId,
-      contractAmount,
-      grandTotalBilled,
-      grandTotalPaid,
-      grandTotalDue,
-      grossMargin,
-      grossMarginPercent: Number(grossMarginPercent.toFixed(2)),
-      commissionSummary: {
-        totalDue: totalCommissionDue,
-        totalPaid: totalCommissionPaid,
-        totalCommission: totalCommissionDue + totalCommissionPaid,
-      },
-      categories,
-      billsCount: bills.length,
-    };
+    return projectBillRepo.getProjectCommercialSummary(projectId, organizationId, query);
   }
 }
 

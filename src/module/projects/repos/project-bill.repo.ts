@@ -314,6 +314,112 @@ export class ProjectBillRepository {
   }
 
   /**
+   * Update status lifecycle transition of a bill
+   */
+  async updateStatus(
+    id: string,
+    organizationId: string,
+    status: Prisma.ProjectBillUncheckedUpdateInput["status"],
+    notes?: string,
+    tx?: Prisma.TransactionClient
+  ) {
+    const db = tx || prisma;
+    return db.projectBill.update({
+      where: { id, organizationId },
+      data: {
+        status,
+        ...(notes !== undefined && { notes }),
+      },
+      include: this.defaultIncludes,
+    });
+  }
+
+  /**
+   * Compute comprehensive project financial summary, margins, and commissions
+   */
+  async getProjectCommercialSummary(
+    projectId: string,
+    organizationId: string,
+    _query?: any,
+    tx?: Prisma.TransactionClient
+  ) {
+    const db = tx || prisma;
+
+    const [project, bills] = await Promise.all([
+      db.project.findFirst({
+        where: { id: projectId, organizationId, isDeleted: false },
+        include: { commercial: true },
+      }),
+      db.projectBill.findMany({
+        where: { projectId, organizationId, isDeleted: false },
+      }),
+    ]);
+
+    const contractAmount = Number(project?.commercial?.contractAmount || 0);
+
+    const categories: Record<string, { totalBilled: number; totalPaid: number; totalDue: number; commissionTotal: number; count: number }> = {
+      MATERIAL: { totalBilled: 0, totalPaid: 0, totalDue: 0, commissionTotal: 0, count: 0 },
+      LABOUR: { totalBilled: 0, totalPaid: 0, totalDue: 0, commissionTotal: 0, count: 0 },
+      DESIGN: { totalBilled: 0, totalPaid: 0, totalDue: 0, commissionTotal: 0, count: 0 },
+      SUPERVISION: { totalBilled: 0, totalPaid: 0, totalDue: 0, commissionTotal: 0, count: 0 },
+    };
+
+    let grandTotalBilled = 0;
+    let grandTotalPaid = 0;
+    let grandTotalDue = 0;
+    let commissionTotalDue = 0;
+    let commissionTotalPaid = 0;
+    let commissionTotal = 0;
+
+    for (const bill of bills) {
+      const bType = String(bill.billType);
+      const bTotal = Number(bill.grandTotal);
+      const bPaid = Number(bill.paidAmount);
+      const bDue = Number(bill.dueAmount);
+      const commAmount = Number(bill.commissionAmount);
+
+      grandTotalBilled += bTotal;
+      grandTotalPaid += bPaid;
+      grandTotalDue += bDue;
+      commissionTotal += commAmount;
+
+      if (bill.commissionStatus === "PAID") {
+        commissionTotalPaid += commAmount;
+      } else {
+        commissionTotalDue += commAmount;
+      }
+
+      if (categories[bType]) {
+        categories[bType].totalBilled += bTotal;
+        categories[bType].totalPaid += bPaid;
+        categories[bType].totalDue += bDue;
+        categories[bType].commissionTotal += commAmount;
+        categories[bType].count += 1;
+      }
+    }
+
+    const grossMargin = contractAmount > 0 ? contractAmount - grandTotalBilled : 0;
+    const grossMarginPercent = contractAmount > 0 ? Math.round((grossMargin / contractAmount) * 10000) / 100 : 0;
+
+    return {
+      projectId,
+      contractAmount,
+      grandTotalBilled,
+      grandTotalPaid,
+      grandTotalDue,
+      grossMargin,
+      grossMarginPercent,
+      commissionSummary: {
+        totalDue: commissionTotalDue,
+        totalPaid: commissionTotalPaid,
+        totalCommission: commissionTotal,
+      },
+      categories,
+      billsCount: bills.length,
+    };
+  }
+
+  /**
    * Soft delete Project Bill
    */
   async softDelete(id: string, organizationId: string, tx?: Prisma.TransactionClient) {
@@ -329,3 +435,4 @@ export class ProjectBillRepository {
 }
 
 export const projectBillRepo = new ProjectBillRepository();
+
