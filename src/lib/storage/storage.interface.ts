@@ -39,6 +39,17 @@ export interface UploadResult {
 }
 
 /**
+ * Standardized presigned upload response for direct client-to-cloud transfers.
+ */
+export interface PresignedUrlResult {
+  uploadUrl: string;
+  key: string;
+  publicUrl: string;
+  provider: StorageProviderType;
+  expiresInSeconds: number;
+}
+
+/**
  * Universal Storage Provider contract.
  * Any cloud provider (Cloudinary, AWS S3, Azure Blob, Google Cloud Storage)
  * must implement this contract.
@@ -60,4 +71,14 @@ export interface IStorageProvider {
    * Resolve an asset's public URL from its identifier.
    */
   getUrl(publicId: string): string;
+
+  /**
+   * Generate a presigned PUT URL for direct client-to-cloud upload (optional per provider).
+   */
+  getPresignedPutUrl?(
+    key: string,
+    contentType: string,
+    expiresInSeconds?: number
+  ): Promise<PresignedUrlResult>;
 }
+

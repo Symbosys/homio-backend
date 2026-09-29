@@ -1,19 +1,15 @@
 import { z } from "zod";
-import { imageTypeSchema } from "./project.validator.js";
+import {
+  ProgressVisibility,
+  ProgressApprovalStatus,
+} from "../../../types/types.js";
 
 // ==========================================
-// PROGRESS ENUMS VALIDATORS
+// PROGRESS ENUMS VALIDATORS (Rule 22: z.nativeEnum)
 // ==========================================
 
-export const ProgressVisibilityEnum = z.enum(["INTERNAL", "CLIENT_VISIBLE"]);
-
-export const ProgressApprovalStatusEnum = z.enum([
-  "DRAFT",
-  "SUBMITTED",
-  "APPROVED",
-  "REJECTED",
-  "REVISION_REQUESTED",
-]);
+export const ProgressVisibilityEnum = z.nativeEnum(ProgressVisibility);
+export const ProgressApprovalStatusEnum = z.nativeEnum(ProgressApprovalStatus);
 
 // ==========================================
 // PARAMS & MAIN SCHEMAS
@@ -47,15 +43,14 @@ export const createProgressSchema = z.object({
     progressDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
       message: "Invalid progressDate format",
     }),
-    progressPercent: z.number().min(0).max(100).default(0).optional(),
+    progressPercent: z.coerce.number().min(0).max(100).default(0).optional(),
     description: z.string().max(5000).optional().nullable(),
     workCompleted: z.string().max(5000).optional().nullable(),
     workPending: z.string().max(5000).optional().nullable(),
     issues: z.string().max(5000).optional().nullable(),
     nextAction: z.string().max(5000).optional().nullable(),
-    media: z.array(imageTypeSchema).default([]).optional().nullable(),
-    visibility: ProgressVisibilityEnum.default("INTERNAL").optional(),
-    approvalStatus: ProgressApprovalStatusEnum.default("SUBMITTED").optional(),
+    visibility: ProgressVisibilityEnum.default(ProgressVisibility.INTERNAL).optional(),
+    approvalStatus: ProgressApprovalStatusEnum.default(ProgressApprovalStatus.SUBMITTED).optional(),
     submittedById: z
       .string()
       .uuid("Invalid submittedById format")
@@ -83,13 +78,12 @@ export const updateProgressSchema = z.object({
         message: "Invalid progressDate format",
       })
       .optional(),
-    progressPercent: z.number().min(0).max(100).optional(),
+    progressPercent: z.coerce.number().min(0).max(100).optional(),
     description: z.string().max(5000).optional().nullable(),
     workCompleted: z.string().max(5000).optional().nullable(),
     workPending: z.string().max(5000).optional().nullable(),
     issues: z.string().max(5000).optional().nullable(),
     nextAction: z.string().max(5000).optional().nullable(),
-    media: z.array(imageTypeSchema).optional().nullable(),
     visibility: ProgressVisibilityEnum.optional(),
     submittedById: z
       .string()

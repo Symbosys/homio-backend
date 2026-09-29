@@ -8,11 +8,16 @@ import {
   reviewProgress,
   deleteProgress,
 } from "../controllers/progress.controller.js";
+import { progressMediaRouter } from "./progress-media.routes.js";
 
 const progressRoutes = Router({ mergeParams: true });
 
 // Protect all site progress routes
 progressRoutes.use(authenticate, authorize("PLATFORM_ADMIN", "ADMIN", "USER"));
+
+// Sub-routes for Progress Media Attachments (Photos, Videos, 360 Panoramas)
+progressRoutes.use("/:progressId/media", progressMediaRouter);
+progressRoutes.use("/media", progressMediaRouter);
 
 /**
  * @route   POST /api/v1/projects/:projectId/progress

@@ -432,6 +432,7 @@ model Project {
   payments                  ProjectPayment[]           @relation("ProjectPayments")
   bills                     ProjectBill[]              @relation("ProjectBills")
   paymentRecords            ProjectPaymentRecord[]     @relation("ProjectPaymentRecords")
+  progressMedia             ProjectProgressMedia[]     @relation("ProjectProgressMedia")
   tasks                     Task[]                     @relation("ProjectTasks")
 
   @@unique([organizationId, projectCode])
@@ -822,8 +823,8 @@ model ProjectProgress {
   issues        String? @map("issues") @db.Text
   nextAction    String? @map("next_action") @db.Text
 
-  // Cloud Media Attachments (Photos, Videos, Inspections: Array of ImageType JSON)
-  media Json? @map("media")
+  // Site Progress Media Attachments (Dedicated Relational Model for Images & Videos)
+  media ProjectProgressMedia[] @relation("ProgressMediaItems")
 
   // Visibility & Verification Workflow
   visibility     ProgressVisibility     @default(INTERNAL) @map("visibility")
@@ -851,6 +852,99 @@ model ProjectProgress {
   @@index([visibility])
   @@index([isDeleted, deletedAt])
   @@map("project_progress")
+}
+
+// ==========================================
+// 9.1. PROJECT PROGRESS MEDIA (Photos, Videos, Inspections)
+// ==========================================
+
+enum StorageProviderType {
+  AWS_S3
+  CLOUDINARY
+  AZURE_BLOB
+  LOCAL
+}
+
+enum ProgressMediaType {
+  IMAGE
+  VIDEO
+  PANORAMA_360
+  DRONE_SHOT
+  DOCUMENT
+  AUDIO_NOTE
+}
+
+enum ProgressMediaUploadStatus {
+  PENDING
+  UPLOADING
+  COMPLETED
+  FAILED
+}
+
+model ProjectProgressMedia {
+  id String @id @default(uuid()) @db.Uuid
+
+  // Multi-Tenant Isolation (Rule 1 & Rule 2)
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationProgressMedia", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Direct Project & Site Progress Linkage
+  projectId String          @map("project_id") @db.Uuid
+  project   Project         @relation("ProjectProgressMedia", fields: [projectId], references: [id], onDelete: Cascade)
+
+  progressId String          @map("progress_id") @db.Uuid
+  progress   ProjectProgress @relation("ProgressMediaItems", fields: [progressId], references: [id], onDelete: Cascade)
+
+  // Media Classification & Details
+  mediaType   ProgressMediaType @default(IMAGE) @map("media_type")
+  title       String?           @map("title")
+  description String?           @map("description") @db.Text
+
+  // Cloud URLs & Storage Keys (Rule 4: Automatic Media Lifecycle & Cleanup)
+  url             String              @map("url") @db.Text
+  thumbnailUrl    String?             @map("thumbnail_url") @db.Text
+  storageKey      String              @map("storage_key")
+  storageProvider StorageProviderType @default(AWS_S3) @map("storage_provider")
+
+  // Technical File Specifications
+  mimeType        String   @map("mime_type")
+  fileSizeBytes   BigInt?  @map("file_size_bytes")
+  durationSeconds Float?   @map("duration_seconds")
+  width           Int?     @map("width")
+  height          Int?     @map("height")
+
+  // Site Geotagging & Metadata
+  takenAt      DateTime? @map("taken_at")
+  geoLatitude  Float?    @map("geo_latitude")
+  geoLongitude Float?    @map("geo_longitude")
+  tags         String[]  @default([]) @map("tags")
+  isCover      Boolean   @default(false) @map("is_cover")
+  orderIndex   Int       @default(0) @map("order_index")
+
+  // Upload Lifecycle Status
+  uploadStatus ProgressMediaUploadStatus @default(COMPLETED) @map("upload_status")
+
+  // Uploader Attribution (Rule 11)
+  uploadedById String?   @map("uploaded_by_id") @db.Uuid
+  uploadedBy   Employee? @relation("EmployeeUploadedProgressMedia", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  // Universal Dynamic Custom Fields (Rule 18)
+  additionalInformation Json? @map("additional_information")
+
+  // Soft Delete & Timestamps
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([progressId])
+  @@index([mediaType])
+  @@index([uploadStatus])
+  @@index([uploadedById])
+  @@index([isDeleted, deletedAt])
+  @@map("project_progress_media")
 }
 
 // ==========================================

@@ -1,3 +1,9 @@
+// Global BigInt JSON serialization support for Express JSON transport
+(BigInt.prototype as any).toJSON = function () {
+  const intVal = Number(this);
+  return Number.isSafeInteger(intVal) ? intVal : this.toString();
+};
+
 import express from "express";
 import cors from "cors";
 import { ENV } from "./config/env.js";

@@ -1,6 +1,7 @@
 import { prisma } from "../../../lib/prisma.js";
 import { ErrorResponse } from "../../../utils/response.util.js";
 import { statusCode } from "../../../types/types.js";
+import { storageService } from "../../../lib/storage/storage.service.js";
 import { progressRepo } from "../repos/progress.repo.js";
 import type {
   CreateProgressInput,
@@ -278,7 +279,7 @@ export class ProgressService {
   }
 
   /**
-   * Soft delete progress log
+   * Soft delete progress log and prune all associated media assets from cloud storage (Rule 4)
    */
   async deleteProgress(id: string, projectId: string, organizationId: string) {
     const project = await prisma.project.findFirst({
@@ -299,6 +300,23 @@ export class ProgressService {
     if (!existing) {
       throw new ErrorResponse("Progress entry not found", statusCode.Not_Found);
     }
+
+    // Prune all associated cloud assets (Rule 4)
+    if (Array.isArray(existing.media) && existing.media.length > 0) {
+      await Promise.all(
+        existing.media.map(async (m: any) => {
+          if (m.storageKey) {
+            await storageService.delete(m.storageKey).catch(() => {});
+          }
+        })
+      );
+    }
+
+    // Soft delete associated media records
+    await prisma.projectProgressMedia.updateMany({
+      where: { progressId: id, organizationId, isDeleted: false },
+      data: { isDeleted: true, deletedAt: new Date() },
+    });
 
     return progressRepo.softDelete(id, projectId);
   }

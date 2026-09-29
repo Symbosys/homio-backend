@@ -1,6 +1,8 @@
 import { StorageFactory } from "./storage.factory.js";
+import { AwsS3StorageProvider } from "./providers/s3.provider.js";
 import type {
   IStorageProvider,
+  PresignedUrlResult,
   StorageFile,
   UploadOptions,
   UploadResult,
@@ -35,6 +37,21 @@ export class StorageService {
   }
 
   /**
+   * Generate S3 presigned PUT URL for direct client-to-cloud streaming
+   */
+  async getPresignedPutUrl(
+    key: string,
+    contentType: string,
+    expiresInSeconds: number = 900
+  ): Promise<PresignedUrlResult> {
+    if (this.provider.getPresignedPutUrl) {
+      return this.provider.getPresignedPutUrl(key, contentType, expiresInSeconds);
+    }
+    const s3 = new AwsS3StorageProvider();
+    return s3.getPresignedPutUrl(key, contentType, expiresInSeconds);
+  }
+
+  /**
    * Get the name of the currently active storage provider.
    */
   get activeProviderName(): string {
@@ -43,3 +60,4 @@ export class StorageService {
 }
 
 export const storageService = new StorageService();
+

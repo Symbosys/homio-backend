@@ -98,6 +98,7 @@ model Organization {
   projectPayments         ProjectPayment[]         @relation("OrganizationProjectPayments")
   projectBills            ProjectBill[]            @relation("OrganizationProjectBills")
   projectPaymentRecords   ProjectPaymentRecord[]   @relation("OrganizationProjectPaymentRecords")
+  progressMedia           ProjectProgressMedia[]   @relation("OrganizationProgressMedia")
   quotationItemMasters       QuotationItemMaster[]        @relation("OrganizationQuotationItemMasters")
   quotationRateCards         QuotationRateCard[]          @relation("OrganizationQuotationRateCards")
   quotationTermsTemplates    QuotationTermsTemplate[]     @relation("OrganizationQuotationTermsTemplates")

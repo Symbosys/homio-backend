@@ -373,6 +373,7 @@ model Employee {
   createdProjectBills         ProjectBill[]               @relation("EmployeeCreatedProjectBills")
   approvedProjectBills        ProjectBill[]               @relation("EmployeeApprovedProjectBills")
   recordedProjectPaymentRecords ProjectPaymentRecord[]    @relation("EmployeeRecordedProjectPayments")
+  uploadedProgressMedia       ProjectProgressMedia[]      @relation("EmployeeUploadedProgressMedia")
 
   @@unique([organizationId, employeeCode])
   @@index([organizationId])

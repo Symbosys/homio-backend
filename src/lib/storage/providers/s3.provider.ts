@@ -3,9 +3,12 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
+import { Upload } from "@aws-sdk/lib-storage";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { ENV } from "../../../config/env.js";
 import type {
   IStorageProvider,
+  PresignedUrlResult,
   StorageFile,
   StorageProviderType,
   UploadOptions,
@@ -55,14 +58,21 @@ export class AwsS3StorageProvider implements IStorageProvider {
 
     const key = `${options?.folder ? `${options.folder}/` : ""}${options?.publicId || `${Date.now()}-${file.originalname}`}`;
 
-    const command = new PutObjectCommand({
-      Bucket: this.bucket,
-      Key: key,
-      Body: file.buffer,
-      ContentType: file.mimetype,
+    // High-performance concurrent multi-part stream to AWS S3 (6 parallel streams, 5MB chunks)
+    const parallelUpload = new Upload({
+      client: this.client,
+      params: {
+        Bucket: this.bucket,
+        Key: key,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+      },
+      queueSize: 6,
+      partSize: 5 * 1024 * 1024,
+      leavePartsOnError: false,
     });
 
-    await this.client.send(command);
+    await parallelUpload.done();
 
     const url = `https://${this.bucket}.s3.${this.region}.amazonaws.com/${key}`;
 
@@ -96,5 +106,39 @@ export class AwsS3StorageProvider implements IStorageProvider {
 
   getUrl(publicId: string): string {
     return `https://${this.bucket}.s3.${this.region}.amazonaws.com/${publicId}`;
+  }
+
+  /**
+   * Generate S3 Presigned PUT URL for direct client-to-cloud uploads (video & large media files)
+   */
+  async getPresignedPutUrl(
+    key: string,
+    contentType: string,
+    expiresInSeconds: number = 900
+  ): Promise<PresignedUrlResult> {
+    if (!this.bucket || !this.client) {
+      throw new Error(
+        "AWS S3 credentials not configured. Please define AWS_S3_BUCKET, AWS_REGION, AWS_ACCESS_KEY_ID, and AWS_SECRET_ACCESS_KEY."
+      );
+    }
+
+    const command = new PutObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+    });
+
+    const uploadUrl = await getSignedUrl(this.client as any, command as any, {
+      expiresIn: expiresInSeconds,
+    });
+
+    const publicUrl = `https://${this.bucket}.s3.${this.region}.amazonaws.com/${key}`;
+
+    return {
+      uploadUrl,
+      key,
+      publicUrl,
+      provider: "AWS_S3",
+      expiresInSeconds,
+    };
   }
 }

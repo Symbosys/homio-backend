@@ -7,6 +7,69 @@ import type {
 } from "../validators/progress.validator.js";
 
 export class ProgressRepository {
+  private readonly defaultIncludes: Prisma.ProjectProgressInclude = {
+    submittedBy: {
+      select: {
+        id: true,
+        employeeCode: true,
+        firstName: true,
+        lastName: true,
+        displayName: true,
+        avatarUrl: true,
+        designation: true,
+        workEmail: true,
+        workPhone: true,
+      },
+    },
+    approvedBy: {
+      select: {
+        id: true,
+        employeeCode: true,
+        firstName: true,
+        lastName: true,
+        displayName: true,
+      },
+    },
+    milestone: {
+      select: {
+        id: true,
+        milestoneCode: true,
+        name: true,
+        stage: true,
+        status: true,
+      },
+    },
+    media: {
+      where: { isDeleted: false, uploadStatus: "COMPLETED" },
+      orderBy: { orderIndex: "asc" },
+      include: {
+        uploadedBy: {
+          select: {
+            id: true,
+            employeeCode: true,
+            firstName: true,
+            lastName: true,
+            displayName: true,
+          },
+        },
+      },
+    },
+  };
+
+  /**
+   * Helper to serialize BigInt fileSizeBytes on media items
+   */
+  private serializeEntry(entry: any) {
+    if (!entry) return null;
+    if (Array.isArray(entry.media)) {
+      entry.media = entry.media.map((m: any) => ({
+        ...m,
+        fileSizeBytes: m.fileSizeBytes ? Number(m.fileSizeBytes) : null,
+      }));
+    }
+    return entry;
+  }
+
   /**
    * Create a new site progress field log
    */
@@ -16,39 +79,18 @@ export class ProgressRepository {
     tx?: Prisma.TransactionClient,
   ) {
     const db = tx || prisma;
-    const { progressDate, media, ...directFields } = data;
+    const { progressDate, ...directFields } = data;
 
-    return db.projectProgress.create({
+    const created = await db.projectProgress.create({
       data: {
         ...directFields,
         projectId,
         progressDate: new Date(progressDate),
-        media: media
-          ? (media as unknown as Prisma.InputJsonValue)
-          : Prisma.JsonNull,
       },
-      include: {
-        submittedBy: {
-          select: {
-            id: true,
-            employeeCode: true,
-            firstName: true,
-            lastName: true,
-            displayName: true,
-            avatarUrl: true,
-            designation: true,
-          },
-        },
-        milestone: {
-          select: {
-            id: true,
-            milestoneCode: true,
-            name: true,
-            stage: true,
-          },
-        },
-      },
+      include: this.defaultIncludes,
     });
+
+    return this.serializeEntry(created);
   }
 
   /**
@@ -107,43 +149,14 @@ export class ProgressRepository {
         skip,
         take: limit,
         orderBy: { [sortBy]: sortOrder },
-        include: {
-          submittedBy: {
-            select: {
-              id: true,
-              employeeCode: true,
-              firstName: true,
-              lastName: true,
-              displayName: true,
-              avatarUrl: true,
-              designation: true,
-            },
-          },
-          approvedBy: {
-            select: {
-              id: true,
-              employeeCode: true,
-              firstName: true,
-              lastName: true,
-              displayName: true,
-            },
-          },
-          milestone: {
-            select: {
-              id: true,
-              milestoneCode: true,
-              name: true,
-              stage: true,
-            },
-          },
-        },
+        include: this.defaultIncludes,
       }),
     ]);
 
     const totalPages = Math.ceil(total / limit) || 1;
 
     return {
-      data: entries,
+      data: entries.map((entry) => this.serializeEntry(entry)),
       pagination: {
         total,
         page,
@@ -160,46 +173,16 @@ export class ProgressRepository {
    */
   async findById(id: string, projectId: string, tx?: Prisma.TransactionClient) {
     const db = tx || prisma;
-    return db.projectProgress.findFirst({
+    const entry = await db.projectProgress.findFirst({
       where: {
         id,
         projectId,
         isDeleted: false,
       },
-      include: {
-        submittedBy: {
-          select: {
-            id: true,
-            employeeCode: true,
-            firstName: true,
-            lastName: true,
-            displayName: true,
-            avatarUrl: true,
-            designation: true,
-            workEmail: true,
-            workPhone: true,
-          },
-        },
-        approvedBy: {
-          select: {
-            id: true,
-            employeeCode: true,
-            firstName: true,
-            lastName: true,
-            displayName: true,
-          },
-        },
-        milestone: {
-          select: {
-            id: true,
-            milestoneCode: true,
-            name: true,
-            stage: true,
-            status: true,
-          },
-        },
-      },
+      include: this.defaultIncludes,
     });
+
+    return this.serializeEntry(entry);
   }
 
   /**
@@ -212,7 +195,7 @@ export class ProgressRepository {
     tx?: Prisma.TransactionClient,
   ) {
     const db = tx || prisma;
-    const { progressDate, media, ...directFields } = data;
+    const { progressDate, ...directFields } = data;
 
     const updateData: Prisma.ProjectProgressUpdateInput = {
       ...directFields,
@@ -222,37 +205,17 @@ export class ProgressRepository {
     if (progressDate) {
       updateData.progressDate = new Date(progressDate);
     }
-    if (media !== undefined) {
-      updateData.media = media
-        ? (media as unknown as Prisma.InputJsonValue)
-        : Prisma.JsonNull;
-    }
 
-    return db.projectProgress.update({
+    const updated = await db.projectProgress.update({
       where: {
         id,
         projectId,
       },
       data: updateData,
-      include: {
-        submittedBy: {
-          select: {
-            id: true,
-            employeeCode: true,
-            firstName: true,
-            lastName: true,
-            displayName: true,
-          },
-        },
-        milestone: {
-          select: {
-            id: true,
-            milestoneCode: true,
-            name: true,
-          },
-        },
-      },
+      include: this.defaultIncludes,
     });
+
+    return this.serializeEntry(updated);
   }
 
   /**

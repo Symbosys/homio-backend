@@ -25,6 +25,7 @@ import {
   projectPaymentRecordRouter,
   projectCommercialSummaryRouter,
 } from "./project-billing.routes.js";
+import { progressMediaRouter } from "./progress-media.routes.js";
 
 const projectRoutes = Router();
 
@@ -44,6 +45,7 @@ projectRoutes.use("/complaints", orgComplaintRoutes);
 // Sub-routes for Milestones, Progress, Approvals, Complaints, Site Visits, Expenses, Payments, Designs, Handovers & Timelines per Project
 projectRoutes.use("/:projectId/milestones", milestoneRoutes);
 projectRoutes.use("/:projectId/progress", progressRoutes);
+projectRoutes.use("/:projectId/progress-media", progressMediaRouter);
 projectRoutes.use("/:projectId/approvals", approvalRoutes);
 projectRoutes.use("/:projectId/complaints", complaintRoutes);
 projectRoutes.use("/:projectId/site-visits", siteVisitRoutes);
