@@ -370,6 +370,9 @@ model Employee {
   supervisedProjectServices   ProjectService[]            @relation("ProjectServiceSupervisors")
   timelineEvents              ProjectTimeline[]           @relation("EmployeeProjectTimelineEvents")
   recordedProjectPayments     ProjectPayment[]            @relation("PaymentRecordedBy")
+  createdProjectBills         ProjectBill[]               @relation("EmployeeCreatedProjectBills")
+  approvedProjectBills        ProjectBill[]               @relation("EmployeeApprovedProjectBills")
+  recordedProjectPaymentRecords ProjectPaymentRecord[]    @relation("EmployeeRecordedProjectPayments")
 
   @@unique([organizationId, employeeCode])
   @@index([organizationId])

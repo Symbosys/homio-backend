@@ -47,12 +47,17 @@ const RoomAreaTypeMapping: Record<string, QuotationRoomAreaType> = {
 
 const QuotationRoomAreaTypeSchema = z.preprocess((val) => {
   if (typeof val === "string") {
-    if (RoomAreaTypeMapping[val]) {
-      return RoomAreaTypeMapping[val];
+    const trimmed = val.trim();
+    if (RoomAreaTypeMapping[trimmed]) {
+      return RoomAreaTypeMapping[trimmed];
     }
-    const upper = val.toUpperCase().replace(/[-\s]+/g, "_");
-    if (Object.values(QuotationRoomAreaType).includes(upper as any)) {
-      return upper;
+    const normalized = trimmed
+      .replace(/([a-z])([A-Z])/g, "$1_$2")
+      .toUpperCase()
+      .replace(/[-\s]+/g, "_");
+
+    if (Object.values(QuotationRoomAreaType).includes(normalized as any)) {
+      return normalized;
     }
   }
   return val;
@@ -63,9 +68,14 @@ const QuotationRoomAreaTypeSchema = z.preprocess((val) => {
  */
 const QuotationItemCategorySchema = z.preprocess((val) => {
   if (typeof val === "string") {
-    const upper = val.toUpperCase().replace(/[-\s]+/g, "_");
-    if (Object.values(QuotationItemCategory).includes(upper as any)) {
-      return upper;
+    const trimmed = val.trim();
+    const normalized = trimmed
+      .replace(/([a-z])([A-Z])/g, "$1_$2")
+      .toUpperCase()
+      .replace(/[-\s]+/g, "_");
+
+    if (Object.values(QuotationItemCategory).includes(normalized as any)) {
+      return normalized;
     }
   }
   return val;
@@ -81,14 +91,14 @@ export const CreateQuotationItemInputSchema = z.object({
   category: QuotationItemCategorySchema,
   materialSpecs: z.string().min(1, "Material specifications are required"),
   uom: z.string().max(50).default("sqft"),
-  length: z.number().positive().optional().nullable(),
-  height: z.number().positive().optional().nullable(),
-  depth: z.number().positive().optional().nullable(),
-  quantity: z.number().positive("Quantity must be greater than zero").default(1),
-  rate: z.number().nonnegative("Rate must be non-negative").default(0),
-  marginPercent: z.number().default(25),
-  amount: z.number().nonnegative("Amount must be non-negative").default(0),
-  sortOrder: z.number().int().default(0),
+  length: z.coerce.number().positive().optional().nullable(),
+  height: z.coerce.number().positive().optional().nullable(),
+  depth: z.coerce.number().positive().optional().nullable(),
+  quantity: z.coerce.number().positive("Quantity must be greater than zero").default(1),
+  rate: z.coerce.number().nonnegative("Rate must be non-negative").default(0),
+  marginPercent: z.coerce.number().default(25),
+  amount: z.coerce.number().nonnegative("Amount must be non-negative").default(0),
+  sortOrder: z.coerce.number().int().default(0),
   additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
 });
 
@@ -98,8 +108,8 @@ export const CreateQuotationItemInputSchema = z.object({
 export const CreateQuotationRoomInputSchema = z.object({
   roomName: z.string().min(1, "Room name is required").max(150),
   areaType: QuotationRoomAreaTypeSchema,
-  carpetAreaSqft: z.number().nonnegative().default(0).optional().nullable(),
-  sortOrder: z.number().int().default(0),
+  carpetAreaSqft: z.coerce.number().nonnegative().default(0).optional().nullable(),
+  sortOrder: z.coerce.number().int().default(0),
   additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
   items: z.array(CreateQuotationItemInputSchema).default([]),
 });
@@ -109,12 +119,12 @@ export const CreateQuotationRoomInputSchema = z.object({
  */
 export const CreateQuotationPaymentMilestoneInputSchema = z.object({
   stageName: z.string().min(1, "Stage name is required").max(150),
-  percentage: z.number().min(0).max(100, "Percentage must be between 0 and 100"),
-  amount: z.number().nonnegative("Milestone amount must be non-negative"),
+  percentage: z.coerce.number().min(0).max(100, "Percentage must be between 0 and 100"),
+  amount: z.coerce.number().nonnegative("Milestone amount must be non-negative"),
   triggerEvent: z.string().min(1, "Trigger event description is required").max(255),
   expectedDate: z.string().datetime().optional().nullable(),
   isCompleted: z.boolean().default(false),
-  sortOrder: z.number().int().default(0),
+  sortOrder: z.coerce.number().int().default(0),
   additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
 });
 

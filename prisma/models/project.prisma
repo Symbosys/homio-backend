@@ -430,6 +430,8 @@ model Project {
   labourBookings            LabourBooking[]            @relation("ProjectLabourBookings")
   timelines                 ProjectTimeline[]          @relation("ProjectTimelines")
   payments                  ProjectPayment[]           @relation("ProjectPayments")
+  bills                     ProjectBill[]              @relation("ProjectBills")
+  paymentRecords            ProjectPaymentRecord[]     @relation("ProjectPaymentRecords")
   tasks                     Task[]                     @relation("ProjectTasks")
 
   @@unique([organizationId, projectCode])

@@ -1,0 +1,190 @@
+// ============================================================================
+// HOMIO CRM - PROJECT BILLING & PAYMENTS SCHEMA
+// Multi-Tenant B2B SaaS Standards
+// Supports Material, Labour, Design & Supervision Bills with Linked Payment Records
+// ============================================================================
+
+// ==========================================
+// 1. BILLING & PAYMENT ENUMS
+// ==========================================
+
+enum ProjectBillType {
+  MATERIAL    // Vendor raw/finished material supplies (Tiles, Timber, Paint, Fixtures)
+  LABOUR      // Site contractor, carpenter, mason, electrician workforce bills
+  DESIGN      // Architectural, interior design, 2D/3D visualizer fee
+  SUPERVISION // Project manager, site engineer, PMC supervision fee
+}
+
+enum ProjectBillStatus {
+  DRAFT          // Bill being created / drafted by site team
+  SUBMITTED      // Submitted for verification & commercial audit
+  APPROVED       // Commercial approved for payment disbursement
+  PARTIALLY_PAID // Partial installment paid against bill balance
+  PAID           // Fully settled and cleared
+  OVERDUE        // Payment due date passed with pending balance
+  CANCELLED      // Disputed / voided bill
+}
+
+enum BillCommissionStatus {
+  NOT_APPLICABLE // No commission associated
+  DUE            // Commission earned by organization, pending collection
+  PAID           // Commission received & reconciled
+  WAIVED         // Waived / discounted by management
+}
+
+enum ProjectPaymentRecordStatus {
+  PENDING   // Payment initiated / cheque in clearing
+  SUCCESS   // Payment successfully processed and reconciled
+  FAILED    // Transaction failed / cheque bounced
+  CANCELLED // Transaction voided by administrator
+}
+
+// ==========================================
+// 2. PROJECT BILL MODEL (Liability & Cost Invoices)
+// ==========================================
+
+model ProjectBill {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationProjectBills", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Mandatory Project Association
+  projectId String  @map("project_id") @db.Uuid
+  project   Project @relation("ProjectBills", fields: [projectId], references: [id], onDelete: Cascade)
+
+  // Bill Core Classification & Numbering
+  billNumber String          @map("bill_number") @db.VarChar(100) // e.g. "BIL-PRJ-202609-0001"
+  title      String          @map("title") @db.VarChar(255) // e.g. "CenturyPly 18mm BWP Plywood - 40 Sheets"
+  billType   ProjectBillType @map("bill_type")
+  stage      ProjectStage    @default(EXECUTION) @map("stage")
+
+  // Entity Linkages (Conditional based on billType)
+  vendorId         String? @map("vendor_id") @db.Uuid // Mandatory for MATERIAL bills
+  vendor           Vendor? @relation("VendorProjectBills", fields: [vendorId], references: [id], onDelete: SetNull)
+  materialCategory String? @map("material_category") @db.VarChar(100) // e.g. "Plywood", "Hardware", "Sanitary"
+
+  labourId    String? @map("labour_id") @db.Uuid // Mandatory for LABOUR bills
+  labour      Labour? @relation("LabourProjectBills", fields: [labourId], references: [id], onDelete: SetNull)
+  labourTrade String? @map("labour_trade") @db.VarChar(100) // e.g. "Carpentry", "Masonry", "Electrical"
+
+  // Financial Amounts (Strict Decimal Precision)
+  totalAmount Decimal @default(0.00) @map("total_amount") @db.Decimal(14, 2) // Base taxable/net amount
+  taxPercent  Decimal @default(0.00) @map("tax_percent") @db.Decimal(5, 2) // e.g. 18.00%
+  taxAmount   Decimal @default(0.00) @map("tax_amount") @db.Decimal(14, 2) // Tax value
+  grandTotal  Decimal @default(0.00) @map("grand_total") @db.Decimal(14, 2) // Total payable bill amount
+
+  // Denormalized Running Payment Aggregates
+  paidAmount Decimal           @default(0.00) @map("paid_amount") @db.Decimal(14, 2) // Sum of successful payments
+  dueAmount  Decimal           @default(0.00) @map("due_amount") @db.Decimal(14, 2) // grandTotal - paidAmount
+  status     ProjectBillStatus @default(DRAFT) @map("status")
+
+  // Commission Tracking (Vendor partner or contractor referral commission)
+  commissionStatus   BillCommissionStatus @default(DUE) @map("commission_status")
+  commissionRate     Decimal              @default(0.00) @map("commission_rate") @db.Decimal(5, 2) // %
+  commissionAmount   Decimal              @default(0.00) @map("commission_amount") @db.Decimal(14, 2) // Exact ₹ amount
+  commissionPaidDate DateTime?            @map("commission_paid_date") @db.Date
+
+  // Dates & Lifecycles
+  billDate DateTime  @map("bill_date") @db.Date // Invoice issue date
+  dueDate  DateTime? @map("due_date") @db.Date // Payment credit deadline
+
+  // Cloud Attachments (Structured ImageType JSON)
+  billDocumentUrl Json? @map("bill_document_url") // Scanned bill copy (ImageType JSON)
+  attachments     Json? @map("attachments") // Delivery challans, measurement sheets (ImageType JSON array)
+
+  // Personnel Attribution (Employee)
+  createdById  String?   @map("created_by_id") @db.Uuid
+  createdBy    Employee? @relation("EmployeeCreatedProjectBills", fields: [createdById], references: [id], onDelete: SetNull)
+  approvedById String?   @map("approved_by_id") @db.Uuid
+  approvedBy   Employee? @relation("EmployeeApprovedProjectBills", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  // Custom Notes & Universal Additional Information (Rule 18)
+  notes                 String? @map("notes") @db.Text
+  additionalInformation Json?   @map("additional_information")
+
+  // Soft Delete & Timestamps
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  // Child Payment Allocations
+  paymentRecords ProjectPaymentRecord[] @relation("BillPaymentRecords")
+
+  @@unique([organizationId, billNumber])
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([vendorId])
+  @@index([labourId])
+  @@index([billType])
+  @@index([stage])
+  @@index([status])
+  @@index([commissionStatus])
+  @@index([billDate, dueDate])
+  @@index([isDeleted, deletedAt])
+  @@map("project_bills")
+}
+
+// ==========================================
+// 3. PROJECT PAYMENT RECORD MODEL (Disbursements & Receipts)
+// ==========================================
+
+model ProjectPaymentRecord {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationProjectPaymentRecords", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Mandatory Project Association
+  projectId String  @map("project_id") @db.Uuid
+  project   Project @relation("ProjectPaymentRecords", fields: [projectId], references: [id], onDelete: Cascade)
+
+  // Optional Direct Bill Linkage (For tracking payment against a bill)
+  billId String?      @map("bill_id") @db.Uuid
+  bill   ProjectBill? @relation("BillPaymentRecords", fields: [billId], references: [id], onDelete: SetNull)
+
+  // Payment Identification & Classification
+  paymentNumber String                     @map("payment_number") @db.VarChar(100) // e.g. "PAY-REC-202609-0001"
+  title         String                     @map("title") @db.VarChar(255) // e.g. "Part Payment 30k for CenturyPly Bill"
+  stage         ProjectStage               @default(EXECUTION) @map("stage")
+  billType      ProjectBillType            @map("bill_type")
+  status        ProjectPaymentRecordStatus @default(SUCCESS) @map("status")
+
+  // Financial Figures
+  amount Decimal @map("amount") @db.Decimal(14, 2)
+
+  // Payment Execution Details
+  paymentDate          DateTime             @map("payment_date") @db.Date
+  paymentMethod        ProjectPaymentMethod @default(BANK_TRANSFER) @map("payment_method")
+  transactionReference String?              @map("transaction_reference") @db.VarChar(150) // UTR / IMPS / Cheque #
+  bankName             String?              @map("bank_name") @db.VarChar(150)
+
+  // Personnel Attribution
+  recordedById String?   @map("recorded_by_id") @db.Uuid
+  recordedBy   Employee? @relation("EmployeeRecordedProjectPayments", fields: [recordedById], references: [id], onDelete: SetNull)
+
+  // Cloud Attachments & Proof (ImageType JSON)
+  receiptUrl  Json? @map("receipt_url") // Bank debit confirmation / Cheque slip (ImageType JSON)
+  attachments Json? @map("attachments") // Additional vouchers / receipts (ImageType JSON array)
+
+  // Notes & Universal Additional Information (Rule 18)
+  notes                 String? @map("notes") @db.Text
+  additionalInformation Json?   @map("additional_information")
+
+  // Soft Delete & Timestamps
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@unique([organizationId, paymentNumber])
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([billId])
+  @@index([stage])
+  @@index([billType])
+  @@index([status])
+  @@index([paymentDate])
+  @@index([recordedById])
+  @@index([isDeleted, deletedAt])
+  @@map("project_payment_records")
+}

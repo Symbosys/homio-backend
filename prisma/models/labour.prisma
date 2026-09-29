@@ -65,6 +65,7 @@ model Labour {
   payments    LabourPayment[]    @relation("LabourPayments")
   ratings     LabourRating[]     @relation("LabourRatings")
   disputes    LabourDispute[]    @relation("LabourDisputes")
+  projectBills ProjectBill[]   @relation("LabourProjectBills")
 
   @@index([organizationId])
   @@index([phone])

@@ -84,6 +84,7 @@ model Vendor {
   rfqInvites VendorRfqInvite[]  @relation("VendorRfqInvites")
   quotations VendorQuotation[]  @relation("VendorQuotations")
   dispatches MaterialDispatch[] @relation("VendorDispatches")
+  projectBills ProjectBill[]    @relation("VendorProjectBills")
 
   isDeleted Boolean   @default(false) @map("is_deleted")
   deletedAt DateTime? @map("deleted_at")

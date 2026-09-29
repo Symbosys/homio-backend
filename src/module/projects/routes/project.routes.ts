@@ -20,6 +20,11 @@ import handoverRoutes from "./handover.routes.js";
 import orgComplaintRoutes from "./org-complaint.routes.js";
 import timelineRoutes from "./timeline.routes.js";
 import paymentRoutes from "./payment.routes.js";
+import {
+  projectBillRouter,
+  projectPaymentRecordRouter,
+  projectCommercialSummaryRouter,
+} from "./project-billing.routes.js";
 
 const projectRoutes = Router();
 
@@ -30,6 +35,8 @@ projectRoutes.use(authenticate, authorize("PLATFORM_ADMIN", "ADMIN", "USER"));
 projectRoutes.use("/expense-categories", expenseCategoryRoutes);
 projectRoutes.use("/expenses", expenseRoutes);
 projectRoutes.use("/payments", paymentRoutes);
+projectRoutes.use("/bills", projectBillRouter);
+projectRoutes.use("/payment-records", projectPaymentRecordRouter);
 projectRoutes.use("/site-visits", siteVisitRoutes);
 projectRoutes.use("/handovers", handoverRoutes);
 projectRoutes.use("/complaints", orgComplaintRoutes);
@@ -42,6 +49,9 @@ projectRoutes.use("/:projectId/complaints", complaintRoutes);
 projectRoutes.use("/:projectId/site-visits", siteVisitRoutes);
 projectRoutes.use("/:projectId/expenses", expenseRoutes);
 projectRoutes.use("/:projectId/payments", paymentRoutes);
+projectRoutes.use("/:projectId/bills", projectBillRouter);
+projectRoutes.use("/:projectId/payment-records", projectPaymentRecordRouter);
+projectRoutes.use("/:projectId/commercials", projectCommercialSummaryRouter);
 projectRoutes.use("/:projectId/design-folders", designFolderRoutes);
 projectRoutes.use("/:projectId/designs", designRoutes);
 projectRoutes.use("/:projectId/handovers", handoverRoutes);

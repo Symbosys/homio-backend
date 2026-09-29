@@ -96,6 +96,8 @@ model Organization {
   channelPartnerLeads     ChannelPartnerLead[]     @relation("OrganizationChannelPartnerLeads")
   channelPartnerPayouts   ChannelPartnerPayout[]   @relation("OrganizationCPPayouts")
   projectPayments         ProjectPayment[]         @relation("OrganizationProjectPayments")
+  projectBills            ProjectBill[]            @relation("OrganizationProjectBills")
+  projectPaymentRecords   ProjectPaymentRecord[]   @relation("OrganizationProjectPaymentRecords")
   quotationItemMasters       QuotationItemMaster[]        @relation("OrganizationQuotationItemMasters")
   quotationRateCards         QuotationRateCard[]          @relation("OrganizationQuotationRateCards")
   quotationTermsTemplates    QuotationTermsTemplate[]     @relation("OrganizationQuotationTermsTemplates")
