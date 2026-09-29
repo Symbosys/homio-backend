@@ -297,47 +297,47 @@ enum HandoverSnagStatus {
 // ==========================================
 
 enum ProjectPaymentType {
-  DESIGN_FEE              // Architectural & 3D Interior Design fee
-  MATERIAL_PAYMENT        // Raw & finishing material procurement
-  LABOUR_PAYMENT          // Site carpentry, civil & MEP workforce
-  SUPERVISION_FEE         // Site engineer / PMC supervision fee
-  TURNKEY_PACKAGE         // End-to-end turnkey milestone installment
-  CONSULTING_PERCENTAGE   // % of estimated/actual project cost
-  CONSULTING_LUMP_SUM     // Fixed lump sum consulting fee
-  CONSULTING_SQFT         // Rate per square foot fee
-  MOBILIZATION_ADVANCE    // Initial project kickoff / booking advance
-  RETENTION_RELEASE       // Handover & snag resolution retention release
-  VARIATION_ORDER         // Client change request / additional scope
-  OTHER                   // Miscellaneous / Custom commercial head
+  DESIGN_FEE // Architectural & 3D Interior Design fee
+  MATERIAL_PAYMENT // Raw & finishing material procurement
+  LABOUR_PAYMENT // Site carpentry, civil & MEP workforce
+  SUPERVISION_FEE // Site engineer / PMC supervision fee
+  TURNKEY_PACKAGE // End-to-end turnkey milestone installment
+  CONSULTING_PERCENTAGE // % of estimated/actual project cost
+  CONSULTING_LUMP_SUM // Fixed lump sum consulting fee
+  CONSULTING_SQFT // Rate per square foot fee
+  MOBILIZATION_ADVANCE // Initial project kickoff / booking advance
+  RETENTION_RELEASE // Handover & snag resolution retention release
+  VARIATION_ORDER // Client change request / additional scope
+  OTHER // Miscellaneous / Custom commercial head
 }
 
 enum PaymentFlowDirection {
-  INFLOW    // Received from Client / Customer
-  OUTFLOW   // Paid out for Project (Vendor, Contractor, Labour, Consultant)
+  INFLOW // Received from Client / Customer
+  OUTFLOW // Paid out for Project (Vendor, Contractor, Labour, Consultant)
 }
 
 enum ProjectPaymentStatus {
-  PENDING       // Initiated / Awaiting bank confirmation
-  COMPLETED     // Successfully received / paid & reconciled
-  FAILED        // Transaction bounced / failed
-  CANCELLED     // Voided by administrator
-  REFUNDED      // Partially or fully refunded
+  PENDING // Initiated / Awaiting bank confirmation
+  COMPLETED // Successfully received / paid & reconciled
+  FAILED // Transaction bounced / failed
+  CANCELLED // Voided by administrator
+  REFUNDED // Partially or fully refunded
 }
 
 enum ProjectPricingModel {
-  TURNKEY_WITH_MATERIALS   // Material + Labour + Design in milestone tranches
-  CONSULTING_PERCENTAGE    // % fee on estimated / actual site expense
-  CONSULTING_LUMP_SUM      // Fixed project management / consulting lumpsum
-  DESIGN_CONSULTING_SQFT   // Per sqft architectural & styling fee
+  TURNKEY_WITH_MATERIALS // Material + Labour + Design in milestone tranches
+  CONSULTING_PERCENTAGE // % fee on estimated / actual site expense
+  CONSULTING_LUMP_SUM // Fixed project management / consulting lumpsum
+  DESIGN_CONSULTING_SQFT // Per sqft architectural & styling fee
 }
 
 enum ProjectPaymentMethod {
   BANK_TRANSFER // NEFT / RTGS / IMPS
-  UPI           // Google Pay / PhonePe / Paytm / BHIM
-  CHEQUE        // Bank Cheque / Demand Draft
-  CASH          // Cash transaction (with receipt)
-  CREDIT_CARD   // Corporate or Client Credit Card
-  DEBIT_CARD    // Debit Card
+  UPI // Google Pay / PhonePe / Paytm / BHIM
+  CHEQUE // Bank Cheque / Demand Draft
+  CASH // Cash transaction (with receipt)
+  CREDIT_CARD // Corporate or Client Credit Card
+  DEBIT_CARD // Debit Card
   PAYMENT_GATEWAY // Razorpay / Stripe / PayU
   OTHER
 }
@@ -359,9 +359,9 @@ model Project {
   lead   Lead?   @relation("LeadProjects", fields: [leadId], references: [id], onDelete: SetNull)
 
   // Identity & Classification
-  projectCode  String          @map("project_code") // e.g. "PRJ-2026-0001"
-  name         String          @map("name")
-  description  String?         @map("description") @db.Text
+  projectCode     String                 @map("project_code") // e.g. "PRJ-2026-0001"
+  name            String                 @map("name")
+  description     String?                @map("description") @db.Text
   category        String?                @map("category") // e.g. "Residential Luxury", "Modular Kitchen"
   type            ProjectType            @default(TURNKEY) @map("type")
   status          ProjectStatus          @default(PLANNED) @map("status")
@@ -458,21 +458,21 @@ model ProjectSite {
   siteName String? @map("site_name") // e.g. "Prestige Lakeside, Tower 4, Flat 1202"
   address  String? @map("address")
   city     String? @map("city")
-  state                 String?  @map("state")
-  country               String   @default("IN") @map("country")
-  pincode               String?  @map("pincode")
-  
-  gpsLat                Float?   @map("gps_lat")
-  gpsLng                Float?   @map("gps_lng")
-  punchRadiusMeters     Int      @default(200) @map("punch_radius_meters")
-  isPunchGeofenceStrict Boolean  @default(true) @map("is_punch_geofence_strict")
+  state    String? @map("state")
+  country  String  @default("IN") @map("country")
+  pincode  String? @map("pincode")
+
+  gpsLat                Float?  @map("gps_lat")
+  gpsLng                Float?  @map("gps_lng")
+  punchRadiusMeters     Int     @default(200) @map("punch_radius_meters")
+  isPunchGeofenceStrict Boolean @default(true) @map("is_punch_geofence_strict")
 
   // Physical Specifications
-  propertyType          String? @map("property_type") // e.g. "4BHK Villa", "Penthouse", "Commercial Office"
-  floorNumber           String? @map("floor_number")
-  totalAreaSqft         Float?  @map("total_area_sqft")
-  workableAreaSqft      Float?  @map("workable_area_sqft")
-  carpetAreaSqft        Float?  @map("carpet_area_sqft")
+  propertyType     String? @map("property_type") // e.g. "4BHK Villa", "Penthouse", "Commercial Office"
+  floorNumber      String? @map("floor_number")
+  totalAreaSqft    Float?  @map("total_area_sqft")
+  workableAreaSqft Float?  @map("workable_area_sqft")
+  carpetAreaSqft   Float?  @map("carpet_area_sqft")
 
   // On-Site Point of Contact
   contactPerson         String? @map("contact_person")
@@ -720,7 +720,7 @@ model ProjectPayment {
 
   // Identification & Reference
   paymentNumber String @map("payment_number") // e.g. "PAY-PRJ-2026-001"
-  title         String @map("title")          // e.g. "Advance 20% for 3D Concept Signoff"
+  title         String @map("title") // e.g. "Advance 20% for 3D Concept Signoff"
 
   // Financial Classification
   paymentType   ProjectPaymentType   @default(TURNKEY_PACKAGE) @map("payment_type")
@@ -1392,19 +1392,19 @@ model ProjectHandoverSnag {
 // ==========================================
 
 enum ProjectTimelineEventType {
-  PROJECT_CREATED        // Project onboarding & creation
-  STAGE_CHANGED          // Moved across project stages
-  STATUS_CHANGED         // Status update (Design / Execution / General)
-  HEALTH_CHANGED         // Health status update
-  SITE_VISIT             // Site survey or audit visit performed
-  MILESTONE_STARTED      // Milestone kickoff
-  MILESTONE_COMPLETED    // Milestone completion & verification
-  WORK_APPROVAL          // Client drawing / design sign-off
-  PROGRESS_UPDATE        // Daily/weekly site progress entry
-  COMMERCIAL_INVOICE     // Payment milestone / commercial update
-  HANDOVER_SNAG          // Handover inspection / snag item
-  CUSTOM_EVENT           // Custom user-defined timeline event
-  OTHER                  // Miscellaneous event
+  PROJECT_CREATED // Project onboarding & creation
+  STAGE_CHANGED // Moved across project stages
+  STATUS_CHANGED // Status update (Design / Execution / General)
+  HEALTH_CHANGED // Health status update
+  SITE_VISIT // Site survey or audit visit performed
+  MILESTONE_STARTED // Milestone kickoff
+  MILESTONE_COMPLETED // Milestone completion & verification
+  WORK_APPROVAL // Client drawing / design sign-off
+  PROGRESS_UPDATE // Daily/weekly site progress entry
+  COMMERCIAL_INVOICE // Payment milestone / commercial update
+  HANDOVER_SNAG // Handover inspection / snag item
+  CUSTOM_EVENT // Custom user-defined timeline event
+  OTHER // Miscellaneous event
 }
 
 enum ProjectTimelineStatus {
@@ -1416,36 +1416,36 @@ enum ProjectTimelineStatus {
 }
 
 model ProjectTimeline {
-  id                    String                   @id @default(uuid()) @db.Uuid
-  projectId             String                   @map("project_id") @db.Uuid
-  project               Project                  @relation("ProjectTimelines", fields: [projectId], references: [id], onDelete: Cascade)
+  id        String  @id @default(uuid()) @db.Uuid
+  projectId String  @map("project_id") @db.Uuid
+  project   Project @relation("ProjectTimelines", fields: [projectId], references: [id], onDelete: Cascade)
 
   // Event & Timeline Details
-  title                 String                   @map("title") // e.g. "Project Created", "Site Measurement Survey Completed", "False Ceiling Finished"
-  description           String?                  @map("description") @db.Text
-  eventType             ProjectTimelineEventType @default(CUSTOM_EVENT) @map("event_type")
-  category              String?                  @map("category") // e.g. "DESIGN", "EXECUTION", "SITE_VISIT", "HANDOVER", "FINANCIAL"
-  status                ProjectTimelineStatus    @default(COMPLETED) @map("status")
-  eventDate             DateTime                 @default(now()) @map("event_date")
-  orderIndex            Int                      @default(0) @map("order_index")
+  title       String                   @map("title") // e.g. "Project Created", "Site Measurement Survey Completed", "False Ceiling Finished"
+  description String?                  @map("description") @db.Text
+  eventType   ProjectTimelineEventType @default(CUSTOM_EVENT) @map("event_type")
+  category    String?                  @map("category") // e.g. "DESIGN", "EXECUTION", "SITE_VISIT", "HANDOVER", "FINANCIAL"
+  status      ProjectTimelineStatus    @default(COMPLETED) @map("status")
+  eventDate   DateTime                 @default(now()) @map("event_date")
+  orderIndex  Int                      @default(0) @map("order_index")
 
   // Creator / Performer Attribution
-  performedById         String?                  @map("performed_by_id") @db.Uuid
-  performedBy           Employee?                @relation("EmployeeProjectTimelineEvents", fields: [performedById], references: [id], onDelete: SetNull)
-  createdById           String?                  @map("created_by_id") @db.Uuid
-  createdBy             User?                    @relation("UserProjectTimelineCreated", fields: [createdById], references: [id], onDelete: SetNull)
+  performedById String?   @map("performed_by_id") @db.Uuid
+  performedBy   Employee? @relation("EmployeeProjectTimelineEvents", fields: [performedById], references: [id], onDelete: SetNull)
+  createdById   String?   @map("created_by_id") @db.Uuid
+  createdBy     User?     @relation("UserProjectTimelineCreated", fields: [createdById], references: [id], onDelete: SetNull)
 
   // Custom vs System Generated Flags
-  isCustom              Boolean                  @default(true) @map("is_custom")
-  isSystemGenerated     Boolean                  @default(false) @map("is_system_generated")
+  isCustom          Boolean @default(true) @map("is_custom")
+  isSystemGenerated Boolean @default(false) @map("is_system_generated")
 
   // Cloud Attachments & Media (ImageType JSON array)
-  attachments           Json?                    @map("attachments")
-  metadata              Json?                    @map("metadata")
-  additionalInformation Json?                    @map("additional_information")
+  attachments           Json? @map("attachments")
+  metadata              Json? @map("metadata")
+  additionalInformation Json? @map("additional_information")
 
-  createdAt             DateTime                 @default(now()) @map("created_at")
-  updatedAt             DateTime                 @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([projectId])
   @@index([eventDate])

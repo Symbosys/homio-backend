@@ -147,6 +147,7 @@ model Lead {
   projects              Project[]              @relation("LeadProjects")
   channelPartnerLead    ChannelPartnerLead?    @relation("LeadChannelPartnerLead")
   channelPartnerPayouts ChannelPartnerPayout[] @relation("LeadChannelPartnerPayouts")
+  quotations            Quotation[]            @relation("LeadQuotations")
 
   @@unique([organizationId, leadCode])
   @@index([organizationId])

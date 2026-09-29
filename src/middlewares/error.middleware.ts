@@ -23,8 +23,8 @@ export const errorMiddleware = (
   if ("code" in err && err.code === "P2002") {
     const target = Array.isArray((err as any).meta?.target)
       ? (err as any).meta.target.join(", ")
-      : "Email or phone number";
-    err.message = `A user with this ${target} already exists`;
+      : "unique identifier";
+    err.message = `A record with this ${target} already exists in your organization`;
     err.statusCode = statusCode.Conflict;
   }
 

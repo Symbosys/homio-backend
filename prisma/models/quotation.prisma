@@ -1,0 +1,282 @@
+// ============================================================================
+// HOMIO CRM - NORMALIZED QUOTATION & COMMERCIAL ESTIMATION SCHEMA
+// ============================================================================
+
+// ==========================================
+// QUOTATION ENUMS
+// ==========================================
+
+enum QuotationStatus {
+  DRAFT             // In-progress draft
+  INTERNAL_REVIEW   // Pending internal manager review
+  READY_TO_SEND     // Ready for client dispatch
+  SENT              // Dispatched to client via Email / WhatsApp
+  VIEWED            // Client opened interactive proposal
+  UNDER_REVIEW      // Client reviewing commercials
+  ACCEPTED          // Client approved proposal & signed off
+  BOOKED            // Converted to active execution project
+  REJECTED          // Client declined proposal
+  EXPIRED           // Discount validity expired
+  REVISED           // Superseded by newer revision
+  CANCELLED         // Discarded quotation
+  ARCHIVED          // Historical archival
+}
+
+enum QuotationDiscountType {
+  PERCENTAGE        // % reduction off gross BOQ
+  FIXED_AMOUNT      // Lumpsum flat discount in INR
+}
+
+enum QuotationRoomAreaType {
+  LIVING_ROOM       // Living & formal lounge
+  MASTER_BEDROOM    // Master suite
+  GUEST_BEDROOM     // Guest room
+  KIDS_BEDROOM      // Children's room
+  KITCHEN           // Modular kitchen / wet kitchen
+  DINING_AREA       // Dining hall
+  BALCONY           // Deck / balcony / sit-out
+  BATHROOM          // Restroom / powder room
+  POOJA_ROOM        // Prayer / temple room
+  FOYER             // Entryway / foyer
+  UTILITY           // Washing / laundry / utility
+  HOME_OFFICE       // Study / work station
+  ENTERTAINMENT     // Home theater / media lounge
+  OTHER             // Custom room area
+}
+
+// ==========================================
+// 1. PRIMARY QUOTATION MODEL
+// ==========================================
+
+model Quotation {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationQuotations", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Direct Strict Association with CRM Lead & Optional Customer
+  leadId     String    @map("lead_id") @db.Uuid
+  lead       Lead      @relation("LeadQuotations", fields: [leadId], references: [id], onDelete: Restrict)
+  customerId String?   @map("customer_id") @db.Uuid
+  customer   Customer? @relation("CustomerQuotations", fields: [customerId], references: [id], onDelete: SetNull)
+
+  // Core Identification & Versioning
+  quoteNumber    String          @map("quote_number") @db.VarChar(100) // e.g. "HOM-QT-2026-0042"
+  version        String          @default("v1.0") @map("version") @db.VarChar(20)
+  revisionNumber Int             @default(1) @map("revision_number")
+  title          String          @db.VarChar(255) // e.g. "3BHK Luxury Turnkey Execution Proposal"
+  quotationType  String          @default("residentialInterior") @map("quotation_type") @db.VarChar(100)
+  status         QuotationStatus @default(DRAFT) @map("status")
+
+  // Assigned Commercial & Design Personnel
+  salesOwnerId   String? @map("sales_owner_id") @db.Uuid
+  salesOwnerName String? @map("sales_owner_name") @db.VarChar(150)
+  designerId     String? @map("designer_id") @db.Uuid
+  designerName   String? @map("designer_name") @db.VarChar(150)
+
+  // Normalized Financial Calculations (Stored Exact Decimals)
+  grossSubtotal       Decimal               @default(0.00) @map("gross_subtotal") @db.Decimal(12, 2)
+  discountType        QuotationDiscountType @default(PERCENTAGE) @map("discount_type")
+  discountPercent     Decimal               @default(0.00) @map("discount_percent") @db.Decimal(5, 2)
+  fixedDiscountAmount Decimal               @default(0.00) @map("fixed_discount_amount") @db.Decimal(12, 2)
+  discountAmount      Decimal               @default(0.00) @map("discount_amount") @db.Decimal(12, 2)
+  taxableAmount       Decimal               @default(0.00) @map("taxable_amount") @db.Decimal(12, 2)
+  gstPercent          Decimal               @default(18.00) @map("gst_percent") @db.Decimal(5, 2)
+  gstAmount           Decimal               @default(0.00) @map("gst_amount") @db.Decimal(12, 2)
+  grandTotal          Decimal               @default(0.00) @map("grand_total") @db.Decimal(12, 2)
+  amountPaid          Decimal               @default(0.00) @map("amount_paid") @db.Decimal(12, 2)
+  targetMarginPercent Decimal               @default(25.00) @map("target_margin_percent") @db.Decimal(5, 2)
+
+  // Dates & Validity
+  submissionDate     DateTime? @map("submission_date")
+  discountExpiryDate DateTime? @map("discount_expiry_date")
+
+  // Terms, Legal Clauses & Internal Notes
+  termsAndConditions String?  @map("terms_and_conditions") @db.Text
+  internalNotes      String?  @map("internal_notes") @db.Text
+  tags               String[] @default([])
+
+  // Document Visibility & Configuration Flags (Rule 18 / JSON)
+  visibilitySettings Json? @default("{\"hideRate\":false,\"hideSqft\":false,\"showAmount\":true,\"showBrandSpecs\":true,\"hideDetailedBoq\":false,\"showPaymentQr\":true}") @map("visibility_settings")
+
+  // Universal Dynamic Additional Information (Rule 18)
+  additionalInformation Json? @map("additional_information")
+
+  // Relations to Normalized Child Tables
+  rooms           QuotationRoom[]            @relation("QuotationRooms")
+  items           QuotationItem[]            @relation("QuotationItems")
+  paymentSchedule QuotationPaymentSchedule[] @relation("QuotationPaymentSchedules")
+  pdfPages        QuotationPdfPage[]         @relation("QuotationPdfPages")
+  revisionHistory QuotationRevisionHistory[] @relation("QuotationRevisions")
+
+  // Soft Delete & Audit Timestamps
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@unique([organizationId, quoteNumber])
+  @@index([organizationId, leadId])
+  @@index([organizationId, customerId])
+  @@index([organizationId, status, isDeleted])
+  @@index([organizationId, quotationType])
+  @@index([organizationId, createdAt])
+  @@map("quotations")
+}
+
+// ==========================================
+// 2. SPATIAL ROOM / AREA BREAKDOWN
+// ==========================================
+
+model QuotationRoom {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationQuotationRooms", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  quotationId String    @map("quotation_id") @db.Uuid
+  quotation   Quotation @relation("QuotationRooms", fields: [quotationId], references: [id], onDelete: Cascade)
+
+  roomName       String                @map("room_name") @db.VarChar(150) // e.g. "Master Bedroom", "Foyer"
+  areaType       QuotationRoomAreaType @default(OTHER) @map("area_type")
+  carpetAreaSqft Float?                @default(0.0) @map("carpet_area_sqft")
+  sortOrder      Int                   @default(0) @map("sort_order")
+
+  additionalInformation Json? @map("additional_information")
+
+  // Child Line Items
+  items QuotationItem[] @relation("RoomQuotationItems")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([organizationId, quotationId, sortOrder])
+  @@map("quotation_rooms")
+}
+
+// ==========================================
+// 3. ITEM & BOQ LINE ITEM
+// ==========================================
+
+model QuotationItem {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationQuotationItems", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  quotationId String        @map("quotation_id") @db.Uuid
+  quotation   Quotation     @relation("QuotationItems", fields: [quotationId], references: [id], onDelete: Cascade)
+  roomId      String        @map("room_id") @db.Uuid
+  room        QuotationRoom @relation("RoomQuotationItems", fields: [roomId], references: [id], onDelete: Cascade)
+
+  // Optional Reference to Item Master
+  itemMasterId String?              @map("item_master_id") @db.Uuid
+  itemMaster   QuotationItemMaster? @relation(fields: [itemMasterId], references: [id], onDelete: SetNull)
+
+  itemCode      String                @map("item_code") @db.VarChar(100)
+  name          String                @db.VarChar(255)
+  category      QuotationItemCategory @map("category")
+  materialSpecs String                @map("material_specs") @db.Text
+  uom           String                @default("sqft") @map("uom") @db.VarChar(50)
+
+  // Dimensions (Optional for custom cabinetry)
+  length Float? @map("length")
+  height Float? @map("height")
+  depth  Float? @map("depth")
+
+  // Pricing & Quantities
+  quantity      Decimal @default(1.00) @map("quantity") @db.Decimal(12, 2)
+  rate          Decimal @default(0.00) @map("rate") @db.Decimal(12, 2)
+  marginPercent Decimal @default(25.00) @map("margin_percent") @db.Decimal(5, 2)
+  amount        Decimal @default(0.00) @map("amount") @db.Decimal(12, 2)
+  sortOrder     Int     @default(0) @map("sort_order")
+
+  additionalInformation Json? @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([organizationId, quotationId])
+  @@index([organizationId, roomId, sortOrder])
+  @@index([organizationId, itemMasterId])
+  @@map("quotation_items")
+}
+
+// ==========================================
+// 4. PAYMENT SCHEDULE MILESTONES
+// ==========================================
+
+model QuotationPaymentSchedule {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationQuotationPaymentSchedules", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  quotationId String    @map("quotation_id") @db.Uuid
+  quotation   Quotation @relation("QuotationPaymentSchedules", fields: [quotationId], references: [id], onDelete: Cascade)
+
+  stageName    String    @map("stage_name") @db.VarChar(150) // e.g. "Booking Advance (10%)"
+  percentage   Decimal   @map("percentage") @db.Decimal(5, 2)
+  amount       Decimal   @map("amount") @db.Decimal(12, 2)
+  triggerEvent String    @map("trigger_event") @db.VarChar(255) // e.g. "On signing contract"
+  expectedDate DateTime? @map("expected_date") @db.Date
+  isCompleted  Boolean   @default(false) @map("is_completed")
+  sortOrder    Int       @default(0) @map("sort_order")
+
+  additionalInformation Json? @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([organizationId, quotationId, sortOrder])
+  @@map("quotation_payment_schedules")
+}
+
+// ==========================================
+// 5. ATTACHED PDF PAGES & GALLERY
+// ==========================================
+
+model QuotationPdfPage {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationQuotationPdfPages", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  quotationId String    @map("quotation_id") @db.Uuid
+  quotation   Quotation @relation("QuotationPdfPages", fields: [quotationId], references: [id], onDelete: Cascade)
+
+  title     String               @db.VarChar(150)
+  position  PdfPageImagePosition @map("position") // FRONT or BACK
+  sortOrder Int                  @default(0) @map("sort_order")
+  pageLabel String?              @map("page_label") @db.VarChar(50)
+
+  // Structured ImageType Object (Rule 4: { id, url, bytes, format, provider })
+  image Json @map("image")
+
+  additionalInformation Json? @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([organizationId, quotationId, position, sortOrder])
+  @@map("quotation_pdf_pages")
+}
+
+// ==========================================
+// 6. REVISION AUDIT HISTORY
+// ==========================================
+
+model QuotationRevisionHistory {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationQuotationRevisionHistories", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  quotationId String    @map("quotation_id") @db.Uuid
+  quotation   Quotation @relation("QuotationRevisions", fields: [quotationId], references: [id], onDelete: Cascade)
+
+  version        String   @db.VarChar(20)
+  revisionNumber Int      @map("revision_number")
+  grandTotal     Decimal  @map("grand_total") @db.Decimal(12, 2)
+  discountAmount Decimal  @map("discount_amount") @db.Decimal(12, 2)
+  notes          String?  @db.Text
+  createdByName  String?  @map("created_by_name") @db.VarChar(150)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([organizationId, quotationId, revisionNumber])
+  @@map("quotation_revision_histories")
+}

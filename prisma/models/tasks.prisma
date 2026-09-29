@@ -73,7 +73,7 @@ model Task {
   startDate            DateTime? @map("start_date")
   dueDate              DateTime? @map("due_date")
   submittedForReviewAt DateTime? @map("submitted_for_review_at") // Recorded when task is submitted under review
-  completedAt          DateTime? @map("completed_at")           // Recorded when verified and marked completed
+  completedAt          DateTime? @map("completed_at") // Recorded when verified and marked completed
 
   // Task Reviewer & Verification Approval
   reviewerId    String?   @map("reviewer_id") @db.Uuid

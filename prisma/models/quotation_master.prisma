@@ -1,0 +1,186 @@
+// ============================================================================
+// HOMIO CRM - QUOTATION PRE-REQUISITE CONFIGURATION MASTERS SCHEMA
+// ============================================================================
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+enum QuotationItemCategory {
+  CIVIL // Demolition, masonry, plaster, waterproofing, tiling
+  CARPENTRY // Custom wardrobes, paneling, TV consoles, vanity units
+  MODULAR_KITCHEN // Base cabinets, wall units, tall pantry, shutters, hardware
+  ELECTRICAL // Wiring, switch plates, architectural lighting, DB boards
+  PLUMBING // CP fittings, sanitary ware, piping, drainage
+  FALSE_CEILING // Gypsum, POP, grid, wooden rafters, cove details
+  PAINTING // Emulsion, primer, PU polish, texture, wallpaper
+  HARDWARE // Hinges, soft-close channels, handles, locks, fittings
+  LOOSE_FURNITURE // Sofas, dining tables, accent chairs, beds, mattresses
+  SOFT_FURNISHING // Curtains, blinds, rugs, upholstery, cushions, decor
+  OTHER // Miscellaneous custom scopes
+}
+
+enum RateCardTierType {
+  STANDARD // Baseline standard catalog pricing
+  PREMIUM // High-grade materials with premium finishes
+  LUXURY // Luxury architectural bespoke tier
+  COMMERCIAL // Commercial / bulk project pricing
+  CUSTOM // Custom organization-defined markup tier
+}
+
+enum PdfPageImagePosition {
+  FRONT // Prefix pages (e.g. Page 1 Cover, 3D Renders, Concept Boards)
+  BACK // Suffix pages (e.g. Warranty Certificate, Studio Credentials, Back Cover)
+}
+
+// ==========================================
+// 1. ITEM MASTER (WITH IMAGES & PAGINATION)
+// ==========================================
+
+model QuotationItemMaster {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationQuotationItemMasters", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Item Identification
+  sku            String                @db.VarChar(100) // e.g. "CRP-WDR-SLD-01"
+  name           String                @db.VarChar(255) // e.g. "Full Height Sliding Wardrobe with Loft"
+  category       QuotationItemCategory @map("category")
+  subcategory    String?               @default("Standard") @map("subcategory") @db.VarChar(100)
+  technicalSpecs String                @map("technical_specs") @db.Text
+  description    String?               @db.Text
+
+  // Standalone Unit of Measurement (Simple String)
+  uom String @default("sqft") @map("uom") @db.VarChar(50) // sqft, rft, nos, sqm, kg, set, lumsum
+
+  // Simplified Commercial Pricing (Base Unit Cost Price & Target Margin)
+  unitCost     Decimal @default(0.00) @map("unit_cost") @db.Decimal(12, 2) // Base unit cost price
+  targetMargin Decimal @default(25.00) @map("target_margin") @db.Decimal(5, 2) // Target margin percentage (%)
+
+  // Structured Multi-Cloud Media (Rule 4 ImageType: { id, url, bytes, format, provider })
+  imageUrl      Json? @map("image_url") // Primary thumbnail ImageType object
+  galleryImages Json? @map("gallery_images") // Array of ImageType objects
+
+  // Brand & Tagging Specs
+  approvedBrands String[] @default([]) @map("approved_brands")
+  tags           String[] @default([])
+  isActive       Boolean  @default(true) @map("is_active")
+
+  // Universal Dynamic Additional Information (Rule 18)
+  additionalInformation Json? @map("additional_information")
+
+  // Relations
+  quotationItems QuotationItem[]
+
+  // Soft Delete & Audit Timestamps
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@unique([organizationId, sku])
+  @@index([organizationId, category])
+  @@index([organizationId, isActive, isDeleted])
+  @@index([organizationId, name])
+  @@map("quotation_item_masters")
+}
+
+// ==========================================
+// 2. MARKUP RATE CARDS & PRICING TIERS (NO PAGINATION)
+// ==========================================
+
+model QuotationRateCard {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationQuotationRateCards", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name        String           @db.VarChar(150) // e.g. "Luxury Obsidian Tier", "Standard Renovation"
+  code        String           @db.VarChar(50) // e.g. "RC-LUXURY-01"
+  tierType    RateCardTierType @default(STANDARD) @map("tier_type")
+  description String?          @db.Text
+
+  // Default Markup & Optional Category-Specific Overrides
+  defaultMarkupPercent Decimal                 @default(25.00) @map("default_markup_percent") @db.Decimal(5, 2)
+  categoryMarkups      Json?                   @map("category_markups") // e.g. { "CIVIL": 20.0, "CARPENTRY": 30.0 }
+  applicableCategories QuotationItemCategory[] @default([]) @map("applicable_categories")
+
+  isDefault Boolean @default(false) @map("is_default")
+  isActive  Boolean @default(true) @map("is_active")
+  sortOrder Int     @default(0) @map("sort_order")
+
+  additionalInformation Json? @map("additional_information")
+
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@unique([organizationId, code])
+  @@index([organizationId, isActive, isDeleted])
+  @@map("quotation_rate_cards")
+}
+
+// ==========================================
+// 3. TERMS, WARRANTY & LEGAL SIGN-OFFS (NO PAGINATION)
+// ==========================================
+
+model QuotationTermsTemplate {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationQuotationTermsTemplates", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name        String  @db.VarChar(150) // e.g. "Standard Residential Interior Terms & Hafele Warranty"
+  code        String? @db.VarChar(50)
+  description String? @db.Text
+
+  // Structured Clauses Content
+  termsAndConditions String  @map("terms_and_conditions") @db.Text
+  warrantyClauses    String? @map("warranty_clauses") @db.Text
+  paymentTermsNote   String? @map("payment_terms_note") @db.Text
+  clientSignoffNote  String? @map("client_signoff_note") @db.Text
+
+  isDefault Boolean @default(false) @map("is_default")
+  isActive  Boolean @default(true) @map("is_active")
+
+  additionalInformation Json? @map("additional_information")
+
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@index([organizationId, isActive, isDeleted])
+  @@map("quotation_terms_templates")
+}
+
+// ==========================================
+// 4. PRE-UPLOADED PDF PREVIEW IMAGES (MAX 10 FRONT, MAX 10 BACK)
+// ==========================================
+
+model QuotationPdfPageAsset {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationQuotationPdfPageAssets", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  title     String               @db.VarChar(150) // e.g. "Luxury Obsidian Cover", "Hafele 10-Yr Warranty"
+  position  PdfPageImagePosition @map("position") // FRONT (Prefix) or BACK (Suffix)
+  sortOrder Int                  @default(0) @map("sort_order") // 0 to 9 within FRONT/BACK
+  pageTag   String?              @map("page_tag") @db.VarChar(50) // "COVER", "3D_RENDER", "WARRANTY", "BACK_COVER"
+
+  // Structured ImageType JSON (Rule 4: { id, url, bytes, format, provider })
+  image Json @map("image")
+
+  isActive  Boolean @default(true) @map("is_active")
+  isDefault Boolean @default(false) @map("is_default")
+
+  additionalInformation Json? @map("additional_information")
+
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@index([organizationId, position, sortOrder])
+  @@index([organizationId, isActive, isDeleted])
+  @@map("quotation_pdf_page_assets")
+}

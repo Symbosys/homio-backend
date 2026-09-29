@@ -126,11 +126,11 @@ model ProjectService {
   project   Project @relation("ProjectServices", fields: [projectId], references: [id], onDelete: Cascade)
 
   serviceCode String  @map("service_code") // Auto-generated e.g. "SRV-2026-0001"
-  title       String  @map("title")        // e.g. "False Ceiling & Gypsum Board Work"
-  category    String  @map("category")     // CARPENTRY, ELECTRICAL, PLUMBING, PAINTING, MASONRY, HVAC, CIVIL, FLOORING, OTHER
+  title       String  @map("title") // e.g. "False Ceiling & Gypsum Board Work"
+  category    String  @map("category") // CARPENTRY, ELECTRICAL, PLUMBING, PAINTING, MASONRY, HVAC, CIVIL, FLOORING, OTHER
   description String? @map("description") @db.Text
   scopeOfWork String? @map("scope_of_work") @db.Text
-  location    String? @map("location")    // e.g. "Living Room & Master Bedroom"
+  location    String? @map("location") // e.g. "Living Room & Master Bedroom"
 
   // Status & Priority
   status   String @default("PLANNED") @map("status") // PLANNED, IN_PROGRESS, COMPLETED, ON_HOLD, CANCELLED

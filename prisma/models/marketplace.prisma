@@ -116,7 +116,7 @@ model Product {
 
   // Media (Multi-Cloud Structured JSON ImageType Standard)
   coverImageUrl Json? @map("cover_image_url") // Structured ImageType { id, url, bytes, format, provider }
-  images        Json? @map("images")          // Array of ImageType
+  images        Json? @map("images") // Array of ImageType
 
   // Ownership & Vendor Sourcing
   ownershipType ProductOwnershipType @default(SELF_OWNED) @map("ownership_type")
@@ -193,7 +193,7 @@ model DigitalProductDetails {
   // File Delivery & Specifications
   fileUrl            String  @map("file_url")
   fileFormat         String  @map("file_format") // e.g. "PDF", "DWG", "RVT", "SKP", "ZIP", "OBJ", "FBX"
-  fileSize           String? @map("file_size")   // e.g. "45.8 MB"
+  fileSize           String? @map("file_size") // e.g. "45.8 MB"
   previewImages      Json?   @map("preview_images")
   authorName         String? @map("author_name")
   version            String? @default("1.0.0") @map("version")
@@ -225,11 +225,11 @@ model HomeDecorProductDetails {
 
   // Brand & Material Specifications
   brandName        String? @map("brand_name")
-  material         String? @map("material")          // e.g. "Teak Wood", "Velvet Fabric", "Brass", "Ceramic"
-  color            String? @map("color")             // e.g. "Emerald Green / Gold"
-  dimensions       String? @map("dimensions")        // e.g. "L: 210cm x W: 90cm x H: 85cm"
-  roomType         String? @map("room_type")         // e.g. "Living Room", "Bedroom", "Dining"
-  style            String? @map("style")             // e.g. "Mid-Century Modern", "Minimalist", "Boho"
+  material         String? @map("material") // e.g. "Teak Wood", "Velvet Fabric", "Brass", "Ceramic"
+  color            String? @map("color") // e.g. "Emerald Green / Gold"
+  dimensions       String? @map("dimensions") // e.g. "L: 210cm x W: 90cm x H: 85cm"
+  roomType         String? @map("room_type") // e.g. "Living Room", "Bedroom", "Dining"
+  style            String? @map("style") // e.g. "Mid-Century Modern", "Minimalist", "Boho"
   assemblyRequired Boolean @default(false) @map("assembly_required")
   careInstructions String? @map("care_instructions") @db.Text
 
@@ -263,7 +263,7 @@ model PropertyListingDetails {
   verificationStatus PropertyVerificationStatus @default(DRAFT) @map("verification_status")
 
   // Layout & Spatial Specs
-  bhk                 String    @map("bhk")               // e.g. "3 BHK", "4 BHK Penthouse"
+  bhk                 String    @map("bhk") // e.g. "3 BHK", "4 BHK Penthouse"
   bedrooms            Int       @map("bedrooms")
   bathrooms           Int       @map("bathrooms")
   balconies           Int       @default(0) @map("balconies")
@@ -323,11 +323,11 @@ model MaterialProductDetails {
 
   // Specifications
   brandName       String? @map("brand_name")
-  materialType    String? @map("material_type")     // e.g. "Italian Marble", "Plywood BWP", "Vitrified Tile"
-  grade           String? @map("grade")             // e.g. "Commercial Grade A", "IS 710", "FE 550D"
-  dimensions      String? @map("dimensions")        // e.g. "8ft x 4ft x 18mm", "600mm x 1200mm"
-  thickness       String? @map("thickness")         // e.g. "18mm", "12mm", "20mm"
-  application     String? @map("application")       // e.g. "Flooring", "Wet Areas", "Structural"
+  materialType    String? @map("material_type") // e.g. "Italian Marble", "Plywood BWP", "Vitrified Tile"
+  grade           String? @map("grade") // e.g. "Commercial Grade A", "IS 710", "FE 550D"
+  dimensions      String? @map("dimensions") // e.g. "8ft x 4ft x 18mm", "600mm x 1200mm"
+  thickness       String? @map("thickness") // e.g. "18mm", "12mm", "20mm"
+  application     String? @map("application") // e.g. "Flooring", "Wet Areas", "Structural"
   coveragePerUnit String? @map("coverage_per_unit") // e.g. "32 sq.ft per sheet", "15.5 sq.ft per box"
   warrantyYears   Int?    @default(0) @map("warranty_years")
   technicalDocUrl String? @map("technical_doc_url")
