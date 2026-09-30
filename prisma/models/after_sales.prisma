@@ -235,6 +235,7 @@ model AfterSalesServiceRequest {
   visits        AfterSalesServiceVisit[] @relation("ServiceRequestVisits")
   feedback      CustomerFeedback?        @relation("ServiceRequestFeedback")
   warrantyClaim WarrantyClaim?           @relation("ServiceRequestWarrantyClaim")
+  complaints    ProjectComplaint[]       @relation("ServiceRequestComplaints")
 
   @@unique([projectId, requestNumber])
   @@index([projectId])

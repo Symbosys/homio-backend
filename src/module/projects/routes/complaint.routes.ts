@@ -10,11 +10,16 @@ import {
   addComplaintComment,
   getComplaintComments,
 } from "../controllers/complaint.controller.js";
+import { complaintMediaRouter } from "./complaint-media.routes.js";
 
 const complaintRoutes = Router({ mergeParams: true });
 
 // Protect all complaint routes
 complaintRoutes.use(authenticate, authorize("PLATFORM_ADMIN", "ADMIN", "USER"));
+
+// Mount complaint media subroutes for Before/After photos and videos
+complaintRoutes.use("/:complaintId/media", complaintMediaRouter);
+complaintRoutes.use("/media", complaintMediaRouter);
 
 /**
  * @route   POST /api/v1/projects/:projectId/complaints

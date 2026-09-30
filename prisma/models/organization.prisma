@@ -99,6 +99,7 @@ model Organization {
   projectBills            ProjectBill[]            @relation("OrganizationProjectBills")
   projectPaymentRecords   ProjectPaymentRecord[]   @relation("OrganizationProjectPaymentRecords")
   progressMedia           ProjectProgressMedia[]   @relation("OrganizationProgressMedia")
+  complaintMedia          ProjectComplaintMedia[]  @relation("OrganizationComplaintMedia")
   quotationItemMasters       QuotationItemMaster[]        @relation("OrganizationQuotationItemMasters")
   quotationRateCards         QuotationRateCard[]          @relation("OrganizationQuotationRateCards")
   quotationTermsTemplates    QuotationTermsTemplate[]     @relation("OrganizationQuotationTermsTemplates")
@@ -109,6 +110,10 @@ model Organization {
   quotationPaymentSchedules  QuotationPaymentSchedule[]   @relation("OrganizationQuotationPaymentSchedules")
   quotationPdfPages          QuotationPdfPage[]           @relation("OrganizationQuotationPdfPages")
   quotationRevisionHistories QuotationRevisionHistory[]   @relation("OrganizationQuotationRevisionHistories")
+  leadFunnels                LeadFunnel[]                 @relation("OrganizationLeadFunnels")
+  leadFunnelStages           LeadFunnelStage[]            @relation("OrganizationLeadFunnelStages")
+  leadFunnelFormFields       LeadFunnelFormField[]        @relation("OrganizationLeadFunnelFormFields")
+  leadFunnelTransitions      LeadFunnelTransition[]       @relation("OrganizationLeadFunnelTransitions")
 
   @@index([slug])
   @@index([status])

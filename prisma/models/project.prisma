@@ -173,6 +173,11 @@ enum ComplaintSeverity {
   CRITICAL
 }
 
+enum ComplaintMediaStage {
+  BEFORE // Defect / issue evidence
+  AFTER  // Rectification / resolution proof
+}
+
 enum ChangeRequestStatus {
   PENDING // Submitted by client, awaiting organization review
   IN_REVIEW // Under evaluation by design / project team
@@ -433,6 +438,7 @@ model Project {
   bills                     ProjectBill[]              @relation("ProjectBills")
   paymentRecords            ProjectPaymentRecord[]     @relation("ProjectPaymentRecords")
   progressMedia             ProjectProgressMedia[]     @relation("ProjectProgressMedia")
+  complaintMedia            ProjectComplaintMedia[]    @relation("ProjectComplaintMedia")
   tasks                     Task[]                     @relation("ProjectTasks")
 
   @@unique([organizationId, projectCode])
@@ -948,6 +954,78 @@ model ProjectProgressMedia {
 }
 
 // ==========================================
+// 9B. PROJECT COMPLAINT MEDIA (Dual Before & After Defect & Rectification Assets)
+// ==========================================
+
+model ProjectComplaintMedia {
+  id String @id @default(uuid()) @db.Uuid
+
+  // Multi-Tenant Isolation (Rule 1 & Rule 2)
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationComplaintMedia", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Direct Project & Complaint Linkage
+  projectId String           @map("project_id") @db.Uuid
+  project   Project          @relation("ProjectComplaintMedia", fields: [projectId], references: [id], onDelete: Cascade)
+
+  complaintId String           @map("complaint_id") @db.Uuid
+  complaint   ProjectComplaint @relation("ComplaintMediaItems", fields: [complaintId], references: [id], onDelete: Cascade)
+
+  // Dual Stage Classification: BEFORE (Defect) vs AFTER (Rectification)
+  stageType   ComplaintMediaStage @default(BEFORE) @map("stage_type")
+  mediaType   ProgressMediaType   @default(IMAGE) @map("media_type")
+  title       String?             @map("title")
+  description String?             @map("description") @db.Text
+
+  // Cloud URLs & Storage Keys (Rule 4: Automatic Media Lifecycle & Cleanup)
+  url             String              @map("url") @db.Text
+  thumbnailUrl    String?             @map("thumbnail_url") @db.Text
+  storageKey      String              @map("storage_key")
+  storageProvider StorageProviderType @default(AWS_S3) @map("storage_provider")
+
+  // Technical File Specifications
+  mimeType        String   @map("mime_type")
+  fileSizeBytes   BigInt?  @map("file_size_bytes")
+  durationSeconds Float?   @map("duration_seconds")
+  width           Int?     @map("width")
+  height          Int?     @map("height")
+
+  // Geotagging & Display
+  takenAt      DateTime? @map("taken_at")
+  geoLatitude  Float?    @map("geo_latitude")
+  geoLongitude Float?    @map("geo_longitude")
+  tags         String[]  @default([]) @map("tags")
+  isCover      Boolean   @default(false) @map("is_cover")
+  orderIndex   Int       @default(0) @map("order_index")
+
+  // Upload Lifecycle Status
+  uploadStatus ProgressMediaUploadStatus @default(COMPLETED) @map("upload_status")
+
+  // Uploader Attribution
+  uploadedById String?   @map("uploaded_by_id") @db.Uuid
+  uploadedBy   Employee? @relation("EmployeeUploadedComplaintMedia", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  // Universal Dynamic Custom Fields (Rule 18)
+  additionalInformation Json? @map("additional_information")
+
+  // Soft Delete & Timestamps
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@index([organizationId])
+  @@index([projectId])
+  @@index([complaintId])
+  @@index([stageType])
+  @@index([mediaType])
+  @@index([uploadStatus])
+  @@index([uploadedById])
+  @@index([isDeleted, deletedAt])
+  @@map("project_complaint_media")
+}
+
+// ==========================================
 // 10. WORK APPROVAL (Client Sign-Offs & Change Requests)
 // ==========================================
 
@@ -1058,14 +1136,12 @@ model ProjectComplaint {
   milestone   ProjectMilestone? @relation("MilestoneComplaints", fields: [milestoneId], references: [id], onDelete: SetNull)
 
   // Identity & Classification
-  title       String                 @map("title") // e.g. "Misaligned tile grout in master bathroom"
-  description String                 @map("description") @db.Text
-  type        ComplaintType          @default(QUALITY) @map("type")
-  categoryId  String?                @map("category_id") @db.Uuid
-  categoryRef ComplaintSnagCategory? @relation("ComplaintCategoryRelation", fields: [categoryId], references: [id], onDelete: SetNull)
-  status      ComplaintStatus        @default(OPEN) @map("status")
-  severity    ComplaintSeverity      @default(MEDIUM) @map("severity")
-  priority    ProjectPriority        @default(MEDIUM) @map("priority")
+  title       String            @map("title") // e.g. "Misaligned tile grout in master bathroom"
+  description String            @map("description") @db.Text
+  type        ComplaintType     @default(QUALITY) @map("type")
+  status      ComplaintStatus   @default(OPEN) @map("status")
+  severity    ComplaintSeverity @default(MEDIUM) @map("severity")
+  priority    ProjectPriority   @default(MEDIUM) @map("priority")
 
   // Site Location Context
   areaRoom String? @map("area_room") // e.g. "Master Bedroom", "Kitchen"
@@ -1092,9 +1168,14 @@ model ProjectComplaint {
   closedAt        DateTime? @map("closed_at")
   rejectionReason String?   @map("rejection_reason") @db.Text
 
-  // Cloud Attachments (Photos/Videos of defect & proof of rectification: ImageType JSON array)
-  attachments           Json? @map("attachments")
-  additionalInformation Json? @map("additional_information")
+  // Optional Linkage to After-Sales Service Request (Post-Handover Phase)
+  serviceRequestId String?                   @map("service_request_id") @db.Uuid
+  serviceRequest   AfterSalesServiceRequest? @relation("ServiceRequestComplaints", fields: [serviceRequestId], references: [id], onDelete: SetNull)
+
+  // Cloud Attachments (Dual Before & After Attachments via ProjectComplaintMedia)
+  media                 ProjectComplaintMedia[] @relation("ComplaintMediaItems")
+  attachments           Json?                   @map("attachments")
+  additionalInformation Json?                   @map("additional_information")
 
   // Soft Delete & Timestamps
   isDeleted Boolean   @default(false) @map("is_deleted")
@@ -1107,8 +1188,8 @@ model ProjectComplaint {
   handoverSnags ProjectHandoverSnag[] @relation("ComplaintHandoverSnags")
 
   @@index([projectId])
-  @@index([categoryId])
   @@index([milestoneId])
+  @@index([serviceRequestId])
   @@index([status])
   @@index([type])
   @@index([severity])
@@ -1445,10 +1526,6 @@ model ProjectHandoverSnag {
   complaintId String?           @map("complaint_id") @db.Uuid
   complaint   ProjectComplaint? @relation("ComplaintHandoverSnags", fields: [complaintId], references: [id], onDelete: SetNull)
 
-  // Linkage to Master Snag Category
-  categoryId  String?                @map("category_id") @db.Uuid
-  categoryRef ComplaintSnagCategory? @relation("SnagCategoryRelation", fields: [categoryId], references: [id], onDelete: SetNull)
-
   areaRoom    String?              @map("area_room") // e.g. "Living Room", "Master Bathroom"
   title       String               @map("title") // e.g. "Touch-up paint behind sofa wall"
   description String?              @map("description") @db.Text
@@ -1476,7 +1553,6 @@ model ProjectHandoverSnag {
 
   @@index([handoverId])
   @@index([complaintId])
-  @@index([categoryId])
   @@index([status])
   @@index([severity])
   @@index([assignedToId])

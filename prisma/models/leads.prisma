@@ -125,6 +125,15 @@ model Lead {
   lostCompetitor String?         @map("lost_competitor") // Competitor name if reason requires competitor
   lostAt         DateTime?       @map("lost_at")
 
+  // Funnel & Pipeline Stage Linkage (Multi-Funnel Architecture)
+  funnelId           String?          @map("funnel_id") @db.Uuid
+  funnel             LeadFunnel?      @relation("FunnelLeads", fields: [funnelId], references: [id], onDelete: SetNull)
+  funnelStageId      String?          @map("funnel_stage_id") @db.Uuid
+  funnelStage        LeadFunnelStage? @relation("StageActiveLeads", fields: [funnelStageId], references: [id], onDelete: SetNull)
+  formSubmissionData Json?            @map("form_submission_data") // Dynamic Form responses
+  stageEnteredAt     DateTime?        @default(now()) @map("stage_entered_at")
+  isSlaBreached      Boolean          @default(false) @map("is_sla_breached")
+
   // Metadata & Custom Attributes
   tags                  String[] @default([]) @map("tags")
   notes                 String?  @map("notes")
@@ -138,20 +147,23 @@ model Lead {
   updatedAt DateTime  @updatedAt @map("updated_at")
 
   // Relations
-  activities            LeadActivity[]         @relation("LeadActivities")
-  followUps             LeadFollowUp[]         @relation("LeadFollowUps")
-  stageHistories        LeadStageHistory[]     @relation("LeadStageHistories")
-  documents             LeadDocument[]         @relation("LeadDocuments")
-  meetings              Meeting[]              @relation("LeadMeetings")
-  tasks                 Task[]                 @relation("LeadTasks")
-  projects              Project[]              @relation("LeadProjects")
-  channelPartnerLead    ChannelPartnerLead?    @relation("LeadChannelPartnerLead")
-  channelPartnerPayouts ChannelPartnerPayout[] @relation("LeadChannelPartnerPayouts")
-  quotations            Quotation[]            @relation("LeadQuotations")
+  activities            LeadActivity[]          @relation("LeadActivities")
+  followUps             LeadFollowUp[]          @relation("LeadFollowUps")
+  stageHistories        LeadStageHistory[]      @relation("LeadStageHistories")
+  funnelTransitions     LeadFunnelTransition[]  @relation("LeadFunnelTransitions")
+  documents             LeadDocument[]          @relation("LeadDocuments")
+  meetings              Meeting[]               @relation("LeadMeetings")
+  tasks                 Task[]                  @relation("LeadTasks")
+  projects              Project[]               @relation("LeadProjects")
+  channelPartnerLead    ChannelPartnerLead?     @relation("LeadChannelPartnerLead")
+  channelPartnerPayouts ChannelPartnerPayout[]  @relation("LeadChannelPartnerPayouts")
+  quotations            Quotation[]             @relation("LeadQuotations")
 
   @@unique([organizationId, leadCode])
   @@index([organizationId])
   @@index([customerId])
+  @@index([funnelId])
+  @@index([funnelStageId])
   @@index([assignedToId])
   @@index([lostReasonId])
   @@index([status])

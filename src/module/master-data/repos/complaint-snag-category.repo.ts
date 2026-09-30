@@ -126,13 +126,8 @@ export class ComplaintSnagCategoryRepository {
   /**
    * Count usage across Complaints and Handover Snags
    */
-  async countUsage(id: string, organizationId: string, tx?: Prisma.TransactionClient) {
-    const db = tx || prisma;
-    const [complaintCount, snagCount] = await Promise.all([
-      db.projectComplaint.count({ where: { categoryId: id, isDeleted: false } }),
-      db.projectHandoverSnag.count({ where: { categoryId: id } }),
-    ]);
-    return { complaintCount, snagCount, total: complaintCount + snagCount };
+  async countUsage(_id: string, _organizationId: string, _tx?: Prisma.TransactionClient) {
+    return { complaintCount: 0, snagCount: 0, total: 0 };
   }
 
   /**

@@ -1,41 +1,18 @@
 import { z } from "zod";
+import {
+  ComplaintType,
+  ComplaintStatus,
+  ComplaintSeverity,
+} from "../../../types/types.js";
 import { ProjectPriorityEnum, imageTypeSchema } from "./project.validator.js";
 
 // ==========================================
-// COMPLAINT ENUMS
+// COMPLAINT ENUMS (Rule 22: z.nativeEnum)
 // ==========================================
 
-export const ComplaintTypeEnum = z.enum([
-  "DESIGN",
-  "QUALITY",
-  "MATERIAL",
-  "EXECUTION",
-  "TIMELINE",
-  "BEHAVIOUR",
-  "PAYMENT",
-  "COMMUNICATION",
-  "WARRANTY",
-  "OTHER",
-]);
-
-export const ComplaintStatusEnum = z.enum([
-  "OPEN",
-  "ACKNOWLEDGED",
-  "ASSIGNED",
-  "IN_PROGRESS",
-  "WAITING",
-  "RESOLVED",
-  "CLOSED",
-  "REJECTED",
-  "REOPENED",
-]);
-
-export const ComplaintSeverityEnum = z.enum([
-  "LOW",
-  "MEDIUM",
-  "HIGH",
-  "CRITICAL",
-]);
+export const ComplaintTypeEnum = z.nativeEnum(ComplaintType);
+export const ComplaintStatusEnum = z.nativeEnum(ComplaintStatus);
+export const ComplaintSeverityEnum = z.nativeEnum(ComplaintSeverity);
 
 // ==========================================
 // PARAMS SCHEMAS
@@ -80,10 +57,9 @@ export const createComplaintSchema = z.object({
       .string()
       .min(1, "Complaint description is required")
       .max(5000),
-    type: ComplaintTypeEnum.default("QUALITY").optional(),
-    categoryId: z.string().uuid("Invalid complaint category ID format").optional().nullable(),
-    status: ComplaintStatusEnum.default("OPEN").optional(),
-    severity: ComplaintSeverityEnum.default("MEDIUM").optional(),
+    type: ComplaintTypeEnum.default(ComplaintType.QUALITY).optional(),
+    status: ComplaintStatusEnum.default(ComplaintStatus.OPEN).optional(),
+    severity: ComplaintSeverityEnum.default(ComplaintSeverity.MEDIUM).optional(),
     priority: ProjectPriorityEnum.default("MEDIUM").optional(),
 
     areaRoom: z.string().max(100).optional().nullable(),
@@ -101,6 +77,11 @@ export const createComplaintSchema = z.object({
     assignedToId: z
       .string()
       .uuid("Invalid assignee ID format")
+      .optional()
+      .nullable(),
+    serviceRequestId: z
+      .string()
+      .uuid("Invalid service request ID format")
       .optional()
       .nullable(),
 
@@ -135,7 +116,6 @@ export const updateComplaintSchema = z.object({
       .max(5000)
       .optional(),
     type: ComplaintTypeEnum.optional(),
-    categoryId: z.string().uuid("Invalid complaint category ID format").optional().nullable(),
     status: ComplaintStatusEnum.optional(),
     severity: ComplaintSeverityEnum.optional(),
     priority: ProjectPriorityEnum.optional(),
@@ -145,6 +125,11 @@ export const updateComplaintSchema = z.object({
     assignedToId: z
       .string()
       .uuid("Invalid assignee ID format")
+      .optional()
+      .nullable(),
+    serviceRequestId: z
+      .string()
+      .uuid("Invalid service request ID format")
       .optional()
       .nullable(),
 
@@ -208,6 +193,8 @@ export const getComplaintsQuerySchema = z.object({
     severity: ComplaintSeverityEnum.optional(),
     priority: ProjectPriorityEnum.optional(),
     milestoneId: z.string().uuid().optional(),
+    serviceRequestId: z.string().uuid().optional(),
+    phase: z.enum(["ONGOING", "AFTER_SALES", "ALL"]).optional(),
     assignedToId: z.string().uuid().optional(),
     reportedByCustomerId: z.string().uuid().optional(),
     reportedByEmployeeId: z.string().uuid().optional(),
@@ -255,12 +242,13 @@ export type GetComplaintsQueryInput = z.infer<
 export const getOrgComplaintsQuerySchema = z.object({
   query: z.object({
     projectId: z.string().uuid("Invalid project ID format").optional(),
-    categoryId: z.string().uuid("Invalid complaint category ID format").optional(),
     status: ComplaintStatusEnum.optional(),
     type: ComplaintTypeEnum.optional(),
     severity: ComplaintSeverityEnum.optional(),
     priority: ProjectPriorityEnum.optional(),
     milestoneId: z.string().uuid().optional(),
+    serviceRequestId: z.string().uuid().optional(),
+    phase: z.enum(["ONGOING", "AFTER_SALES", "ALL"]).optional(),
     assignedToId: z.string().uuid().optional(),
     reportedByCustomerId: z.string().uuid().optional(),
     reportedByEmployeeId: z.string().uuid().optional(),

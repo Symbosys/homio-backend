@@ -222,10 +222,6 @@ model ComplaintSnagCategory {
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
 
-  // Relations to Project Snags and Complaints
-  projectComplaints ProjectComplaint[]    @relation("ComplaintCategoryRelation")
-  handoverSnags     ProjectHandoverSnag[] @relation("SnagCategoryRelation")
-
   @@unique([organizationId, name])
   @@unique([organizationId, slug])
   @@index([organizationId, scope])

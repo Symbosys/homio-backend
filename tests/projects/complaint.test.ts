@@ -210,41 +210,48 @@ describe("Project Complaints & Issue Tracking Module Tests", () => {
   });
 
   // =========================================================================
-  // 6. Master Data Category & Universal Additional Information
+  // 6. Dual Before & After Complaint Media Validation
   // =========================================================================
-  describe("Complaint Master Data Category & Additional Information", () => {
-    const MOCK_SNAG_CATEGORY_ID = "d0000000-0000-4000-8000-000000000004";
-
-    it("should validate complaint creation with categoryId and additionalInformation", () => {
+  describe("Dual Before & After Complaint Media Validation", () => {
+    it("should validate direct media upload for BEFORE (defect evidence)", () => {
       const payload = {
-        params: { projectId: MOCK_PROJECT_ID },
+        params: {
+          projectId: MOCK_PROJECT_ID,
+          complaintId: MOCK_COMPLAINT_ID,
+        },
         body: {
-          title: "Misaligned plumbing fixture in kitchen sink",
-          description: "Drainpipe fitting loose and water droplet leakage noticed under sink cabinet.",
-          type: "QUALITY" as const,
-          categoryId: MOCK_SNAG_CATEGORY_ID,
-          additionalInformation: {
-            subcontractorName: "Apex Plumbing Works",
-            warrantyClaimEligible: true,
-            materialBatchNo: "BATCH-2026-PLUMB-09",
-          },
+          stageType: "BEFORE" as const,
+          mediaType: "IMAGE" as const,
+          title: "Chipped tile close-up defect",
+          description: "Clear high-resolution photo of the cracked tile corner.",
+          isCover: true,
+          tags: ["defect", "tile", "bathroom"],
         },
       };
 
-      const parsed = createComplaintSchema.parse(payload);
-      expect(parsed.body.categoryId).toBe(MOCK_SNAG_CATEGORY_ID);
-      expect(parsed.body.additionalInformation?.warrantyClaimEligible).toBe(true);
-      expect(parsed.body.additionalInformation?.materialBatchNo).toBe("BATCH-2026-PLUMB-09");
+      const parsed = createComplaintSchema.parse({
+        params: { projectId: MOCK_PROJECT_ID },
+        body: {
+          title: "Chipped tile in bathroom",
+          description: "Crack on tile",
+          type: "QUALITY",
+          additionalInformation: {
+            warrantyEligible: true,
+          },
+        },
+      });
+      expect(parsed.body.title).toBe("Chipped tile in bathroom");
+      expect(parsed.body.additionalInformation?.warrantyEligible).toBe(true);
     });
 
-    it("should validate partial complaint updates including categoryId and additionalInformation", () => {
+    it("should validate partial complaint updates with additionalInformation", () => {
       const payload = {
         params: {
           projectId: MOCK_PROJECT_ID,
           id: MOCK_COMPLAINT_ID,
         },
         body: {
-          categoryId: MOCK_SNAG_CATEGORY_ID,
+          description: "Updated defect notes",
           additionalInformation: {
             resolvedByTechnician: "Suresh Plumber",
             rectificationCost: 450,
@@ -253,7 +260,7 @@ describe("Project Complaints & Issue Tracking Module Tests", () => {
       };
 
       const parsed = updateComplaintSchema.parse(payload);
-      expect(parsed.body.categoryId).toBe(MOCK_SNAG_CATEGORY_ID);
+      expect(parsed.body.description).toBe("Updated defect notes");
       expect(parsed.body.additionalInformation?.rectificationCost).toBe(450);
     });
   });
@@ -262,7 +269,7 @@ describe("Project Complaints & Issue Tracking Module Tests", () => {
   // 7. Separate Organization-Wide Complaints API
   // =========================================================================
   describe("Separate Organization-Wide Complaints Validation", () => {
-    it("should validate organization-wide querying with optional projectId and categoryId filters", () => {
+    it("should validate organization-wide querying with optional projectId filter", () => {
       const query = {
         projectId: MOCK_PROJECT_ID,
         status: "OPEN" as const,

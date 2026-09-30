@@ -120,6 +120,19 @@ export class ServiceRequestRepository {
         },
         feedback: true,
         warrantyClaim: true,
+        complaints: {
+          where: { isDeleted: false },
+          orderBy: { createdAt: "desc" },
+          include: {
+            media: {
+              where: { isDeleted: false, uploadStatus: "COMPLETED" },
+              orderBy: { orderIndex: "asc" },
+            },
+            assignedTo: {
+              select: { id: true, firstName: true, lastName: true, employeeCode: true, displayName: true },
+            },
+          },
+        },
       },
     });
   }

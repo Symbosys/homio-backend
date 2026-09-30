@@ -1,0 +1,206 @@
+// ==========================================
+// LEAD FUNNEL & DYNAMIC FORM ENUMS
+// ==========================================
+
+enum FunnelCategory {
+  CLIENT          // Interior client & architectural design inquiries
+  JOB_APPLICANT   // HR & recruitment intake (Designers, 3D visualizers, supervisors)
+  VENDOR_SUPPLIER // Procurement intake (Material suppliers, contractors, trades)
+  CUSTOM          // Organization custom pipeline
+}
+
+enum FunnelStageType {
+  INTAKE            // Top of funnel (New Enquiry / New Application / Ingestion)
+  QUALIFYING        // Verification, discovery call, document audit
+  MEETING_INTERVIEW // Site visit / client presentation / interview / sample check
+  CLOSING_HIRED     // Booked Client / Hired Candidate / Approved Vendor
+  DISQUALIFIED      // Not Qualified / Rejected / Blacklisted
+  INACTIVE_COLD     // Not Responding / Not Interested
+}
+
+enum DynamicFormFieldType {
+  TEXT     // Text Field
+  NUMBER   // Number / Experience / Size
+  CURRENCY // Budget / Salary (INR / Lakhs)
+  PHONE    // Phone number with validation
+  EMAIL    // Email address with validation
+  DROPDOWN // Dropdown select from options array
+  FILE     // File / CAD / PDF / Resume upload (Multi-cloud storage)
+  DATE     // Date picker
+  LOCATION // Address / City / Pincode
+}
+
+// ==========================================
+// 1. LEAD FUNNEL (Multi-Funnel Pipeline Configuration)
+// ==========================================
+
+model LeadFunnel {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationLeadFunnels", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Funnel Identity (Matches Flutter FunnelConfig)
+  name           String         @db.VarChar(150) // e.g. "Interior Client Funnel", "Job Applicant Funnel"
+  slug           String         @db.VarChar(180) // e.g. "interior-client", "job-applicant", "vendor-supplier"
+  description    String?        @db.Text
+  funnelCategory FunnelCategory @default(CLIENT) @map("funnel_category")
+
+  // Public Embed & Share Integration (Matches Flutter Tab 3: Embed & Share)
+  embedSlug String @map("embed_slug") @db.VarChar(180) // e.g. "interior-client-funnel"
+
+  // Controls & Display
+  isDefault Boolean @default(false) @map("is_default") // Default pipeline for newly created leads
+  isActive  Boolean @default(true) @map("is_active")
+  sortOrder Int     @default(0) @map("sort_order")
+  color     String? @db.VarChar(50) // Hex accent e.g. "#4F46E5"
+
+  // Universal Custom Fields (Rule 18)
+  additionalInformation Json? @map("additional_information")
+
+  // Soft Delete & Timestamps
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  stages      LeadFunnelStage[]      @relation("FunnelStages")
+  formFields  LeadFunnelFormField[]  @relation("FunnelFormFields")
+  leads       Lead[]                 @relation("FunnelLeads")
+  transitions LeadFunnelTransition[] @relation("FunnelTransitions")
+
+  @@unique([organizationId, slug])
+  @@unique([organizationId, embedSlug])
+  @@index([organizationId])
+  @@index([funnelCategory])
+  @@index([isDefault])
+  @@index([isActive])
+  @@index([isDeleted, deletedAt])
+  @@map("lead_funnels")
+}
+
+// ==========================================
+// 2. LEAD FUNNEL STAGE (Stages & SLAs)
+// ==========================================
+
+model LeadFunnelStage {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationLeadFunnelStages", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  funnelId String     @map("funnel_id") @db.Uuid
+  funnel   LeadFunnel @relation("FunnelStages", fields: [funnelId], references: [id], onDelete: Cascade)
+
+  // Stage Identity & Sequence (Matches Flutter Tab 1: Stages & SLAs)
+  name       String          @db.VarChar(120) // e.g. "New Enquiry", "Meeting Done", "Booked Clients"
+  slug       String          @db.VarChar(150) // e.g. "new-enquiry", "meeting-done"
+  orderIndex Int             @map("order_index") // Sequential step: 1, 2, 3...
+  stageType  FunnelStageType @default(QUALIFYING) @map("stage_type")
+
+  // Stage SLA Rules & Descriptions (Matches Flutter Tab 1)
+  slaTargetDescription String? @map("sla_target_description") @db.VarChar(255) // e.g. "SLA Target: < 4 hours first response"
+  slaHours             Int?    @map("sla_hours")                              // SLA threshold e.g. 4, 24, 72 hours
+
+  // Automation Triggers (Matches Flutter Tab 1: 'Auto task generation enabled')
+  autoTaskEnabled Boolean @default(false) @map("auto_task_enabled")
+  autoTaskTitle   String? @map("auto_task_title") @db.VarChar(200)
+
+  // Probability & UI Controls
+  color          String? @db.VarChar(50)
+  winProbability Float   @default(0.0) @map("win_probability") // 0 to 100% for pipeline forecasting
+  isActive       Boolean @default(true) @map("is_active")
+
+  // Universal Custom Fields (Rule 18)
+  additionalInformation Json? @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  activeLeads     Lead[]                 @relation("StageActiveLeads")
+  transitionsFrom LeadFunnelTransition[] @relation("TransitionFromStage")
+  transitionsTo   LeadFunnelTransition[] @relation("TransitionToStage")
+
+  @@unique([funnelId, slug])
+  @@unique([funnelId, orderIndex])
+  @@index([organizationId])
+  @@index([funnelId])
+  @@index([orderIndex])
+  @@index([stageType])
+  @@map("lead_funnel_stages")
+}
+
+// ==========================================
+// 3. DYNAMIC FORM BUILDER (Dynamic Form Fields)
+// ==========================================
+
+model LeadFunnelFormField {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationLeadFunnelFormFields", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  funnelId String     @map("funnel_id") @db.Uuid
+  funnel   LeadFunnel @relation("FunnelFormFields", fields: [funnelId], references: [id], onDelete: Cascade)
+
+  // Field Definition (Matches Flutter DynamicFormField)
+  label       String               @db.VarChar(150) // e.g. "Client Full Name", "Scope of Work"
+  key         String               @db.VarChar(120) // e.g. "client_name", "work_type", "budget_lakhs"
+  fieldType   DynamicFormFieldType @default(TEXT) @map("field_type")
+  isRequired  Boolean              @default(false) @map("is_required")
+  placeholder String?              @db.VarChar(200) // e.g. "e.g. Rahul Sharma"
+  helpText    String?              @map("help_text") @db.VarChar(255) // e.g. "Minimum ₹20L for turnkey qualification"
+  options     String[]             @default([]) // For Dropdown: ["4BHK Villa", "3BHK Apartment"]
+  orderIndex  Int                  @default(0) @map("order_index")
+  isActive    Boolean              @default(true) @map("is_active")
+
+  // Universal Custom Fields (Rule 18)
+  additionalInformation Json? @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([funnelId, key])
+  @@index([organizationId])
+  @@index([funnelId])
+  @@index([orderIndex])
+  @@map("lead_funnel_form_fields")
+}
+
+// ==========================================
+// 4. LEAD FUNNEL TRANSITIONS & AUDIT LOG
+// ==========================================
+
+model LeadFunnelTransition {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationLeadFunnelTransitions", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  leadId String @map("lead_id") @db.Uuid
+  lead   Lead   @relation("LeadFunnelTransitions", fields: [leadId], references: [id], onDelete: Cascade)
+
+  funnelId String     @map("funnel_id") @db.Uuid
+  funnel   LeadFunnel @relation("FunnelTransitions", fields: [funnelId], references: [id], onDelete: Cascade)
+
+  fromStageId String?          @map("from_stage_id") @db.Uuid
+  fromStage   LeadFunnelStage? @relation("TransitionFromStage", fields: [fromStageId], references: [id], onDelete: SetNull)
+
+  toStageId String          @map("to_stage_id") @db.Uuid
+  toStage   LeadFunnelStage @relation("TransitionToStage", fields: [toStageId], references: [id], onDelete: Restrict)
+
+  dwellTimeMinutes Int?    @map("dwell_time_minutes") // Minutes spent in previous stage
+  isSlaBreached    Boolean @default(false) @map("is_sla_breached")
+  remarks          String? @db.Text
+
+  changedById String? @map("changed_by_id") @db.Uuid
+  changedBy   User?   @relation("LeadFunnelTransitionChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
+
+  additionalInformation Json? @map("additional_information")
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  @@index([organizationId])
+  @@index([leadId])
+  @@index([funnelId])
+  @@index([fromStageId, toStageId])
+  @@index([createdAt])
+  @@map("lead_funnel_transitions")
+}

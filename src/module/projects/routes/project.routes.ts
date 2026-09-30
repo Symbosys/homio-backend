@@ -26,6 +26,7 @@ import {
   projectCommercialSummaryRouter,
 } from "./project-billing.routes.js";
 import { progressMediaRouter } from "./progress-media.routes.js";
+import { complaintMediaRouter } from "./complaint-media.routes.js";
 
 const projectRoutes = Router();
 
@@ -48,6 +49,7 @@ projectRoutes.use("/:projectId/progress", progressRoutes);
 projectRoutes.use("/:projectId/progress-media", progressMediaRouter);
 projectRoutes.use("/:projectId/approvals", approvalRoutes);
 projectRoutes.use("/:projectId/complaints", complaintRoutes);
+projectRoutes.use("/:projectId/complaint-media", complaintMediaRouter);
 projectRoutes.use("/:projectId/site-visits", siteVisitRoutes);
 projectRoutes.use("/:projectId/expenses", expenseRoutes);
 projectRoutes.use("/:projectId/payments", paymentRoutes);

@@ -11,13 +11,48 @@ import type {
 
 export class ComplaintRepository {
   /**
+   * Helper to serialize BigInt fileSizeBytes in nested complaint media
+   */
+  private serializeComplaint(complaint: any) {
+    if (!complaint) return null;
+    return {
+      ...complaint,
+      media: Array.isArray(complaint.media)
+        ? complaint.media.map((m: any) => ({
+            ...m,
+            fileSizeBytes:
+              m.fileSizeBytes !== undefined && m.fileSizeBytes !== null
+                ? Number(m.fileSizeBytes)
+                : null,
+          }))
+        : complaint.media,
+    };
+  }
+
+  private readonly defaultMediaInclude = {
+    where: { isDeleted: false, uploadStatus: "COMPLETED" as const },
+    orderBy: { orderIndex: "asc" as const },
+    include: {
+      uploadedBy: {
+        select: {
+          id: true,
+          employeeCode: true,
+          displayName: true,
+          avatarUrl: true,
+          designation: true,
+        },
+      },
+    },
+  };
+
+  /**
    * File a new project complaint / ticket
    */
   async create(projectId: string, data: CreateComplaintInput, tx?: Prisma.TransactionClient) {
     const db = tx || prisma;
     const { targetResolutionDate, attachments, additionalInformation, ...directFields } = data;
 
-    return db.projectComplaint.create({
+    const created = await db.projectComplaint.create({
       data: {
         ...directFields,
         projectId,
@@ -26,16 +61,7 @@ export class ComplaintRepository {
         additionalInformation: additionalInformation ? (additionalInformation as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
       },
       include: {
-        categoryRef: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            code: true,
-            color: true,
-            icon: true,
-          },
-        },
+        media: this.defaultMediaInclude,
         reportedByCustomer: {
           select: {
             id: true,
@@ -73,8 +99,19 @@ export class ComplaintRepository {
             name: true,
           },
         },
+        serviceRequest: {
+          select: {
+            id: true,
+            requestNumber: true,
+            subject: true,
+            status: true,
+            priority: true,
+          },
+        },
       },
     });
+
+    return this.serializeComplaint(created);
   }
 
   /**
@@ -88,6 +125,8 @@ export class ComplaintRepository {
       severity,
       priority,
       milestoneId,
+      serviceRequestId,
+      phase,
       assignedToId,
       reportedByCustomerId,
       reportedByEmployeeId,
@@ -108,6 +147,12 @@ export class ComplaintRepository {
       ...(severity ? { severity } : {}),
       ...(priority ? { priority } : {}),
       ...(milestoneId ? { milestoneId } : {}),
+      ...(serviceRequestId ? { serviceRequestId } : {}),
+      ...(phase === "ONGOING"
+        ? { serviceRequestId: null }
+        : phase === "AFTER_SALES"
+        ? { serviceRequestId: { not: null } }
+        : {}),
       ...(assignedToId ? { assignedToId } : {}),
       ...(reportedByCustomerId ? { reportedByCustomerId } : {}),
       ...(reportedByEmployeeId ? { reportedByEmployeeId } : {}),
@@ -130,6 +175,7 @@ export class ComplaintRepository {
         take: limit,
         orderBy: { [sortBy]: sortOrder },
         include: {
+          media: this.defaultMediaInclude,
           reportedByCustomer: {
             select: {
               id: true,
@@ -155,19 +201,19 @@ export class ComplaintRepository {
               name: true,
             },
           },
-          categoryRef: {
+          serviceRequest: {
             select: {
               id: true,
-              name: true,
-              slug: true,
-              code: true,
-              color: true,
-              icon: true,
+              requestNumber: true,
+              subject: true,
+              status: true,
+              priority: true,
             },
           },
           _count: {
             select: {
               comments: true,
+              media: true,
             },
           },
         },
@@ -175,7 +221,7 @@ export class ComplaintRepository {
     ]);
 
     return {
-      data,
+      data: data.map((item) => this.serializeComplaint(item)),
       pagination: {
         total,
         page,
@@ -186,17 +232,18 @@ export class ComplaintRepository {
   }
 
   /**
-   * Find single complaint with comments and full attribution
+   * Find single complaint with comments, dual media attachments, and full attribution
    */
   async findById(id: string, projectId: string, tx?: Prisma.TransactionClient) {
     const db = tx || prisma;
-    return db.projectComplaint.findFirst({
+    const item = await db.projectComplaint.findFirst({
       where: {
         id,
         projectId,
         isDeleted: false,
       },
       include: {
+        media: this.defaultMediaInclude,
         reportedByCustomer: {
           select: {
             id: true,
@@ -247,6 +294,15 @@ export class ComplaintRepository {
             stage: true,
           },
         },
+        serviceRequest: {
+          select: {
+            id: true,
+            requestNumber: true,
+            subject: true,
+            status: true,
+            priority: true,
+          },
+        },
         comments: {
           orderBy: { createdAt: "asc" },
           include: {
@@ -271,6 +327,8 @@ export class ComplaintRepository {
         },
       },
     });
+
+    return this.serializeComplaint(item);
   }
 
   /**
@@ -295,20 +353,11 @@ export class ComplaintRepository {
       updateData.additionalInformation = additionalInformation ? (additionalInformation as unknown as Prisma.InputJsonValue) : Prisma.JsonNull;
     }
 
-    return db.projectComplaint.update({
+    const updated = await db.projectComplaint.update({
       where: { id, projectId },
       data: updateData,
       include: {
-        categoryRef: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            code: true,
-            color: true,
-            icon: true,
-          },
-        },
+        media: this.defaultMediaInclude,
         assignedTo: {
           select: {
             id: true,
@@ -317,8 +366,19 @@ export class ComplaintRepository {
             designation: true,
           },
         },
+        serviceRequest: {
+          select: {
+            id: true,
+            requestNumber: true,
+            subject: true,
+            status: true,
+            priority: true,
+          },
+        },
       },
     });
+
+    return this.serializeComplaint(updated);
   }
 
   /**
@@ -352,10 +412,11 @@ export class ComplaintRepository {
       updateData.closedAt = null;
     }
 
-    return db.projectComplaint.update({
+    const updated = await db.projectComplaint.update({
       where: { id, projectId },
       data: updateData,
       include: {
+        media: this.defaultMediaInclude,
         assignedTo: {
           select: {
             id: true,
@@ -371,8 +432,19 @@ export class ComplaintRepository {
             displayName: true,
           },
         },
+        serviceRequest: {
+          select: {
+            id: true,
+            requestNumber: true,
+            subject: true,
+            status: true,
+            priority: true,
+          },
+        },
       },
     });
+
+    return this.serializeComplaint(updated);
   }
 
   /**
@@ -470,12 +542,13 @@ export class ComplaintRepository {
     const db = tx || prisma;
     const {
       projectId,
-      categoryId,
       status,
       type,
       severity,
       priority,
       milestoneId,
+      serviceRequestId,
+      phase,
       assignedToId,
       reportedByCustomerId,
       reportedByEmployeeId,
@@ -495,12 +568,17 @@ export class ComplaintRepository {
         isDeleted: false,
       },
       ...(projectId ? { projectId } : {}),
-      ...(categoryId ? { categoryId } : {}),
       ...(status ? { status } : {}),
       ...(type ? { type } : {}),
       ...(severity ? { severity } : {}),
       ...(priority ? { priority } : {}),
       ...(milestoneId ? { milestoneId } : {}),
+      ...(serviceRequestId ? { serviceRequestId } : {}),
+      ...(phase === "ONGOING"
+        ? { serviceRequestId: null }
+        : phase === "AFTER_SALES"
+        ? { serviceRequestId: { not: null } }
+        : {}),
       ...(assignedToId ? { assignedToId } : {}),
       ...(reportedByCustomerId ? { reportedByCustomerId } : {}),
       ...(reportedByEmployeeId ? { reportedByEmployeeId } : {}),
@@ -525,6 +603,7 @@ export class ComplaintRepository {
         take: limit,
         orderBy: { [sortBy]: sortOrder },
         include: {
+          media: this.defaultMediaInclude,
           project: {
             select: {
               id: true,
@@ -558,19 +637,19 @@ export class ComplaintRepository {
               name: true,
             },
           },
-          categoryRef: {
+          serviceRequest: {
             select: {
               id: true,
-              name: true,
-              slug: true,
-              code: true,
-              color: true,
-              icon: true,
+              requestNumber: true,
+              subject: true,
+              status: true,
+              priority: true,
             },
           },
           _count: {
             select: {
               comments: true,
+              media: true,
             },
           },
         },
@@ -578,7 +657,7 @@ export class ComplaintRepository {
     ]);
 
     return {
-      data,
+      data: data.map((item) => this.serializeComplaint(item)),
       pagination: {
         total,
         page,
