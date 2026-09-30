@@ -61,6 +61,9 @@ export class LeadFunnelRepo {
         take: limit,
         orderBy: { [sortBy]: sortOrder },
         include: {
+          organization: {
+            select: { id: true, name: true, slug: true, logoUrl: true },
+          },
           stages: {
             orderBy: { orderIndex: "asc" },
           },
@@ -102,6 +105,9 @@ export class LeadFunnelRepo {
         isDeleted: false,
       },
       include: {
+        organization: {
+          select: { id: true, name: true, slug: true, logoUrl: true },
+        },
         stages: {
           orderBy: { orderIndex: "asc" },
         },
@@ -120,7 +126,76 @@ export class LeadFunnelRepo {
   }
 
   /**
-   * Public: Find active funnel by public embed slug
+   * Public: Find active funnel by organization slug (or ID) and public embed slug
+   */
+  async findByOrgAndEmbedSlug(orgSlugOrId: string, embedSlug: string, tx?: Prisma.TransactionClient) {
+    const db = tx || prisma;
+
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(orgSlugOrId);
+
+    const organization = await db.organization.findFirst({
+      where: isUuid
+        ? { OR: [{ id: orgSlugOrId }, { slug: orgSlugOrId }], isDeleted: false }
+        : { slug: orgSlugOrId, isDeleted: false },
+      select: { id: true, name: true, slug: true, logoUrl: true },
+    });
+
+    if (!organization) return null;
+
+    return db.leadFunnel.findFirst({
+      where: {
+        organizationId: organization.id,
+        embedSlug,
+        isActive: true,
+        isDeleted: false,
+      },
+      select: {
+        id: true,
+        organizationId: true,
+        name: true,
+        description: true,
+        funnelCategory: true,
+        embedSlug: true,
+        color: true,
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            logoUrl: true,
+          },
+        },
+        stages: {
+          where: { isActive: true },
+          orderBy: { orderIndex: "asc" },
+          select: {
+            id: true,
+            name: true,
+            orderIndex: true,
+            color: true,
+          },
+        },
+        formFields: {
+          where: { isActive: true },
+          orderBy: { orderIndex: "asc" },
+          select: {
+            id: true,
+            label: true,
+            key: true,
+            fieldType: true,
+            isRequired: true,
+            placeholder: true,
+            helpText: true,
+            options: true,
+            orderIndex: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Public: Find active funnel by public embed slug (Fallback lookup)
    */
   async findByEmbedSlug(embedSlug: string, tx?: Prisma.TransactionClient) {
     const db = tx || prisma;
@@ -138,6 +213,14 @@ export class LeadFunnelRepo {
         funnelCategory: true,
         embedSlug: true,
         color: true,
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            logoUrl: true,
+          },
+        },
         stages: {
           where: { isActive: true },
           orderBy: { orderIndex: "asc" },
@@ -199,6 +282,9 @@ export class LeadFunnelRepo {
         additionalInformation: (data.additionalInformation as Prisma.InputJsonValue) ?? undefined,
       },
       include: {
+        organization: {
+          select: { id: true, name: true, slug: true, logoUrl: true },
+        },
         stages: true,
         formFields: true,
         _count: {
@@ -235,6 +321,9 @@ export class LeadFunnelRepo {
         ...(data.additionalInformation !== undefined ? { additionalInformation: (data.additionalInformation as Prisma.InputJsonValue) ?? undefined } : {}),
       },
       include: {
+        organization: {
+          select: { id: true, name: true, slug: true, logoUrl: true },
+        },
         stages: { orderBy: { orderIndex: "asc" } },
         formFields: { orderBy: { orderIndex: "asc" } },
         _count: {
@@ -440,19 +529,59 @@ export class LeadFunnelRepo {
   /**
    * Ingest lead from public embedded form submission
    */
-  async submitPublicLead(embedSlug: string, data: SubmitPublicLeadInput, tx?: Prisma.TransactionClient) {
+  async submitPublicLead(
+    embedSlugOrOrg: string,
+    dataOrEmbedSlug: SubmitPublicLeadInput | string,
+    optionalData?: SubmitPublicLeadInput,
+    tx?: Prisma.TransactionClient
+  ) {
     const db = tx || prisma;
 
-    const funnel = await db.leadFunnel.findFirst({
-      where: { embedSlug, isActive: true, isDeleted: false },
-      include: {
-        stages: { where: { isActive: true }, orderBy: { orderIndex: "asc" }, take: 1 },
-      },
-    });
+    let funnel: any = null;
+
+    if (typeof dataOrEmbedSlug === "string" && optionalData) {
+      // Called with (orgSlugOrId, embedSlug, data)
+      const orgSlugOrId = embedSlugOrOrg;
+      const embedSlug = dataOrEmbedSlug;
+
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(orgSlugOrId);
+      const organization = await db.organization.findFirst({
+        where: isUuid
+          ? { OR: [{ id: orgSlugOrId }, { slug: orgSlugOrId }], isDeleted: false }
+          : { slug: orgSlugOrId, isDeleted: false },
+      });
+
+      if (!organization) {
+        throw new Error("Target organization not found for embed submission");
+      }
+
+      funnel = await db.leadFunnel.findFirst({
+        where: {
+          organizationId: organization.id,
+          embedSlug,
+          isActive: true,
+          isDeleted: false,
+        },
+        include: {
+          stages: { where: { isActive: true }, orderBy: { orderIndex: "asc" }, take: 1 },
+        },
+      });
+    } else {
+      // Fallback called with (embedSlug, data)
+      const embedSlug = embedSlugOrOrg;
+      funnel = await db.leadFunnel.findFirst({
+        where: { embedSlug, isActive: true, isDeleted: false },
+        include: {
+          stages: { where: { isActive: true }, orderBy: { orderIndex: "asc" }, take: 1 },
+        },
+      });
+    }
 
     if (!funnel) {
       throw new Error("Active lead funnel not found for embed code");
     }
+
+    const data = typeof dataOrEmbedSlug === "object" ? dataOrEmbedSlug : optionalData!;
 
     const firstStage = funnel.stages[0];
 

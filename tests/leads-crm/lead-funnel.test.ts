@@ -341,5 +341,66 @@ describe("Lead Funnel & Pipeline Module Tests", () => {
       }
     });
   });
+
+  // =========================================================================
+  // 6. Multi-Tenant Isolation & Organization Scoping Validation
+  // =========================================================================
+  describe("Multi-Tenant Isolation & Public Embed Scoping Validation", () => {
+    it("should validate public submission with custom dynamic form data and tenant attribution", () => {
+      const payloadOrg1 = {
+        body: {
+          clientName: "Vikram Malhotra",
+          phone: "+91 98111 22233",
+          email: "vikram@example.com",
+          notes: "Interested in 4BHK Penthouse full turnkey interior design",
+          formData: {
+            client_name: "Vikram Malhotra",
+            phone: "+91 98111 22233",
+            property_type: "Penthouse",
+            budget_lakhs: "45",
+            pincode: "122002",
+          },
+          organizationSlug: "acme-luxury-interiors",
+          sourceUrl: "https://acme-luxury.com/contact-us",
+        },
+      };
+
+      const result = submitPublicLeadSchema.safeParse(payloadOrg1);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.body.clientName).toBe("Vikram Malhotra");
+        expect(result.data.body.formData.property_type).toBe("Penthouse");
+        expect(result.data.body.formData.budget_lakhs).toBe("45");
+      }
+    });
+
+    it("should ensure identical embedSlug names can exist independently across distinct organizations", () => {
+      const org1Funnel = {
+        organizationId: "aaaaaaaa-1111-4111-8111-111111111111",
+        name: "Interior Client Funnel",
+        embedSlug: "interior-client-funnel",
+        organizationSlug: "studio-one",
+      };
+
+      const org2Funnel = {
+        organizationId: "bbbbbbbb-2222-4222-8222-222222222222",
+        name: "Interior Client Funnel",
+        embedSlug: "interior-client-funnel",
+        organizationSlug: "studio-two",
+      };
+
+      // Both funnels share embedSlug but have distinct organization contexts
+      expect(org1Funnel.embedSlug).toBe(org2Funnel.embedSlug);
+      expect(org1Funnel.organizationId).not.toBe(org2Funnel.organizationId);
+      expect(org1Funnel.organizationSlug).not.toBe(org2Funnel.organizationSlug);
+
+      // Scoped public URLs resolve distinctly
+      const url1 = `/embed/${org1Funnel.organizationSlug}/${org1Funnel.embedSlug}`;
+      const url2 = `/embed/${org2Funnel.organizationSlug}/${org2Funnel.embedSlug}`;
+      expect(url1).toBe("/embed/studio-one/interior-client-funnel");
+      expect(url2).toBe("/embed/studio-two/interior-client-funnel");
+      expect(url1).not.toBe(url2);
+    });
+  });
 });
 

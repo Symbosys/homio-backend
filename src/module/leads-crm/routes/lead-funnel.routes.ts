@@ -29,14 +29,26 @@ const leadFunnelRoutes = Router();
 // ==========================================
 
 /**
+ * @route   GET /api/v1/crm/funnels/public/:orgSlug/:embedSlug
+ * @desc    Fetch public funnel configuration scoped by organization for web embedding
+ */
+leadFunnelRoutes.get("/public/:orgSlug/:embedSlug", getPublicEmbedFunnel);
+
+/**
+ * @route   POST /api/v1/crm/funnels/public/:orgSlug/:embedSlug/submit
+ * @desc    Ingest lead inquiry from external web embed form scoped by organization
+ */
+leadFunnelRoutes.post("/public/:orgSlug/:embedSlug/submit", submitPublicEmbedLead);
+
+/**
  * @route   GET /api/v1/crm/funnels/public/:embedSlug
- * @desc    Fetch public funnel configuration and form builder fields for web embedding
+ * @desc    Fallback fetch public funnel configuration (supports ?org= query parameter)
  */
 leadFunnelRoutes.get("/public/:embedSlug", getPublicEmbedFunnel);
 
 /**
  * @route   POST /api/v1/crm/funnels/public/:embedSlug/submit
- * @desc    Ingest lead inquiry from external web embed form
+ * @desc    Fallback ingest lead inquiry from external web embed form (supports ?org= query parameter)
  */
 leadFunnelRoutes.post("/public/:embedSlug/submit", submitPublicEmbedLead);
 

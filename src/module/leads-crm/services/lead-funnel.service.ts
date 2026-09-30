@@ -136,10 +136,13 @@ export class LeadFunnelService {
   // ==========================================
 
   /**
-   * Get public embed definition
+   * Get public embed definition (scoped by organization if provided)
    */
-  async getPublicEmbedFunnel(embedSlug: string) {
-    const funnel = await leadFunnelRepo.findByEmbedSlug(embedSlug);
+  async getPublicEmbedFunnel(embedSlug: string, orgSlugOrId?: string) {
+    const funnel = orgSlugOrId
+      ? await leadFunnelRepo.findByOrgAndEmbedSlug(orgSlugOrId, embedSlug)
+      : await leadFunnelRepo.findByEmbedSlug(embedSlug);
+
     if (!funnel) {
       throw new ErrorResponse("Public embed form not found or inactive", statusCode.Not_Found);
     }
@@ -147,9 +150,12 @@ export class LeadFunnelService {
   }
 
   /**
-   * Submit lead via public embed form
+   * Submit lead via public embed form (scoped by organization if provided)
    */
-  async submitPublicEmbedLead(embedSlug: string, data: SubmitPublicLeadInput) {
+  async submitPublicEmbedLead(embedSlug: string, data: SubmitPublicLeadInput, orgSlugOrId?: string) {
+    if (orgSlugOrId) {
+      return leadFunnelRepo.submitPublicLead(orgSlugOrId, embedSlug, data);
+    }
     return leadFunnelRepo.submitPublicLead(embedSlug, data);
   }
 

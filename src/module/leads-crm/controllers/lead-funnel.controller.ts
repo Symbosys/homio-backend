@@ -225,26 +225,44 @@ export const reorderFunnelFormFields = asyncHandler(async (req, res) => {
 
 /**
  * Controller: Get public funnel definition by embed slug (No auth required)
+ * Supports scoped lookup via /public/:orgSlug/:embedSlug or /public/:embedSlug?org=...
  */
 export const getPublicEmbedFunnel = asyncHandler(async (req, res) => {
-  const { embedSlug } = req.params;
-  if (!embedSlug || typeof embedSlug !== "string") {
+  const orgSlugParam = Array.isArray(req.params.orgSlug) ? req.params.orgSlug[0] : req.params.orgSlug;
+  const embedSlugParam = Array.isArray(req.params.embedSlug) ? req.params.embedSlug[0] : req.params.embedSlug;
+  const slugParam = Array.isArray(req.params.slug) ? req.params.slug[0] : req.params.slug;
+  const queryOrg = typeof req.query.org === "string" ? req.query.org : typeof req.query.orgSlug === "string" ? req.query.orgSlug : typeof req.query.organizationId === "string" ? req.query.organizationId : undefined;
+
+  const targetEmbedSlug = embedSlugParam || slugParam || "";
+  const targetOrgSlug = orgSlugParam || queryOrg || undefined;
+
+  if (!targetEmbedSlug) {
     throw new ErrorResponse("Valid embed slug required", statusCode.Bad_Request);
   }
-  const result = await leadFunnelService.getPublicEmbedFunnel(embedSlug);
+
+  const result = await leadFunnelService.getPublicEmbedFunnel(targetEmbedSlug, targetOrgSlug);
   return SuccessResponse(res, "Public funnel definition retrieved successfully", result, statusCode.OK);
 });
 
 /**
  * Controller: Ingest lead from public embedded form submission (No auth required)
+ * Supports scoped submission via /public/:orgSlug/:embedSlug/submit or /public/:embedSlug/submit
  */
 export const submitPublicEmbedLead = asyncHandler(async (req, res) => {
-  const { embedSlug } = req.params;
-  if (!embedSlug || typeof embedSlug !== "string") {
+  const orgSlugParam = Array.isArray(req.params.orgSlug) ? req.params.orgSlug[0] : req.params.orgSlug;
+  const embedSlugParam = Array.isArray(req.params.embedSlug) ? req.params.embedSlug[0] : req.params.embedSlug;
+  const slugParam = Array.isArray(req.params.slug) ? req.params.slug[0] : req.params.slug;
+  const queryOrg = typeof req.query.org === "string" ? req.query.org : typeof req.query.orgSlug === "string" ? req.query.orgSlug : typeof req.body?.organizationSlug === "string" ? req.body.organizationSlug : undefined;
+
+  const targetEmbedSlug = embedSlugParam || slugParam || "";
+  const targetOrgSlug = orgSlugParam || queryOrg || undefined;
+
+  if (!targetEmbedSlug) {
     throw new ErrorResponse("Valid embed slug required", statusCode.Bad_Request);
   }
+
   const parsed = submitPublicLeadSchema.parse({ body: req.body });
-  const result = await leadFunnelService.submitPublicEmbedLead(embedSlug, parsed.body);
+  const result = await leadFunnelService.submitPublicEmbedLead(targetEmbedSlug, parsed.body, targetOrgSlug);
   return SuccessResponse(res, "Inquiry submitted successfully", result, statusCode.Created);
 });
 
