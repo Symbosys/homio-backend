@@ -152,6 +152,46 @@ export class LeadFunnelService {
   async submitPublicEmbedLead(embedSlug: string, data: SubmitPublicLeadInput) {
     return leadFunnelRepo.submitPublicLead(embedSlug, data);
   }
+
+  // ==========================================
+  // INQUIRIES & TRANSITION AUDIT OPERATIONS
+  // ==========================================
+
+  /**
+   * Get paginated leads/inquiries captured under this funnel
+   */
+  async getFunnelLeads(funnelId: string, organizationId: string, query: any) {
+    await this.getFunnelById(funnelId, organizationId);
+    return leadFunnelRepo.findFunnelLeads(funnelId, organizationId, query);
+  }
+
+  /**
+   * Transition lead stage within the funnel
+   */
+  async transitionLeadStage(
+    funnelId: string,
+    leadId: string,
+    organizationId: string,
+    data: any,
+    userId?: string
+  ) {
+    return leadFunnelRepo.transitionLeadStage(funnelId, leadId, organizationId, data, userId);
+  }
+
+  /**
+   * Get funnel transitions & SLA audit logs
+   */
+  async getFunnelTransitions(funnelId: string, organizationId: string, query: any) {
+    await this.getFunnelById(funnelId, organizationId);
+    return leadFunnelRepo.findFunnelTransitions(funnelId, organizationId, query);
+  }
+
+  /**
+   * Get all stage transitions for a specific lead
+   */
+  async getLeadTransitions(leadId: string, organizationId: string) {
+    return leadFunnelRepo.findLeadTransitions(leadId, organizationId);
+  }
 }
 
 export const leadFunnelService = new LeadFunnelService();

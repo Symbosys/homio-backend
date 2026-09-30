@@ -59,6 +59,19 @@ enum FollowUpType {
   OFFICE_VISIT
 }
 
+enum LeadLostReason {
+  BUDGET_MISMATCH // Quoted estimate exceeded client budget / price too high
+  LOST_TO_COMPETITOR // Selected another interior design firm or contractor
+  HIRED_LOCAL_CARPENTER // Chose direct local carpenter / informal labor
+  PROJECT_POSTPONED // Renovation / interior work deferred or put on hold
+  POSSESSION_DELAYED // Builder / developer delayed property handover
+  OUT_OF_SERVICE_AREA // Site location outside serviceable geographic area
+  SCOPE_NOT_SUPPORTED // Requested scope outside company offerings (e.g., small repairs)
+  CLIENT_UNRESPONSIVE // Client stopped responding after follow-ups
+  FAKE_OR_INVALID_LEAD // Invalid contact details, spam, or test inquiry
+  OTHER // Other specific reasons (documented in remarks)
+}
+
 // ==========================================
 // LEAD MODEL
 // ==========================================
@@ -117,12 +130,10 @@ model Lead {
   convertedBy        User?     @relation("LeadConvertedBy", fields: [convertedById], references: [id], onDelete: SetNull)
   convertedProjectId String?   @map("converted_project_id") @db.Uuid
 
-  // Lost Outcome Details & Master Reason
-  lostReasonId   String?         @map("lost_reason_id") @db.Uuid
-  lostReasonRef  LeadLostReason? @relation("LeadLostReasonRelation", fields: [lostReasonId], references: [id], onDelete: SetNull)
-  lostReason     String?         @map("lost_reason") // Text fallback / snapshot
+  // Lost Outcome Details & Fixed Industry Standard Enum Reason
+  lostReason     LeadLostReason? @map("lost_reason")
   lostRemarks    String?         @map("lost_remarks")
-  lostCompetitor String?         @map("lost_competitor") // Competitor name if reason requires competitor
+  lostCompetitor String?         @map("lost_competitor") // Competitor name if reason is LOST_TO_COMPETITOR or alternative
   lostAt         DateTime?       @map("lost_at")
 
   // Funnel & Pipeline Stage Linkage (Multi-Funnel Architecture)
@@ -165,7 +176,7 @@ model Lead {
   @@index([funnelId])
   @@index([funnelStageId])
   @@index([assignedToId])
-  @@index([lostReasonId])
+  @@index([lostReason])
   @@index([status])
   @@index([projectType])
   @@index([source])

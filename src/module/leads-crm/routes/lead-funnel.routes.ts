@@ -16,6 +16,10 @@ import {
   reorderFunnelFormFields,
   getPublicEmbedFunnel,
   submitPublicEmbedLead,
+  getFunnelLeads,
+  transitionFunnelLeadStage,
+  getFunnelTransitions,
+  getLeadTransitions,
 } from "../controllers/lead-funnel.controller.js";
 
 const leadFunnelRoutes = Router();
@@ -127,5 +131,33 @@ leadFunnelRoutes.patch("/:id/fields/:fieldId", updateFunnelFormField);
  * @desc    Delete dynamic form field
  */
 leadFunnelRoutes.delete("/:id/fields/:fieldId", deleteFunnelFormField);
+
+// ==========================================
+// FUNNEL LEADS & TRANSITION AUDIT ENDPOINTS
+// ==========================================
+
+/**
+ * @route   GET /api/v1/crm/funnels/leads/:leadId/transitions
+ * @desc    Fetch stage transition history for a specific lead
+ */
+leadFunnelRoutes.get("/leads/:leadId/transitions", getLeadTransitions);
+
+/**
+ * @route   GET /api/v1/crm/funnels/:id/leads
+ * @desc    Fetch leads/inquiries captured under this funnel with dynamic responses and stage info
+ */
+leadFunnelRoutes.get("/:id/leads", getFunnelLeads);
+
+/**
+ * @route   POST /api/v1/crm/funnels/:id/leads/:leadId/transition
+ * @desc    Transition lead to a new funnel stage with SLA check and auto-task generation
+ */
+leadFunnelRoutes.post("/:id/leads/:leadId/transition", transitionFunnelLeadStage);
+
+/**
+ * @route   GET /api/v1/crm/funnels/:id/transitions
+ * @desc    Fetch funnel transition and SLA audit logs
+ */
+leadFunnelRoutes.get("/:id/transitions", getFunnelTransitions);
 
 export default leadFunnelRoutes;

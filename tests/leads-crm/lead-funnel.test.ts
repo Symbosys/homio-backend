@@ -9,6 +9,9 @@ import {
   updateFormFieldSchema,
   reorderFormFieldsSchema,
   submitPublicLeadSchema,
+  transitionFunnelLeadStageSchema,
+  getFunnelLeadsQuerySchema,
+  getFunnelTransitionsQuerySchema,
 } from "../../src/module/leads-crm/validators/lead-funnel.validator";
 
 describe("Lead Funnel & Pipeline Module Tests", () => {
@@ -260,4 +263,83 @@ describe("Lead Funnel & Pipeline Module Tests", () => {
       expect(result.success).toBe(false);
     });
   });
+
+  // =========================================================================
+  // 5. Funnel Lead Stage Transition & Audit Log Validation
+  // =========================================================================
+  describe("Funnel Stage Transition & Query Validation", () => {
+    it("should validate valid lead stage transition payload with SLA notes and reason", () => {
+      const payload = {
+        body: {
+          toStageId: MOCK_UUID_2,
+          transitionReason: "Preliminary proposal sent and approved by client",
+          transitionNote: "Client agreed to budget of 55L, scheduling final contract signing.",
+          additionalInformation: {
+            signedProposalVersion: "v1.2",
+            discountApproved: true,
+          },
+        },
+      };
+
+      const result = transitionFunnelLeadStageSchema.safeParse(payload);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.body.toStageId).toBe(MOCK_UUID_2);
+        expect(result.data.body.transitionReason).toBe(
+          "Preliminary proposal sent and approved by client"
+        );
+      }
+    });
+
+    it("should reject stage transition when destination toStageId is missing or invalid UUID", () => {
+      const invalidPayload = {
+        body: {
+          toStageId: "not-a-valid-uuid",
+          transitionReason: "Invalid target stage",
+        },
+      };
+
+      const result = transitionFunnelLeadStageSchema.safeParse(invalidPayload);
+      expect(result.success).toBe(false);
+    });
+
+    it("should validate getFunnelLeads query parameters", () => {
+      const validQuery = {
+        query: {
+          stageId: MOCK_UUID_1,
+          search: "Pooja",
+          page: 1,
+          limit: 20,
+          sortBy: "createdAt" as const,
+          sortOrder: "desc" as const,
+        },
+      };
+
+      const result = getFunnelLeadsQuerySchema.safeParse(validQuery);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.query.search).toBe("Pooja");
+        expect(result.data.query.limit).toBe(20);
+      }
+    });
+
+    it("should validate getFunnelTransitions query parameters with SLA filter", () => {
+      const validQuery = {
+        query: {
+          isSlaBreached: true,
+          leadId: MOCK_UUID_3,
+          page: 2,
+          limit: 10,
+        },
+      };
+
+      const result = getFunnelTransitionsQuerySchema.safeParse(validQuery);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.query.isSlaBreached).toBe(true);
+        expect(result.data.query.leadId).toBe(MOCK_UUID_3);
+      }
+    });
+  });
 });
+

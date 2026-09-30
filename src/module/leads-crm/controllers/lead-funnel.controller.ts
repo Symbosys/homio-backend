@@ -13,6 +13,9 @@ import {
   updateFormFieldSchema,
   reorderFormFieldsSchema,
   submitPublicLeadSchema,
+  transitionFunnelLeadStageSchema,
+  getFunnelLeadsQuerySchema,
+  getFunnelTransitionsQuerySchema,
 } from "../validators/lead-funnel.validator.js";
 
 /**
@@ -243,4 +246,74 @@ export const submitPublicEmbedLead = asyncHandler(async (req, res) => {
   const parsed = submitPublicLeadSchema.parse({ body: req.body });
   const result = await leadFunnelService.submitPublicEmbedLead(embedSlug, parsed.body);
   return SuccessResponse(res, "Inquiry submitted successfully", result, statusCode.Created);
+});
+
+// ==========================================
+// INQUIRIES & TRANSITION AUDIT CONTROLLERS
+// ==========================================
+
+/**
+ * Controller: Get leads/inquiries captured under this funnel
+ */
+export const getFunnelLeads = asyncHandler(async (req, res) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+  }
+
+  const funnelId = req.params.id as string;
+  const parsed = getFunnelLeadsQuerySchema.parse({ query: req.query });
+  const result = await leadFunnelService.getFunnelLeads(funnelId, organizationId, parsed.query);
+  return SuccessResponse(res, "Funnel inquiries retrieved successfully", result, statusCode.OK);
+});
+
+/**
+ * Controller: Transition lead to another funnel stage
+ */
+export const transitionFunnelLeadStage = asyncHandler(async (req, res) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+  }
+
+  const funnelId = req.params.id as string;
+  const leadId = req.params.leadId as string;
+  const parsed = transitionFunnelLeadStageSchema.parse({ body: req.body });
+  const result = await leadFunnelService.transitionLeadStage(
+    funnelId,
+    leadId,
+    organizationId,
+    parsed.body,
+    req.user?.id
+  );
+  return SuccessResponse(res, "Lead stage transitioned successfully", result, statusCode.OK);
+});
+
+/**
+ * Controller: Get funnel transitions & SLA audit logs
+ */
+export const getFunnelTransitions = asyncHandler(async (req, res) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+  }
+
+  const funnelId = req.params.id as string;
+  const parsed = getFunnelTransitionsQuerySchema.parse({ query: req.query });
+  const result = await leadFunnelService.getFunnelTransitions(funnelId, organizationId, parsed.query);
+  return SuccessResponse(res, "Funnel transitions retrieved successfully", result, statusCode.OK);
+});
+
+/**
+ * Controller: Get stage transitions for a specific lead
+ */
+export const getLeadTransitions = asyncHandler(async (req, res) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+  }
+
+  const leadId = req.params.leadId as string;
+  const result = await leadFunnelService.getLeadTransitions(leadId, organizationId);
+  return SuccessResponse(res, "Lead transitions retrieved successfully", result, statusCode.OK);
 });

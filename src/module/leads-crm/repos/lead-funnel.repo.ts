@@ -9,6 +9,9 @@ import type {
   CreateFormFieldInput,
   UpdateFormFieldInput,
   SubmitPublicLeadInput,
+  TransitionFunnelLeadStageInput,
+  GetFunnelLeadsQueryInput,
+  GetFunnelTransitionsQueryInput,
 } from "../validators/lead-funnel.validator.js";
 
 /**
@@ -515,6 +518,277 @@ export class LeadFunnelRepo {
     });
 
     return lead;
+  }
+
+  // ==========================================
+  // INQUIRIES / LEADS & TRANSITION AUDIT
+  // ==========================================
+
+  /**
+   * Find paginated list of leads/inquiries captured under this funnel
+   */
+  async findFunnelLeads(funnelId: string, organizationId: string, query: GetFunnelLeadsQueryInput, tx?: Prisma.TransactionClient) {
+    const db = tx || prisma;
+    const page = query.page || 1;
+    const limit = query.limit || 50;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.LeadWhereInput = {
+      organizationId,
+      funnelId,
+      isDeleted: false,
+      ...(query.stageId ? { funnelStageId: query.stageId } : {}),
+      ...(query.isSlaBreached !== undefined ? { isSlaBreached: query.isSlaBreached } : {}),
+      ...(query.search
+        ? {
+            OR: [
+              { title: { contains: query.search, mode: "insensitive" } },
+              { leadCode: { contains: query.search, mode: "insensitive" } },
+              { customer: { displayName: { contains: query.search, mode: "insensitive" } } },
+              { customer: { phone: { contains: query.search } } },
+              { customer: { email: { contains: query.search, mode: "insensitive" } } },
+            ],
+          }
+        : {}),
+    };
+
+    const [total, data] = await Promise.all([
+      db.lead.count({ where }),
+      db.lead.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { [query.sortBy || "createdAt"]: query.sortOrder || "desc" },
+        include: {
+          customer: true,
+          funnel: { select: { id: true, name: true, color: true } },
+          funnelStage: true,
+          assignedTo: {
+            select: {
+              id: true,
+              employeeCode: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      data,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    };
+  }
+
+  /**
+   * Transition Lead Stage within the Funnel, calculating dwell time, SLA breach, and triggering auto-tasks
+   */
+  async transitionLeadStage(
+    funnelId: string,
+    leadId: string,
+    organizationId: string,
+    data: TransitionFunnelLeadStageInput,
+    userId?: string,
+    tx?: Prisma.TransactionClient
+  ) {
+    const execute = async (client: Prisma.TransactionClient) => {
+      // 1. Fetch current lead
+      const lead = await client.lead.findFirst({
+        where: { id: leadId, organizationId, isDeleted: false },
+        include: { funnelStage: true },
+      });
+
+      if (!lead) {
+        throw new Error("Lead not found for stage transition");
+      }
+
+      // 2. Fetch target stage
+      const toStage = await client.leadFunnelStage.findFirst({
+        where: { id: data.toStageId, funnelId, organizationId, isActive: true },
+      });
+
+      if (!toStage) {
+        throw new Error("Target progression stage not found in this funnel");
+      }
+
+      // 3. Calculate dwell time & SLA compliance from previous stage
+      const fromStageId = lead.funnelStageId;
+      const stageEnteredAt = lead.stageEnteredAt || lead.createdAt;
+      const dwellTimeMinutes = Math.max(
+        0,
+        Math.floor((Date.now() - new Date(stageEnteredAt).getTime()) / (1000 * 60))
+      );
+
+      let isSlaBreached = false;
+      if (lead.funnelStage && lead.funnelStage.slaHours) {
+        isSlaBreached = dwellTimeMinutes > lead.funnelStage.slaHours * 60;
+      }
+
+      // 4. Record transition audit log
+      const transition = await client.leadFunnelTransition.create({
+        data: {
+          organizationId,
+          funnelId,
+          leadId,
+          fromStageId,
+          toStageId: data.toStageId,
+          dwellTimeMinutes,
+          isSlaBreached,
+          remarks: data.remarks || null,
+          changedById: userId || null,
+          additionalInformation: (data.additionalInformation as Prisma.InputJsonValue) ?? undefined,
+        },
+        include: {
+          fromStage: true,
+          toStage: true,
+          changedBy: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      // 5. Update lead state
+      await client.lead.update({
+        where: { id: leadId },
+        data: {
+          funnelId,
+          funnelStageId: data.toStageId,
+          stageEnteredAt: new Date(),
+          isSlaBreached: false, // reset SLA status for new stage
+        },
+      });
+
+      // 6. Trigger auto-task creation if enabled on target stage
+      if (toStage.autoTaskEnabled) {
+        const taskCount = await client.task.count({ where: { organizationId } });
+        const taskCode = `TASK-${new Date().getFullYear()}-${String(taskCount + 1).padStart(4, "0")}`;
+        const dueDate = toStage.slaHours
+          ? new Date(Date.now() + toStage.slaHours * 60 * 60 * 1000)
+          : new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+        await client.task.create({
+          data: {
+            organizationId,
+            leadId,
+            taskCode,
+            title: toStage.autoTaskTitle || `Action required: ${toStage.name}`,
+            description: `Auto-generated follow-up task triggered upon lead entering "${toStage.name}" stage.`,
+            status: "TODO",
+            priority: "HIGH",
+            dueDate,
+            assignedToId: lead.assignedToId || null,
+          },
+        });
+      }
+
+      return transition;
+    };
+
+    if (tx) {
+      return execute(tx);
+    }
+    return prisma.$transaction((t) => execute(t));
+  }
+
+  /**
+   * Find transitions & SLA audit logs for a funnel
+   */
+  async findFunnelTransitions(funnelId: string, organizationId: string, query: GetFunnelTransitionsQueryInput, tx?: Prisma.TransactionClient) {
+    const db = tx || prisma;
+    const page = query.page || 1;
+    const limit = query.limit || 50;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.LeadFunnelTransitionWhereInput = {
+      organizationId,
+      funnelId,
+      ...(query.leadId ? { leadId: query.leadId } : {}),
+      ...(query.isSlaBreached !== undefined ? { isSlaBreached: query.isSlaBreached } : {}),
+    };
+
+    const [total, data] = await Promise.all([
+      db.leadFunnelTransition.count({ where }),
+      db.leadFunnelTransition.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: "desc" },
+        include: {
+          lead: {
+            select: {
+              id: true,
+              leadCode: true,
+              title: true,
+              customer: {
+                select: {
+                  displayName: true,
+                  phone: true,
+                  email: true,
+                },
+              },
+            },
+          },
+          fromStage: true,
+          toStage: true,
+          changedBy: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      data,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    };
+  }
+
+  /**
+   * Find transitions for a specific lead
+   */
+  async findLeadTransitions(leadId: string, organizationId: string, tx?: Prisma.TransactionClient) {
+    const db = tx || prisma;
+    return db.leadFunnelTransition.findMany({
+      where: {
+        organizationId,
+        leadId,
+      },
+      orderBy: { createdAt: "desc" },
+      include: {
+        funnel: { select: { id: true, name: true, color: true } },
+        fromStage: true,
+        toStage: true,
+        changedBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+    });
   }
 
   /**

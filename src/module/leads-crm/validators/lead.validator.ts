@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { LeadLostReason } from "../../../types/types.js";
+
+export const LeadLostReasonEnum = z.nativeEnum(LeadLostReason);
 
 // Enums matching schema
 export const LeadStatusEnum = z.enum([
@@ -100,8 +103,8 @@ export const createLeadSchema = z.object({
     commissionRate: z.coerce.number().optional().nullable(),
     commissionAmount: z.coerce.number().optional().nullable(),
 
-    // Master Data Links
-    lostReasonId: z.string().uuid("Invalid lost reason ID").optional().nullable(),
+    // Master Data / Loss Reason
+    lostReason: LeadLostReasonEnum.optional().nullable(),
     lostCompetitor: z.string().max(200).optional().nullable(),
 
     tags: z.array(z.string()).default([]).optional(),
@@ -127,8 +130,8 @@ export const updateLeadSchema = z.object({
     source: LeadSourceEnum.optional(),
     priority: LeadPriorityEnum.optional(),
 
-    // Master Data Links
-    lostReasonId: z.string().uuid("Invalid lost reason ID").optional().nullable(),
+    // Master Data / Loss Reason
+    lostReason: LeadLostReasonEnum.optional().nullable(),
     lostCompetitor: z.string().max(200).optional().nullable(),
 
     propertyName: z.string().max(200).optional().nullable(),
@@ -199,13 +202,9 @@ export const markLeadLostSchema = z.object({
     id: z.string().uuid("Invalid lead ID format"),
   }),
   body: z.object({
-    lostReasonId: z.string().uuid("Invalid lost reason ID").optional().nullable(),
-    lostReason: z.string().max(200).optional().nullable(),
+    lostReason: LeadLostReasonEnum,
     lostRemarks: z.string().max(2000).optional().nullable(),
     lostCompetitor: z.string().max(200).optional().nullable(),
-  }).refine((data) => data.lostReasonId || data.lostReason, {
-    message: "Either lostReasonId or lostReason must be provided",
-    path: ["lostReasonId"],
   }),
 });
 
@@ -244,6 +243,7 @@ export const getLeadsQuerySchema = z.object({
     propertyState: z.string().optional(),
     propertyName: z.string().optional(),
     channelPartnerId: z.string().uuid().optional(),
+    lostReason: LeadLostReasonEnum.optional(),
     minBudget: z.coerce.number().nonnegative().optional(),
     maxBudget: z.coerce.number().nonnegative().optional(),
     fromDate: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional(),

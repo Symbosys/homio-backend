@@ -17,16 +17,6 @@ enum MeasurementUnitType {
   TIME // Hour, Day, Week, Month
 }
 
-enum LeadLostReasonGroup {
-  PRICING // Budget too high, out of price range, discount refused
-  COMPETITOR // Chose another interior designer/firm
-  TIMELINE // Project postponed, delayed possession, urgent timeline
-  LOCATION // Outside service territory / out of reach
-  SCOPE_MISMATCH // Commercial vs residential, civil scope rejected
-  COMMUNICATION // Unresponsive client, dropped contact, fake inquiry
-  OTHER // Miscellaneous / uncategorized
-}
-
 enum ComplaintSnagScope {
   SNAG // Punch-list items during execution or pre-handover
   COMPLAINT // Customer grievances and escalations during project lifecycle
@@ -86,57 +76,7 @@ model MeasurementUnit {
 }
 
 // ==========================================
-// 2. LEAD LOST REASON MASTER
-// ==========================================
-
-model LeadLostReason {
-  id             String       @id @default(uuid()) @db.Uuid
-  organizationId String       @map("organization_id") @db.Uuid
-  organization   Organization @relation("OrganizationLeadLostReasons", fields: [organizationId], references: [id], onDelete: Cascade)
-
-  // Reason Identity
-  name        String              @db.VarChar(150) // e.g. "Budget Too High / Pricing Issue", "Chose Competitor", "Unresponsive"
-  slug        String              @db.VarChar(180)
-  code        String?             @db.VarChar(50) // e.g. "LOST-BUDGET", "LOST-COMPETITOR"
-  group       LeadLostReasonGroup @default(OTHER) @map("group") // PRICING, COMPETITOR, TIMELINE, LOCATION, etc.
-  description String?             @db.Text
-
-  // UI Badging
-  color String? @db.VarChar(50) // Hex color for lost badges e.g. "#EF4444"
-  icon  String? @db.VarChar(50) // Lucide icon e.g. "DollarSign", "Users", "MapPin"
-
-  // Workflow Control Rules (Enforced in Lead Forms)
-  requiresRemarks    Boolean @default(false) @map("requires_remarks") // Mandates sales rep to enter notes
-  requiresCompetitor Boolean @default(false) @map("requires_competitor") // Mandates entering competitor name
-
-  // Organization Governance & Controls
-  isDefault Boolean @default(false) @map("is_default")
-  isSystem  Boolean @default(false) @map("is_system")
-  isActive  Boolean @default(true) @map("is_active")
-  sortOrder Int     @default(0) @map("sort_order")
-
-  // Universal Custom Fields & Metadata
-  additionalInformation Json? @map("additional_information")
-
-  // Soft Delete & Timestamps
-  isDeleted Boolean   @default(false) @map("is_deleted")
-  deletedAt DateTime? @map("deleted_at")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-
-  // Relations
-  leads Lead[] @relation("LeadLostReasonRelation")
-
-  @@unique([organizationId, name])
-  @@unique([organizationId, slug])
-  @@index([organizationId, group])
-  @@index([organizationId, isActive])
-  @@index([isDeleted, deletedAt])
-  @@map("lead_lost_reasons")
-}
-
-// ==========================================
-// 3. SERVICE CATEGORY MASTER
+// 2. SERVICE CATEGORY MASTER
 // ==========================================
 
 model ServiceCategory {

@@ -2,32 +2,23 @@ import { asyncHandler } from "../../../middlewares/error.middleware.js";
 import { SuccessResponse, ErrorResponse } from "../../../utils/response.util.js";
 import { statusCode } from "../../../types/types.js";
 import { leadLostReasonService } from "../services/lead-lost-reason.service.js";
-import {
-  createLeadLostReasonSchema,
-  updateLeadLostReasonSchema,
-  getLeadLostReasonsQuerySchema,
-  leadLostReasonIdParamSchema,
-} from "../validators/lead-lost-reason.validator.js";
+import { getLeadLostReasonsQuerySchema } from "../validators/lead-lost-reason.validator.js";
 
 /**
  * @route   POST /api/v1/master-data/lead-lost-reasons
- * @desc    Create a new lead lost reason for the organization
- * @access  Private (Authenticated Tenant User)
+ * @desc    Standardized system enum - modification disabled
+ * @access  Private
  */
-export const createLeadLostReason = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
-  const parsed = createLeadLostReasonSchema.parse({ body: req.body });
-  const result = await leadLostReasonService.createReason(organizationId, parsed.body);
-  return SuccessResponse(res, "Lead lost reason created successfully", result, statusCode.Created);
+export const createLeadLostReason = asyncHandler(async (_req, _res) => {
+  throw new ErrorResponse(
+    "Lead lost reasons are standardized system enums and cannot be created dynamically.",
+    statusCode.Forbidden
+  );
 });
 
 /**
  * @route   GET /api/v1/master-data/lead-lost-reasons
- * @desc    Fetch paginated list of lead lost reasons for the organization
+ * @desc    Fetch standardized list of lead lost reasons with rich metadata
  * @access  Private (Authenticated Tenant User)
  */
 export const getLeadLostReasons = asyncHandler(async (req, res) => {
@@ -43,7 +34,7 @@ export const getLeadLostReasons = asyncHandler(async (req, res) => {
 
 /**
  * @route   GET /api/v1/master-data/lead-lost-reasons/:id
- * @desc    Fetch details of a single lead lost reason with usage count
+ * @desc    Fetch details of a single lead lost reason
  * @access  Private (Authenticated Tenant User)
  */
 export const getLeadLostReasonById = asyncHandler(async (req, res) => {
@@ -52,55 +43,46 @@ export const getLeadLostReasonById = asyncHandler(async (req, res) => {
     throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
   }
 
-  const parsedParams = leadLostReasonIdParamSchema.parse({ params: req.params });
-  const result = await leadLostReasonService.getReasonById(parsedParams.params.id, organizationId);
+  const id = String(req.params.id);
+  const result = await leadLostReasonService.getReasonById(id, organizationId);
+  if (!result) {
+    throw new ErrorResponse("Lead lost reason not found", statusCode.Not_Found);
+  }
   return SuccessResponse(res, "Lead lost reason retrieved successfully", result, statusCode.OK);
 });
 
 /**
  * @route   PATCH /api/v1/master-data/lead-lost-reasons/:id
- * @desc    Update lead lost reason details
- * @access  Private (Authenticated Tenant User)
+ * @desc    Standardized system enum - modification disabled
+ * @access  Private
  */
-export const updateLeadLostReason = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
-  const parsed = updateLeadLostReasonSchema.parse({ params: req.params, body: req.body });
-  const result = await leadLostReasonService.updateReason(parsed.params.id, organizationId, parsed.body);
-  return SuccessResponse(res, "Lead lost reason updated successfully", result, statusCode.OK);
+export const updateLeadLostReason = asyncHandler(async (_req, _res) => {
+  throw new ErrorResponse(
+    "Lead lost reasons are standardized system enums and cannot be modified.",
+    statusCode.Forbidden
+  );
 });
 
 /**
  * @route   DELETE /api/v1/master-data/lead-lost-reasons/:id
- * @desc    Soft delete a lead lost reason
- * @access  Private (Authenticated Tenant User)
+ * @desc    Standardized system enum - deletion disabled
+ * @access  Private
  */
-export const deleteLeadLostReason = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
-  const parsedParams = leadLostReasonIdParamSchema.parse({ params: req.params });
-  await leadLostReasonService.deleteReason(parsedParams.params.id, organizationId);
-  return SuccessResponse(res, "Lead lost reason deleted successfully", null, statusCode.OK);
+export const deleteLeadLostReason = asyncHandler(async (_req, _res) => {
+  throw new ErrorResponse(
+    "Lead lost reasons are standardized system enums and cannot be deleted.",
+    statusCode.Forbidden
+  );
 });
 
 /**
  * @route   PATCH /api/v1/master-data/lead-lost-reasons/:id/toggle-active
- * @desc    Toggle active state of a lead lost reason
- * @access  Private (Authenticated Tenant User)
+ * @desc    Standardized system enum - toggle disabled
+ * @access  Private
  */
-export const toggleActiveLeadLostReason = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
-  const parsedParams = leadLostReasonIdParamSchema.parse({ params: req.params });
-  const result = await leadLostReasonService.toggleActive(parsedParams.params.id, organizationId);
-  return SuccessResponse(res, "Lead lost reason status updated successfully", result, statusCode.OK);
+export const toggleActiveLeadLostReason = asyncHandler(async (_req, _res) => {
+  throw new ErrorResponse(
+    "Lead lost reasons are standardized system enums.",
+    statusCode.Forbidden
+  );
 });

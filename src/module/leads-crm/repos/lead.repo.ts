@@ -97,17 +97,6 @@ export class LeadRepository {
             },
           },
         },
-        lostReasonRef: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            code: true,
-            group: true,
-            color: true,
-            icon: true,
-          },
-        },
       },
     });
   }
@@ -238,17 +227,6 @@ export class LeadRepository {
             },
           },
         },
-        lostReasonRef: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            code: true,
-            group: true,
-            color: true,
-            icon: true,
-          },
-        },
         followUps: {
           orderBy: { scheduledAt: "asc" },
           include: {
@@ -320,6 +298,7 @@ export class LeadRepository {
       assignedToId,
       customerId,
       channelPartnerId,
+      lostReason,
       propertyName,
       possessionStatus,
       propertyCity,
@@ -366,6 +345,7 @@ export class LeadRepository {
       ...(assignedToId ? { assignedToId } : {}),
       ...(customerId ? { customerId } : {}),
       ...(channelPartnerId ? { channelPartnerLead: { channelPartnerId } } : {}),
+      ...(lostReason ? { lostReason } : {}),
       ...(possessionStatus ? { possessionStatus } : {}),
       ...(propertyName
         ? { propertyName: { contains: propertyName, mode: "insensitive" } }
@@ -505,17 +485,6 @@ export class LeadRepository {
               },
             },
           },
-          lostReasonRef: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-              code: true,
-              group: true,
-              color: true,
-              icon: true,
-            },
-          },
           _count: {
             select: {
               followUps: true,
@@ -618,17 +587,6 @@ export class LeadRepository {
             designation: true,
           },
         },
-        lostReasonRef: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            code: true,
-            group: true,
-            color: true,
-            icon: true,
-          },
-        },
       },
     });
   }
@@ -655,6 +613,9 @@ export class LeadRepository {
           status: toStage,
           ...(toStage === "WON"
             ? { convertedAt: new Date(), convertedById: changedById || null }
+            : {}),
+          ...(toStage !== "LOST" && fromStage === "LOST"
+            ? { lostReason: null, lostRemarks: null, lostCompetitor: null, lostAt: null }
             : {}),
         },
       }),

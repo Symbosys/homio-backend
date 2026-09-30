@@ -209,7 +209,7 @@ describe("Lead CRM Module Tests", () => {
       const payload = {
         params: { id: MOCK_LEAD_ID },
         body: {
-          lostReasonId: MOCK_LOST_REASON_ID,
+          lostReason: "LOST_TO_COMPETITOR",
           lostCompetitor: "HomeLane",
           lostRemarks: "Client decided to go with competitor offering immediate delivery guarantee.",
         },
@@ -218,12 +218,12 @@ describe("Lead CRM Module Tests", () => {
       const result = markLeadLostSchema.safeParse(payload);
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data.body.lostReasonId).toBe(MOCK_LOST_REASON_ID);
+        expect(result.data.body.lostReason).toBe("LOST_TO_COMPETITOR");
         expect(result.data.body.lostCompetitor).toBe("HomeLane");
       }
     });
 
-    it("should reject mark lead lost schema when neither lostReasonId nor lostReason is provided", () => {
+    it("should reject mark lead lost schema when invalid or missing lostReason is provided", () => {
       const payload = {
         params: { id: MOCK_LEAD_ID },
         body: {

@@ -254,3 +254,59 @@ export const submitPublicLeadSchema = z.object({
 });
 
 export type SubmitPublicLeadInput = z.infer<typeof submitPublicLeadSchema>["body"];
+
+// ==========================================
+// 5. STAGE TRANSITION & INQUIRY VALIDATORS
+// ==========================================
+
+/**
+ * Validator: Transition Lead Funnel Stage
+ */
+export const transitionFunnelLeadStageSchema = z.object({
+  body: z.object({
+    toStageId: z.string().uuid("Target stage ID must be a valid UUID"),
+    transitionReason: z.string().max(255).optional().nullable(),
+    transitionNote: z.string().max(2000).optional().nullable(),
+    remarks: z.string().max(1000).optional().nullable(),
+    additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
+  }),
+});
+
+export type TransitionFunnelLeadStageInput = z.infer<typeof transitionFunnelLeadStageSchema>["body"];
+
+/**
+ * Validator: Query Funnel Inquiries / Leads
+ */
+export const getFunnelLeadsQuerySchema = z.object({
+  query: z.object({
+    stageId: z.string().uuid().optional(),
+    isSlaBreached: z
+      .union([z.boolean(), z.enum(["true", "false"])])
+      .optional()
+      .transform((val) => (typeof val === "boolean" ? val : val !== undefined ? val === "true" : undefined)),
+    search: z.string().optional(),
+    page: z.coerce.number().int().positive().default(1),
+    limit: z.coerce.number().int().positive().max(100).default(50),
+    sortBy: z.enum(["createdAt", "stageEnteredAt", "title", "leadCode"]).default("createdAt"),
+    sortOrder: z.enum(["asc", "desc"]).default("desc"),
+  }),
+});
+
+export type GetFunnelLeadsQueryInput = z.infer<typeof getFunnelLeadsQuerySchema>["query"];
+
+/**
+ * Validator: Query Stage Transitions & Audit Log
+ */
+export const getFunnelTransitionsQuerySchema = z.object({
+  query: z.object({
+    leadId: z.string().uuid().optional(),
+    isSlaBreached: z
+      .union([z.boolean(), z.enum(["true", "false"])])
+      .optional()
+      .transform((val) => (typeof val === "boolean" ? val : val !== undefined ? val === "true" : undefined)),
+    page: z.coerce.number().int().positive().default(1),
+    limit: z.coerce.number().int().positive().max(100).default(50),
+  }),
+});
+
+export type GetFunnelTransitionsQueryInput = z.infer<typeof getFunnelTransitionsQuerySchema>["query"];
