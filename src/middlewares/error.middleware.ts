@@ -1,17 +1,41 @@
 import type { NextFunction, Request, Response } from "express";
 import { ZodError } from "zod";
+import axios, { AxiosError } from "axios";
 import { statusCode } from "../types/types.js";
 import type { ErrorResponse } from "../utils/response.util.js";
 import { zodError } from "../utils/utils.js";
 
 export const errorMiddleware = (
-  err: ErrorResponse,
+  err: any,
   req: Request,
   res: Response,
   next: NextFunction
 ) => {
+  console.log(err, "err");
 
-  console.log(err, "err")
+  // ✅ Handle Axios / External API Error (e.g. Meta Graph API, Ola Maps, third-party webhooks)
+  if (axios.isAxiosError(err)) {
+    const errorData = err.response?.data as any;
+    const metaMessage = errorData?.error?.message;
+    const generalMessage = errorData?.message || errorData?.error_description;
+    const finalMessage =
+      metaMessage ||
+      generalMessage ||
+      (err.response?.statusText
+        ? `Meta / External API Error: ${err.response.statusText}`
+        : err.message || "External service request failed");
+
+    const httpStatus =
+      err.response?.status && err.response.status >= 400 && err.response.status < 500
+        ? err.response.status
+        : statusCode.Bad_Request;
+
+    return res.status(httpStatus).json({
+      success: false,
+      message: finalMessage,
+    });
+  }
+
   err.message ||= "Internal Server Error";
   err.statusCode ||= 500;
 
@@ -28,7 +52,7 @@ export const errorMiddleware = (
     err.statusCode = statusCode.Conflict;
   }
 
-   // ✅ Handle Zod error
+  // ✅ Handle Zod error
   if (err instanceof ZodError) {
     const errors = zodError(err);
 
@@ -50,9 +74,7 @@ export const errorMiddleware = (
   });
 };
 
-
 export default errorMiddleware;
-
 
 type AsyncHandlerFunction<TReq extends Request> = (
   req: TReq,
@@ -65,6 +87,3 @@ export const asyncHandler =
   (req: Request, res: Response, next: NextFunction) => {
     Promise.resolve(fn(req as TReq, res, next)).catch(next);
   };
-
-
-

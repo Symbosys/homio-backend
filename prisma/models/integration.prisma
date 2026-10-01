@@ -1,0 +1,53 @@
+// ==========================================
+// CHANNEL INTEGRATION ENUMS
+// ==========================================
+
+enum ChannelProvider {
+  WHATSAPP
+  FACEBOOK
+  INSTAGRAM
+  TELEGRAM
+  SMS
+  EMAIL
+}
+
+enum ChannelIntegrationStatus {
+  ACTIVE
+  INACTIVE
+  PENDING_VERIFICATION
+  DISCONNECTED
+  ERROR
+}
+
+// ==========================================
+// WHATSAPP / CHANNEL INTEGRATION MODEL
+// ==========================================
+
+model WhatsAppIntegration {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @unique @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationWhatsAppIntegration", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Channel Identification & Status
+  provider ChannelProvider          @default(WHATSAPP) @map("provider")
+  status   ChannelIntegrationStatus @default(PENDING_VERIFICATION) @map("status")
+
+  // Meta & WhatsApp Cloud API Credentials
+  appId              String @map("app_id") // Meta App ID
+  appSecret          String @map("app_secret") // App Secret
+  accountId          String @map("account_id") // WhatsApp Business Account ID (WABA ID)
+  phoneNumberId      String @map("phone_number_id") @unique // Phone Number ID
+  displayPhoneNumber String @map("display_phone_number") // Display Phone Number
+  accessToken        String @map("access_token") @db.Text // Access Token (System User Token)
+
+  // Webhook Verification
+  webhookVerifyToken String @map("webhook_verify_token") // Webhook Verify Token
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([phoneNumberId])
+  @@index([accountId])
+  @@map("whatsapp_integrations")
+}

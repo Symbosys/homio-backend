@@ -6,6 +6,7 @@
 
 import express from "express";
 import cors from "cors";
+import morgan from "morgan";
 import { ENV } from "./config/env.js";
 import errorMiddleware from "./middlewares/error.middleware.js";
 import authRoutes from "./module/user/routes/auth.routes.js";
@@ -27,9 +28,12 @@ import taskRouter from "./module/tasks/routes/index.js";
 import mapsRouter from "./module/maps/maps.routes.js";
 import quotationMasterRouter from "./module/quotation-master/routes/index.js";
 import quotationRouter from "./module/quotation/routes/index.js";
+import integrationRouter from "./module/integration/routes/index.js";
+
 
 const app = express();
 
+app.use(morgan("dev"))
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
@@ -147,6 +151,12 @@ app.use("/api/v1/quotation-master", quotationMasterRouter);
  */
 app.use("/api/v1/quotations", quotationRouter);
 
+/**
+ * Social & Communication Channel Integration Routes (WhatsApp Cloud API)
+ */
+app.use("/api/v1/integrations", integrationRouter);
+
 app.use(errorMiddleware);
+
 
 export default app;
