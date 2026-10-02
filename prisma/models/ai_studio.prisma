@@ -1,0 +1,352 @@
+// =======================================================
+// AI STUDIO ENUMS
+// =======================================================
+
+enum AiServiceType {
+  ROOM_DESIGN // AI Room Designer (Multi-style interior generation)
+  VASTU_CONSULTATION // AI Vastu Spatial Audit & Remedies
+  DOUBT_SOLVER // AI Technical & Design Doubt Solver Chatbot
+  THREE_D_DESIGN // AI 3D Mesh / Energy Matrix (Future expansion)
+  VIDEO_DESIGN // AI Cinematic Walkthrough Video (Future expansion)
+}
+
+enum AiSessionStatus {
+  QUEUED // Session initiated, awaiting computation
+  PROCESSING // AI computation active
+  COMPLETED // Finished successfully with generated outputs
+  FAILED // Processing error, credits refunded
+  CANCELLED // User / Employee aborted before completion
+}
+
+enum AiTransactionType {
+  PACK_PURCHASE // Top-up credit pack bought via payment gateway
+  USAGE_DEBIT // Credits consumed for AI computation session
+  REFUND_CREDIT // Credits restored due to failed execution
+  ADMIN_BONUS_GRANT // Promotional / trial credits granted by admin
+  AUTO_RECHARGE // Automatic top-up triggered by threshold
+}
+
+enum AiChatMessageSender {
+  USER // Employee / User prompt
+  AI // Homio AI response
+}
+
+// =======================================================
+// 1. TOP-UP CREDIT PACKS (Platform Catalog)
+// =======================================================
+
+model AiCreditPack {
+  id                 String  @id @default(uuid()) @db.Uuid
+  name               String  @map("name") // e.g., "Starter Creator Pack", "Pro Studio Pack"
+  slug               String  @unique @map("slug") // e.g., "pack-starter-50", "pack-pro-150"
+  credits            Int     @map("credits") // Base credits: 50, 150, 500, 2000
+  bonusCredits       Int     @default(0) @map("bonus_credits") // Extra promotional credits
+  price              Decimal @map("price") @db.Decimal(12, 2) // Price in currency units
+  currency           String  @default("INR") @map("currency")
+  discountPercentage Decimal @default(0) @map("discount_percentage") @db.Decimal(5, 2)
+  isPopular          Boolean @default(false) @map("is_popular")
+  isActive           Boolean @default(true) @map("is_active")
+  sortOrder          Int     @default(0) @map("sort_order")
+
+  // Custom Dynamic Metadata & Extension
+  additionalInformation Json? @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  transactions AiCreditTransaction[]
+
+  @@map("ai_credit_packs")
+}
+
+// =======================================================
+// 2. AI SERVICE PRICING MATRIX (Platform Admin Controlled)
+// =======================================================
+
+model AiServiceRate {
+  id                String        @id @default(uuid()) @db.Uuid
+  serviceType       AiServiceType @unique @map("service_type")
+  name              String        @map("name") // e.g., "AI Room Designer Photo Render"
+  defaultCreditCost Int           @map("default_credit_cost") // e.g., 5 Credits
+  billingUnit       String        @default("per render") @map("billing_unit") // "per render", "per audit", "per query"
+  description       String?       @map("description")
+  isActive          Boolean       @default(true) @map("is_active")
+
+  // Dynamic Metadata
+  additionalInformation Json? @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("ai_service_rates")
+}
+
+// =======================================================
+// 3. ORGANIZATION AI WALLET
+// =======================================================
+
+model AiWallet {
+  id                      String @id @default(uuid()) @db.Uuid
+  organizationId          String @unique @map("organization_id") @db.Uuid
+  currentBalance          Int    @default(0) @map("current_balance")
+  lifetimeCreditsCredited Int    @default(0) @map("lifetime_credits_credited")
+  lifetimeCreditsConsumed Int    @default(0) @map("lifetime_credits_consumed")
+
+  // Auto Recharge Settings
+  autoRechargeEnabled   Boolean @default(false) @map("auto_recharge_enabled")
+  autoRechargeThreshold Int     @default(20) @map("auto_recharge_threshold") // Trigger when balance <= 20
+  autoRechargePackId    String? @map("auto_recharge_pack_id") @db.Uuid
+
+  lastRefilledAt DateTime? @map("last_refilled_at")
+
+  // Universal Extension Standard
+  additionalInformation Json? @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  organization Organization          @relation("OrganizationAiWallet", fields: [organizationId], references: [id], onDelete: Cascade)
+  transactions AiCreditTransaction[]
+
+  @@map("ai_wallets")
+}
+
+// =======================================================
+// 4. AI CREDIT TRANSACTION LEDGER
+// =======================================================
+
+model AiCreditTransaction {
+  id             String  @id @default(uuid()) @db.Uuid
+  organizationId String  @map("organization_id") @db.Uuid
+  walletId       String  @map("wallet_id") @db.Uuid
+  employeeId     String? @map("employee_id") @db.Uuid
+  sessionId      String? @map("session_id") @db.Uuid
+  creditPackId   String? @map("credit_pack_id") @db.Uuid
+
+  transactionType AiTransactionType @map("transaction_type")
+  credits         Int               @map("credits") // Positive for credits added, negative for usage
+  balanceAfter    Int               @map("balance_after")
+
+  // Commercial & Invoicing Data
+  amountPaid        Decimal? @map("amount_paid") @db.Decimal(12, 2)
+  currency          String   @default("INR") @map("currency")
+  paymentGatewayRef String?  @map("payment_gateway_ref") // Razorpay/Stripe Payment ID
+  invoiceNumber     String?  @map("invoice_number")
+  description       String   @map("description")
+
+  // Universal Extension Standard
+  additionalInformation Json? @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  organization Organization  @relation("OrganizationAiTransactions", fields: [organizationId], references: [id], onDelete: Cascade)
+  wallet       AiWallet      @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  employee     Employee?     @relation("EmployeeAiTransactions", fields: [employeeId], references: [id], onDelete: SetNull)
+  session      AiSession?    @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  creditPack   AiCreditPack? @relation(fields: [creditPackId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([walletId])
+  @@index([employeeId])
+  @@map("ai_credit_transactions")
+}
+
+// =======================================================
+// 5. MASTER AI SESSION TABLE
+// =======================================================
+
+model AiSession {
+  id                  String          @id @default(uuid()) @db.Uuid
+  organizationId      String          @map("organization_id") @db.Uuid
+  employeeId          String?         @map("employee_id") @db.Uuid
+  serviceType         AiServiceType   @map("service_type")
+  status              AiSessionStatus @default(QUEUED) @map("status")
+  creditsConsumed     Int             @default(0) @map("credits_consumed")
+  executionDurationMs Int?            @map("execution_duration_ms")
+  promptSummary       String?         @map("prompt_summary")
+  errorMessage        String?         @map("error_message")
+
+  // Universal Extension Standard
+  additionalInformation Json? @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  organization Organization @relation("OrganizationAiSessions", fields: [organizationId], references: [id], onDelete: Cascade)
+  employee     Employee?    @relation("EmployeeAiSessions", fields: [employeeId], references: [id], onDelete: SetNull)
+
+  // 1-to-1 Sub-Session Satellite Relations
+  roomDesignSession  AiRoomDesignSession?
+  vastuAuditSession  AiVastuAuditSession?
+  doubtSolverSession AiDoubtSolverSession?
+  threeDSession      AiThreeDSession?
+  videoSession       AiVideoSession?
+
+  transactions AiCreditTransaction[]
+
+  @@index([organizationId, serviceType, createdAt])
+  @@index([employeeId])
+  @@map("ai_sessions")
+}
+
+// =======================================================
+// 6. SATELLITE 1-TO-1: AI ROOM DESIGN SESSION
+// =======================================================
+
+model AiRoomDesignSession {
+  id        String @id @default(uuid()) @db.Uuid
+  sessionId String @unique @map("session_id") @db.Uuid
+
+  // Design Input Parameters
+  roomType            String  @map("room_type") // Living Room, Master Bedroom, Kitchen, etc.
+  designStyle         String  @map("design_style") // Modern Minimalist, Japandi, Scandinavian, etc.
+  colorPalette        Json?   @map("color_palette") // ["#E2F7ED", "#334155", "#FFFFFF"]
+  materialPreferences Json?   @map("material_preferences") // ["HDHMR Board", "Granite", "Fluted Wall Panel"]
+  lightingMode        String? @map("lighting_mode") // Day Natural, Evening Warm, Studio Ambient
+
+  // Media Assets (Structured ImageType JSON)
+  beforeImageUrl     Json? @map("before_image_url") // Source uploaded photo
+  generatedImageUrl  Json? @map("generated_image_url") // Primary AI render
+  alternativeRenders Json? @map("alternative_renders") // Array of ImageType objects
+
+  // Computational Hyperparameters
+  generationMetadata Json? @map("generation_metadata") // { prompt, negativePrompt, seed, modelVersion }
+
+  // Universal Extension Standard
+  additionalInformation Json? @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  session AiSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("ai_room_design_sessions")
+}
+
+// =======================================================
+// 7. SATELLITE 1-TO-1: AI VASTU AUDIT SESSION
+// =======================================================
+
+model AiVastuAuditSession {
+  id        String @id @default(uuid()) @db.Uuid
+  sessionId String @unique @map("session_id") @db.Uuid
+
+  // Property Attributes
+  propertyType    String @map("property_type") // Residential Villa, 2BHK Apartment, Commercial Office
+  facingDirection String @map("facing_direction") // North, North-East, East, South-East, South, etc.
+  totalAreaSqft   Float? @map("total_area_sqft")
+  numberOfFloors  Int    @default(1) @map("number_of_floors")
+
+  // Uploaded Floor Plan / Site Media (Structured ImageType JSON)
+  floorPlanUrl Json? @map("floor_plan_url")
+  sitePhotos   Json? @map("site_photos") // Array of ImageType
+
+  // Vastu Scoring & Vedic Vectors
+  overallScore      Int   @map("overall_score") // Score out of 100
+  zoneBreakdown     Json? @map("zone_breakdown") // 16 Vedic Directional zones analysis
+  remedialSolutions Json? @map("remedial_solutions") // Corrective remedies without structural demolition
+  boqEstimations    Json? @map("boq_estimations") // Associated repair/remedy BOQ cost lines
+  pdfReportUrl      Json? @map("pdf_report_url") // Generated Vastu Compliance PDF
+
+  // Universal Extension Standard
+  additionalInformation Json? @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  session AiSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("ai_vastu_audit_sessions")
+}
+
+// =======================================================
+// 8. SATELLITE 1-TO-1: AI DOUBT SOLVER SESSION & CHAT MESSAGES
+// =======================================================
+
+model AiDoubtSolverSession {
+  id        String @id @default(uuid()) @db.Uuid
+  sessionId String @unique @map("session_id") @db.Uuid
+
+  // Consultation Thread Metadata
+  title            String @default("Technical Doubt Consultation") @map("title")
+  topicCategory    String @map("topic_category") // Interior Design, Vastu, Materials, Budget & Cost, etc.
+  intelligenceMode String @default("smart") @map("intelligence_mode") // smart, technical, vastu_deep_dive, costing
+
+  // Universal Extension Standard
+  additionalInformation Json? @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  session  AiSession                  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  messages AiDoubtSolverChatMessage[]
+
+  @@map("ai_doubt_solver_sessions")
+}
+
+model AiDoubtSolverChatMessage {
+  id                   String @id @default(uuid()) @db.Uuid
+  doubtSolverSessionId String @map("doubt_solver_session_id") @db.Uuid
+
+  sender             AiChatMessageSender @map("sender") // USER or AI
+  messageText        String              @map("message_text") @db.Text
+  structuredPoints   Json?               @map("structured_points") // Array of { title, desc }
+  concludingNote     String?             @map("concluding_note") @db.Text
+  attachedMedia      Json?               @map("attached_media") // Array of ImageType / reference docs
+  userFeedbackRating Int?                @map("user_feedback_rating") // 1 (Dislike) or 5 (Like)
+
+  // Universal Extension Standard
+  additionalInformation Json? @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  doubtSolverSession AiDoubtSolverSession @relation(fields: [doubtSolverSessionId], references: [id], onDelete: Cascade)
+
+  @@index([doubtSolverSessionId, createdAt])
+  @@map("ai_doubt_solver_chat_messages")
+}
+
+// =======================================================
+// 9. SATELLITE 1-TO-1: FUTURE 3D SPATIAL & VIDEO STUBS
+// =======================================================
+
+model AiThreeDSession {
+  id                    String  @id @default(uuid()) @db.Uuid
+  sessionId             String  @unique @map("session_id") @db.Uuid
+  modelFormat           String  @default("GLB") @map("model_format")
+  meshDataUrl           Json?   @map("mesh_data_url")
+  renderingEngine       String? @map("rendering_engine")
+  additionalInformation Json?   @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  session AiSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("ai_threed_sessions")
+}
+
+model AiVideoSession {
+  id                    String @id @default(uuid()) @db.Uuid
+  sessionId             String @unique @map("session_id") @db.Uuid
+  videoFormat           String @default("MP4") @map("video_format")
+  durationSeconds       Int    @map("duration_seconds")
+  videoAssetUrl         Json?  @map("video_asset_url")
+  resolution            String @default("1080p") @map("resolution")
+  additionalInformation Json?  @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  session AiSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("ai_video_sessions")
+}

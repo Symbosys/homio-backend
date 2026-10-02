@@ -175,7 +175,7 @@ enum ComplaintSeverity {
 
 enum ComplaintMediaStage {
   BEFORE // Defect / issue evidence
-  AFTER  // Rectification / resolution proof
+  AFTER // Rectification / resolution proof
 }
 
 enum ChangeRequestStatus {
@@ -895,8 +895,8 @@ model ProjectProgressMedia {
   organization   Organization @relation("OrganizationProgressMedia", fields: [organizationId], references: [id], onDelete: Cascade)
 
   // Direct Project & Site Progress Linkage
-  projectId String          @map("project_id") @db.Uuid
-  project   Project         @relation("ProjectProgressMedia", fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String  @map("project_id") @db.Uuid
+  project   Project @relation("ProjectProgressMedia", fields: [projectId], references: [id], onDelete: Cascade)
 
   progressId String          @map("progress_id") @db.Uuid
   progress   ProjectProgress @relation("ProgressMediaItems", fields: [progressId], references: [id], onDelete: Cascade)
@@ -913,11 +913,11 @@ model ProjectProgressMedia {
   storageProvider StorageProviderType @default(AWS_S3) @map("storage_provider")
 
   // Technical File Specifications
-  mimeType        String   @map("mime_type")
-  fileSizeBytes   BigInt?  @map("file_size_bytes")
-  durationSeconds Float?   @map("duration_seconds")
-  width           Int?     @map("width")
-  height          Int?     @map("height")
+  mimeType        String  @map("mime_type")
+  fileSizeBytes   BigInt? @map("file_size_bytes")
+  durationSeconds Float?  @map("duration_seconds")
+  width           Int?    @map("width")
+  height          Int?    @map("height")
 
   // Site Geotagging & Metadata
   takenAt      DateTime? @map("taken_at")
@@ -965,8 +965,8 @@ model ProjectComplaintMedia {
   organization   Organization @relation("OrganizationComplaintMedia", fields: [organizationId], references: [id], onDelete: Cascade)
 
   // Direct Project & Complaint Linkage
-  projectId String           @map("project_id") @db.Uuid
-  project   Project          @relation("ProjectComplaintMedia", fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String  @map("project_id") @db.Uuid
+  project   Project @relation("ProjectComplaintMedia", fields: [projectId], references: [id], onDelete: Cascade)
 
   complaintId String           @map("complaint_id") @db.Uuid
   complaint   ProjectComplaint @relation("ComplaintMediaItems", fields: [complaintId], references: [id], onDelete: Cascade)
@@ -984,11 +984,11 @@ model ProjectComplaintMedia {
   storageProvider StorageProviderType @default(AWS_S3) @map("storage_provider")
 
   // Technical File Specifications
-  mimeType        String   @map("mime_type")
-  fileSizeBytes   BigInt?  @map("file_size_bytes")
-  durationSeconds Float?   @map("duration_seconds")
-  width           Int?     @map("width")
-  height          Int?     @map("height")
+  mimeType        String  @map("mime_type")
+  fileSizeBytes   BigInt? @map("file_size_bytes")
+  durationSeconds Float?  @map("duration_seconds")
+  width           Int?    @map("width")
+  height          Int?    @map("height")
 
   // Geotagging & Display
   takenAt      DateTime? @map("taken_at")

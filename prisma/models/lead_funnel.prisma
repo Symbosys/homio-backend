@@ -3,30 +3,30 @@
 // ==========================================
 
 enum FunnelCategory {
-  CLIENT          // Interior client & architectural design inquiries
-  JOB_APPLICANT   // HR & recruitment intake (Designers, 3D visualizers, supervisors)
+  CLIENT // Interior client & architectural design inquiries
+  JOB_APPLICANT // HR & recruitment intake (Designers, 3D visualizers, supervisors)
   VENDOR_SUPPLIER // Procurement intake (Material suppliers, contractors, trades)
-  CUSTOM          // Organization custom pipeline
+  CUSTOM // Organization custom pipeline
 }
 
 enum FunnelStageType {
-  INTAKE            // Top of funnel (New Enquiry / New Application / Ingestion)
-  QUALIFYING        // Verification, discovery call, document audit
+  INTAKE // Top of funnel (New Enquiry / New Application / Ingestion)
+  QUALIFYING // Verification, discovery call, document audit
   MEETING_INTERVIEW // Site visit / client presentation / interview / sample check
-  CLOSING_HIRED     // Booked Client / Hired Candidate / Approved Vendor
-  DISQUALIFIED      // Not Qualified / Rejected / Blacklisted
-  INACTIVE_COLD     // Not Responding / Not Interested
+  CLOSING_HIRED // Booked Client / Hired Candidate / Approved Vendor
+  DISQUALIFIED // Not Qualified / Rejected / Blacklisted
+  INACTIVE_COLD // Not Responding / Not Interested
 }
 
 enum DynamicFormFieldType {
-  TEXT     // Text Field
-  NUMBER   // Number / Experience / Size
+  TEXT // Text Field
+  NUMBER // Number / Experience / Size
   CURRENCY // Budget / Salary (INR / Lakhs)
-  PHONE    // Phone number with validation
-  EMAIL    // Email address with validation
+  PHONE // Phone number with validation
+  EMAIL // Email address with validation
   DROPDOWN // Dropdown select from options array
-  FILE     // File / CAD / PDF / Resume upload (Multi-cloud storage)
-  DATE     // Date picker
+  FILE // File / CAD / PDF / Resume upload (Multi-cloud storage)
+  DATE // Date picker
   LOCATION // Address / City / Pincode
 }
 
@@ -99,7 +99,7 @@ model LeadFunnelStage {
 
   // Stage SLA Rules & Descriptions (Matches Flutter Tab 1)
   slaTargetDescription String? @map("sla_target_description") @db.VarChar(255) // e.g. "SLA Target: < 4 hours first response"
-  slaHours             Int?    @map("sla_hours")                              // SLA threshold e.g. 4, 24, 72 hours
+  slaHours             Int?    @map("sla_hours") // SLA threshold e.g. 4, 24, 72 hours
 
   // Automation Triggers (Matches Flutter Tab 1: 'Auto task generation enabled')
   autoTaskEnabled Boolean @default(false) @map("auto_task_enabled")
@@ -194,7 +194,7 @@ model LeadFunnelTransition {
   changedById String? @map("changed_by_id") @db.Uuid
   changedBy   User?   @relation("LeadFunnelTransitionChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
 
-  additionalInformation Json? @map("additional_information")
+  additionalInformation Json?    @map("additional_information")
   createdAt             DateTime @default(now()) @map("created_at")
 
   @@index([organizationId])

@@ -114,7 +114,9 @@ model Organization {
   leadFunnelFormFields       LeadFunnelFormField[]      @relation("OrganizationLeadFunnelFormFields")
   leadFunnelTransitions      LeadFunnelTransition[]     @relation("OrganizationLeadFunnelTransitions")
   whatsAppIntegration        WhatsAppIntegration?       @relation("OrganizationWhatsAppIntegration")
-
+  aiWallet                   AiWallet?                  @relation("OrganizationAiWallet")
+  aiSessions                 AiSession[]                @relation("OrganizationAiSessions")
+  aiCreditTransactions       AiCreditTransaction[]      @relation("OrganizationAiTransactions")
 
   @@index([slug])
   @@index([status])

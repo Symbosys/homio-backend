@@ -7,41 +7,41 @@
 // ==========================================
 
 enum QuotationStatus {
-  DRAFT             // In-progress draft
-  INTERNAL_REVIEW   // Pending internal manager review
-  READY_TO_SEND     // Ready for client dispatch
-  SENT              // Dispatched to client via Email / WhatsApp
-  VIEWED            // Client opened interactive proposal
-  UNDER_REVIEW      // Client reviewing commercials
-  ACCEPTED          // Client approved proposal & signed off
-  BOOKED            // Converted to active execution project
-  REJECTED          // Client declined proposal
-  EXPIRED           // Discount validity expired
-  REVISED           // Superseded by newer revision
-  CANCELLED         // Discarded quotation
-  ARCHIVED          // Historical archival
+  DRAFT // In-progress draft
+  INTERNAL_REVIEW // Pending internal manager review
+  READY_TO_SEND // Ready for client dispatch
+  SENT // Dispatched to client via Email / WhatsApp
+  VIEWED // Client opened interactive proposal
+  UNDER_REVIEW // Client reviewing commercials
+  ACCEPTED // Client approved proposal & signed off
+  BOOKED // Converted to active execution project
+  REJECTED // Client declined proposal
+  EXPIRED // Discount validity expired
+  REVISED // Superseded by newer revision
+  CANCELLED // Discarded quotation
+  ARCHIVED // Historical archival
 }
 
 enum QuotationDiscountType {
-  PERCENTAGE        // % reduction off gross BOQ
-  FIXED_AMOUNT      // Lumpsum flat discount in INR
+  PERCENTAGE // % reduction off gross BOQ
+  FIXED_AMOUNT // Lumpsum flat discount in INR
 }
 
 enum QuotationRoomAreaType {
-  LIVING_ROOM       // Living & formal lounge
-  MASTER_BEDROOM    // Master suite
-  GUEST_BEDROOM     // Guest room
-  KIDS_BEDROOM      // Children's room
-  KITCHEN           // Modular kitchen / wet kitchen
-  DINING_AREA       // Dining hall
-  BALCONY           // Deck / balcony / sit-out
-  BATHROOM          // Restroom / powder room
-  POOJA_ROOM        // Prayer / temple room
-  FOYER             // Entryway / foyer
-  UTILITY           // Washing / laundry / utility
-  HOME_OFFICE       // Study / work station
-  ENTERTAINMENT     // Home theater / media lounge
-  OTHER             // Custom room area
+  LIVING_ROOM // Living & formal lounge
+  MASTER_BEDROOM // Master suite
+  GUEST_BEDROOM // Guest room
+  KIDS_BEDROOM // Children's room
+  KITCHEN // Modular kitchen / wet kitchen
+  DINING_AREA // Dining hall
+  BALCONY // Deck / balcony / sit-out
+  BATHROOM // Restroom / powder room
+  POOJA_ROOM // Prayer / temple room
+  FOYER // Entryway / foyer
+  UTILITY // Washing / laundry / utility
+  HOME_OFFICE // Study / work station
+  ENTERTAINMENT // Home theater / media lounge
+  OTHER // Custom room area
 }
 
 // ==========================================

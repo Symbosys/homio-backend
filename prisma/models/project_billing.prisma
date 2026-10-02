@@ -9,33 +9,33 @@
 // ==========================================
 
 enum ProjectBillType {
-  MATERIAL    // Vendor raw/finished material supplies (Tiles, Timber, Paint, Fixtures)
-  LABOUR      // Site contractor, carpenter, mason, electrician workforce bills
-  DESIGN      // Architectural, interior design, 2D/3D visualizer fee
+  MATERIAL // Vendor raw/finished material supplies (Tiles, Timber, Paint, Fixtures)
+  LABOUR // Site contractor, carpenter, mason, electrician workforce bills
+  DESIGN // Architectural, interior design, 2D/3D visualizer fee
   SUPERVISION // Project manager, site engineer, PMC supervision fee
 }
 
 enum ProjectBillStatus {
-  DRAFT          // Bill being created / drafted by site team
-  SUBMITTED      // Submitted for verification & commercial audit
-  APPROVED       // Commercial approved for payment disbursement
+  DRAFT // Bill being created / drafted by site team
+  SUBMITTED // Submitted for verification & commercial audit
+  APPROVED // Commercial approved for payment disbursement
   PARTIALLY_PAID // Partial installment paid against bill balance
-  PAID           // Fully settled and cleared
-  OVERDUE        // Payment due date passed with pending balance
-  CANCELLED      // Disputed / voided bill
+  PAID // Fully settled and cleared
+  OVERDUE // Payment due date passed with pending balance
+  CANCELLED // Disputed / voided bill
 }
 
 enum BillCommissionStatus {
   NOT_APPLICABLE // No commission associated
-  DUE            // Commission earned by organization, pending collection
-  PAID           // Commission received & reconciled
-  WAIVED         // Waived / discounted by management
+  DUE // Commission earned by organization, pending collection
+  PAID // Commission received & reconciled
+  WAIVED // Waived / discounted by management
 }
 
 enum ProjectPaymentRecordStatus {
-  PENDING   // Payment initiated / cheque in clearing
-  SUCCESS   // Payment successfully processed and reconciled
-  FAILED    // Transaction failed / cheque bounced
+  PENDING // Payment initiated / cheque in clearing
+  SUCCESS // Payment successfully processed and reconciled
+  FAILED // Transaction failed / cheque bounced
   CANCELLED // Transaction voided by administrator
 }
 

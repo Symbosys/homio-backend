@@ -59,13 +59,13 @@ model Labour {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Normalized Relations
-  kycDocument LabourKycDocument?
-  bookings    LabourBooking[]    @relation("LabourBookings")
-  attendances LabourAttendance[] @relation("LabourAttendances")
-  payments    LabourPayment[]    @relation("LabourPayments")
-  ratings     LabourRating[]     @relation("LabourRatings")
-  disputes    LabourDispute[]    @relation("LabourDisputes")
-  projectBills ProjectBill[]   @relation("LabourProjectBills")
+  kycDocument  LabourKycDocument?
+  bookings     LabourBooking[]    @relation("LabourBookings")
+  attendances  LabourAttendance[] @relation("LabourAttendances")
+  payments     LabourPayment[]    @relation("LabourPayments")
+  ratings      LabourRating[]     @relation("LabourRatings")
+  disputes     LabourDispute[]    @relation("LabourDisputes")
+  projectBills ProjectBill[]      @relation("LabourProjectBills")
 
   @@index([organizationId])
   @@index([phone])
