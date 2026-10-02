@@ -16,6 +16,7 @@ import permissionRoutes from "./module/user/routes/permission.routes.js";
 import platformSubscriptionRoutes from "./module/subscription/routes/subscription.routes.js";
 import platformOrganizationRoutes from "./module/organization/routes/organization.routes.js";
 import platformAiStudioRoutes from "./module/ai-studio/routes/ai-studio-platform.routes.js";
+import { aiStudioTenantRouter } from "./module/ai-studio/routes/ai-studio-tenant.routes.js";
 import marketplaceRouter from "./module/marketplace/routes/index.js";
 import hrmsRouter from "./module/hrms/routes/index.js";
 import crmRouter from "./module/leads-crm/routes/index.js";
@@ -157,6 +158,11 @@ app.use("/api/v1/quotations", quotationRouter);
  * Social & Communication Channel Integration Routes (WhatsApp Cloud API)
  */
 app.use("/api/v1/integrations", integrationRouter);
+
+/**
+ * AI Studio & Generative Tools Module Routes (Organization Tenant Scoped)
+ */
+app.use("/api/v1/ai-studio", aiStudioTenantRouter);
 
 app.use(errorMiddleware);
 
