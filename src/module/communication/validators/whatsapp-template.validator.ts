@@ -131,6 +131,29 @@ export const renderTemplatePreviewSchema = z.object({
   }),
 });
 
+// ==========================================
+// BROWSE META TEMPLATES SCHEMA (GET /templates/meta/browse)
+// ==========================================
+export const browseMetaTemplatesSchema = z.object({
+  query: z.object({
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+    after: z.string().optional(),
+    before: z.string().optional(),
+    search: z.string().optional(),
+  }),
+});
+
+// ==========================================
+// IMPORT META TEMPLATE SCHEMA (POST /templates/meta/import)
+// ==========================================
+export const importMetaTemplateSchema = z.object({
+  body: z.object({
+    wabaTemplateId: z.string().optional(),
+    name: z.string().min(1, "Template name is required"),
+    language: z.string().min(2, "Template language code is required"),
+  }),
+});
+
 export type CreateWhatsAppTemplateDto = z.infer<typeof createWhatsAppTemplateSchema>["body"];
 export type CreateVariableMappingItemDto = z.infer<typeof createVariableMappingItemSchema>;
 export type UpdateWhatsAppTemplateDto = z.infer<typeof updateWhatsAppTemplateSchema>["body"];
@@ -138,3 +161,5 @@ export type GetWhatsAppTemplatesQueryDto = z.infer<typeof getWhatsAppTemplatesQu
 export type RenderTemplatePreviewDto = z.infer<typeof renderTemplatePreviewSchema>["body"];
 export type UpdateVariableMappingItemDto = z.infer<typeof updateVariableMappingItemSchema>;
 export type WhatsAppButtonDto = z.infer<typeof whatsAppButtonSchema>;
+export type BrowseMetaTemplatesQueryDto = z.infer<typeof browseMetaTemplatesSchema>["query"];
+export type ImportMetaTemplateDto = z.infer<typeof importMetaTemplateSchema>["body"];

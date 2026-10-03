@@ -12,6 +12,8 @@ import {
   renderTemplate,
   getVariableDictionary,
   uploadTemplateMedia,
+  browseMetaTemplates,
+  importMetaTemplate,
 } from "../controllers/whatsapp-template.controller.js";
 
 const router = Router();
@@ -31,6 +33,28 @@ router.post(
   requirePermission(Permissions.CREATE_COMMUNICATION_TEMPLATE),
   upload.single("file", { category: "all", maxFileSize: 25 * 1024 * 1024 }),
   uploadTemplateMedia
+);
+
+/**
+ * @route   GET /api/v1/communication/templates/meta/browse
+ * @desc    Browse templates directly from Meta WhatsApp Business Account
+ * Note: Must precede /:id to prevent route shadowing
+ */
+router.get(
+  "/meta/browse",
+  requirePermission(Permissions.READ_COMMUNICATION_TEMPLATE),
+  browseMetaTemplates
+);
+
+/**
+ * @route   POST /api/v1/communication/templates/meta/import
+ * @desc    Import a specific template from Meta into Homio CRM
+ * Note: Must precede /:id to prevent route shadowing
+ */
+router.post(
+  "/meta/import",
+  requirePermission(Permissions.CREATE_COMMUNICATION_TEMPLATE),
+  importMetaTemplate
 );
 
 /**

@@ -33,6 +33,18 @@ export interface MetaTemplateItem {
   last_updated_time?: string;
 }
 
+export interface MetaSendMessageResponse {
+  messaging_product: "whatsapp";
+  contacts: Array<{
+    input: string;
+    wa_id: string;
+  }>;
+  messages: Array<{
+    id: string;
+    message_status?: string;
+  }>;
+}
+
 /**
  * Dedicated Meta Graph API Client for WhatsApp Message Templates
  * Handles token authentication, endpoint dispatch, rate limits, and error sanitization.
@@ -71,6 +83,59 @@ export class MetaWhatsAppService {
     } catch (error: any) {
       this.handleMetaError(error, `Failed to fetch template "${templateName}" from Meta`);
       return null;
+    }
+  }
+
+  /**
+   * List templates directly from Meta Graph API with cursor pagination & search
+   */
+  async listTemplatesFromMeta(
+    accountId: string,
+    accessToken: string,
+    options?: {
+      limit?: number;
+      after?: string;
+      before?: string;
+      name?: string;
+    }
+  ): Promise<{
+    data: MetaTemplateItem[];
+    paging?: {
+      cursors?: { before?: string; after?: string };
+      next?: string;
+      previous?: string;
+    };
+  }> {
+    const url = `${this.baseUrl}/${this.graphApiVersion}/${accountId}/message_templates`;
+
+    try {
+      const params: Record<string, any> = {
+        fields: "id,name,status,category,language,components,quality_score,rejected_reason,last_updated_time",
+        limit: options?.limit || 20,
+      };
+
+      if (options?.after) params.after = options.after;
+      if (options?.before) params.before = options.before;
+      if (options?.name && options.name.trim()) params.name = options.name.trim();
+
+      const response = await axiosClient.get<{
+        data: MetaTemplateItem[];
+        paging?: {
+          cursors?: { before?: string; after?: string };
+          next?: string;
+          previous?: string;
+        };
+      }>(url, {
+        params,
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        timeout: 20000,
+      });
+
+      return response.data || { data: [] };
+    } catch (error: any) {
+      this.handleMetaError(error, "Failed to browse templates from Meta WhatsApp Business Account");
     }
   }
 
@@ -241,6 +306,32 @@ export class MetaWhatsAppService {
       return handle;
     } catch (error: any) {
       this.handleMetaError(error, `Failed to upload sample media to Meta`);
+    }
+  }
+
+  /**
+   * Dispatch a message (template or custom) directly to recipient via Meta WhatsApp Cloud API
+   * POST /{phoneNumberId}/messages
+   */
+  async dispatchMessageToMeta(
+    phoneNumberId: string,
+    accessToken: string,
+    payload: Record<string, unknown>
+  ): Promise<MetaSendMessageResponse> {
+    const url = `${this.baseUrl}/${this.graphApiVersion}/${phoneNumberId}/messages`;
+
+    try {
+      const response = await axiosClient.post<MetaSendMessageResponse>(url, payload, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        timeout: 25000,
+      });
+
+      return response.data;
+    } catch (error: unknown) {
+      this.handleMetaError(error, "Failed to dispatch message via WhatsApp Cloud API");
     }
   }
 

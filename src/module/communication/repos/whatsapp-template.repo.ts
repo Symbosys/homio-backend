@@ -280,6 +280,7 @@ export class WhatsAppTemplateRepository {
       language?: string;
       headerType: any;
       headerText?: string | null;
+      headerMedia?: any;
       bodyText: string;
       footerText?: string | null;
       buttons?: any;
@@ -310,6 +311,9 @@ export class WhatsAppTemplateRepository {
           ...(metaData.language && { language: metaData.language }),
           headerType: metaData.headerType,
           headerText: metaData.headerText,
+          ...(metaData.headerMedia !== undefined && {
+            headerMedia: metaData.headerMedia || Prisma.JsonNull,
+          }),
           bodyText: metaData.bodyText,
           footerText: metaData.footerText,
           buttons: metaData.buttons || Prisma.JsonNull,

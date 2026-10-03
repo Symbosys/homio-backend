@@ -1,3 +1,4 @@
+import { prisma } from "../../../lib/prisma.js";
 import { whatsAppIntegrationRepo } from "../../integration/repos/whatsapp-integration.repo.js";
 import { whatsAppTemplateRepo } from "../repos/whatsapp-template.repo.js";
 import { metaWhatsAppService } from "./meta-whatsapp.service.js";
@@ -17,6 +18,8 @@ import type {
   CreateWhatsAppTemplateDto,
   UpdateWhatsAppTemplateDto,
   GetWhatsAppTemplatesQueryDto,
+  BrowseMetaTemplatesQueryDto,
+  ImportMetaTemplateDto,
 } from "../validators/whatsapp-template.validator.js";
 
 /**
@@ -267,6 +270,33 @@ export class WhatsAppTemplateService {
   }
 
   /**
+   * Helper: Extract sample header media from Meta raw payload if headerMedia is not already populated
+   */
+  private extractMetaHeaderMedia(template: any): any | null {
+    if (template.headerMedia) return template.headerMedia;
+    if (!template.metaRawPayload) return null;
+
+    try {
+      const components = (template.metaRawPayload as any)?.components;
+      if (!Array.isArray(components)) return null;
+
+      const headerComp = components.find((c: any) => c.type === "HEADER");
+      const sampleHandle = headerComp?.example?.header_handle?.[0];
+      if (!sampleHandle) return null;
+
+      return {
+        id: `meta_${template.wabaTemplateId || template.id || "media"}`,
+        url: sampleHandle,
+        bytes: 0,
+        format: (template.headerType || headerComp.format || "IMAGE").toLowerCase(),
+        provider: "META",
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * API 1 — List Templates with server-side pagination, search, filters, and KPI ribbon (Rule 21)
    */
   async listTemplates(organizationId: string, query: GetWhatsAppTemplatesQueryDto) {
@@ -274,6 +304,16 @@ export class WhatsAppTemplateService {
       whatsAppTemplateRepo.findManyWithFilters(organizationId, query),
       whatsAppTemplateRepo.getTemplateKpiStats(organizationId),
     ]);
+
+    // Ensure any templates missing headerMedia have it recovered from metaRawPayload in memory
+    paginated.items.forEach((t: any) => {
+      if (!t.headerMedia) {
+        const recovered = this.extractMetaHeaderMedia(t);
+        if (recovered) {
+          t.headerMedia = recovered;
+        }
+      }
+    });
 
     return {
       data: paginated.items,
@@ -290,6 +330,23 @@ export class WhatsAppTemplateService {
     if (!template) {
       throw new ErrorResponse("WhatsApp template not found", statusCode.Not_Found);
     }
+
+    if (!template.headerMedia) {
+      const recoveredMedia = this.extractMetaHeaderMedia(template);
+      if (recoveredMedia) {
+        template.headerMedia = recoveredMedia;
+        // Auto-heal in database asynchronously (do not block the response)
+        prisma.whatsAppMessageTemplate
+          .update({
+            where: { id: template.id },
+            data: { headerMedia: recoveredMedia },
+          })
+          .catch((err) => {
+            console.warn(`[WhatsAppTemplateService] Failed to auto-heal headerMedia for template ${template.id}:`, err);
+          });
+      }
+    }
+
     return template;
   }
 
@@ -514,7 +571,20 @@ export class WhatsAppTemplateService {
       detectedVariables.push(...this.extractVariables(WhatsAppVariableComponent.BODY, bodyComp.text));
     }
 
-    // 4. Atomically sync template and variables in database
+    // 4. Extract sample header media if headerType is media format and headerMedia is missing
+    const sampleHandle = headerComp?.example?.header_handle?.[0];
+    let headerMedia: any = existing.headerMedia;
+    if (!headerMedia && sampleHandle && ["IMAGE", "VIDEO", "DOCUMENT"].includes(headerType)) {
+      headerMedia = {
+        id: `meta_${metaItem.id || existing.wabaTemplateId || existing.id}`,
+        url: sampleHandle,
+        bytes: 0,
+        format: headerType.toLowerCase(),
+        provider: "META",
+      };
+    }
+
+    // 5. Atomically sync template and variables in database
     const updatedTemplate = await whatsAppTemplateRepo.syncMetaTemplateData(
       organizationId,
       id,
@@ -525,6 +595,7 @@ export class WhatsAppTemplateService {
         language: metaItem.language,
         headerType,
         headerText: headerComp?.text || null,
+        headerMedia,
         bodyText: bodyComp?.text || "",
         footerText: footerComp?.text || null,
         buttons: buttonsComp?.buttons || null,
@@ -559,11 +630,13 @@ export class WhatsAppTemplateService {
       throw new ErrorResponse("WhatsApp template not found", statusCode.Not_Found);
     }
 
+    const headerMedia = template.headerMedia || this.extractMetaHeaderMedia(template);
+
     return variableMappingEngine.resolveTemplate(
       {
         headerType: template.headerType,
         headerText: template.headerText,
-        headerMedia: template.headerMedia,
+        headerMedia,
         bodyText: template.bodyText,
         footerText: template.footerText,
         buttons: template.buttons,
@@ -574,6 +647,220 @@ export class WhatsAppTemplateService {
         organizationId,
       }
     );
+  }
+
+  /**
+   * Browse live message templates hosted on Meta WhatsApp Business Account
+   * Checks whether each template is already imported into Homio CRM
+   */
+  async browseMetaTemplates(
+    organizationId: string,
+    query: BrowseMetaTemplatesQueryDto
+  ) {
+    const integration = await whatsAppIntegrationRepo.findByOrganizationId(organizationId);
+    if (!integration || !integration.accountId || !integration.accessToken) {
+      throw new ErrorResponse(
+        "WhatsApp Cloud API integration not configured for this organization. Please configure credentials in Settings > WhatsApp Integration first.",
+        statusCode.Bad_Request
+      );
+    }
+
+    const metaResult = await metaWhatsAppService.listTemplatesFromMeta(
+      integration.accountId,
+      integration.accessToken,
+      {
+        limit: query.limit,
+        after: query.after,
+        before: query.before,
+        name: query.search,
+      }
+    );
+
+    const metaTemplates = metaResult.data || [];
+    const metaIds = metaTemplates.map((t) => t.id).filter(Boolean);
+    const metaNames = metaTemplates.map((t) => t.name).filter(Boolean);
+
+    // Query which templates already exist in local CRM database
+    const localTemplates = await prisma.whatsAppMessageTemplate.findMany({
+      where: {
+        organizationId,
+        status: { not: WhatsAppTemplateStatus.DELETED },
+        OR: [
+          { wabaTemplateId: { in: metaIds } },
+          { name: { in: metaNames } },
+        ],
+      },
+      select: {
+        id: true,
+        name: true,
+        language: true,
+        wabaTemplateId: true,
+        status: true,
+      },
+    });
+
+    const items = metaTemplates.map((metaItem) => {
+      const match = localTemplates.find(
+        (local) =>
+          (metaItem.id && local.wabaTemplateId === metaItem.id) ||
+          (local.name === metaItem.name && local.language === metaItem.language)
+      );
+
+      return {
+        ...metaItem,
+        isImported: Boolean(match),
+        crmTemplateId: match?.id || null,
+        crmStatus: match?.status || null,
+      };
+    });
+
+    return {
+      items,
+      paging: metaResult.paging || null,
+    };
+  }
+
+  /**
+   * Import a single template from Meta WhatsApp Business Account into Homio CRM
+   */
+  async importMetaTemplate(
+    organizationId: string,
+    createdById: string | null,
+    dto: ImportMetaTemplateDto
+  ) {
+    // 1. Check if already exists in organization
+    const existing = await prisma.whatsAppMessageTemplate.findFirst({
+      where: {
+        organizationId,
+        name: dto.name,
+        language: dto.language,
+        status: { not: WhatsAppTemplateStatus.DELETED },
+      },
+      include: {
+        variables: true,
+      },
+    });
+
+    if (existing) {
+      if (!existing.headerMedia) {
+        const recovered = this.extractMetaHeaderMedia(existing);
+        if (recovered) {
+          existing.headerMedia = recovered;
+          await prisma.whatsAppMessageTemplate
+            .update({
+              where: { id: existing.id },
+              data: { headerMedia: recovered },
+            })
+            .catch(() => {});
+        }
+      }
+      return {
+        ...existing,
+        alreadyImported: true,
+      };
+    }
+
+    const integration = await whatsAppIntegrationRepo.findByOrganizationId(organizationId);
+    if (!integration || !integration.accountId || !integration.accessToken) {
+      throw new ErrorResponse(
+        "WhatsApp Cloud API integration not configured for this organization",
+        statusCode.Bad_Request
+      );
+    }
+
+    // 2. Fetch live template from Meta
+    const metaItem = await metaWhatsAppService.fetchTemplateByName(
+      integration.accountId,
+      integration.accessToken,
+      dto.name
+    );
+
+    if (!metaItem) {
+      throw new ErrorResponse(
+        `Template "${dto.name}" was not found on Meta WhatsApp Business Account`,
+        statusCode.Not_Found
+      );
+    }
+
+    // 3. Parse components
+    const headerComp = metaItem.components?.find((c) => c.type === "HEADER");
+    const bodyComp = metaItem.components?.find((c) => c.type === "BODY");
+    const footerComp = metaItem.components?.find((c) => c.type === "FOOTER");
+    const buttonsComp = metaItem.components?.find((c) => c.type === "BUTTONS");
+
+    let headerType: WhatsAppHeaderType = WhatsAppHeaderType.NONE;
+    if (headerComp?.format === "TEXT") headerType = WhatsAppHeaderType.TEXT;
+    else if (headerComp?.format === "IMAGE") headerType = WhatsAppHeaderType.IMAGE;
+    else if (headerComp?.format === "DOCUMENT") headerType = WhatsAppHeaderType.DOCUMENT;
+    else if (headerComp?.format === "VIDEO") headerType = WhatsAppHeaderType.VIDEO;
+    else if (headerComp?.format === "LOCATION") headerType = WhatsAppHeaderType.LOCATION;
+
+    let metaStatus: WhatsAppTemplateStatus = WhatsAppTemplateStatus.APPROVED;
+    const s = (metaItem.status || "").toUpperCase();
+    if (s === "APPROVED") metaStatus = WhatsAppTemplateStatus.APPROVED;
+    else if (s === "REJECTED") metaStatus = WhatsAppTemplateStatus.REJECTED;
+    else if (s === "PENDING" || s === "PENDING_APPROVAL")
+      metaStatus = WhatsAppTemplateStatus.PENDING_APPROVAL;
+    else if (s === "PAUSED") metaStatus = WhatsAppTemplateStatus.PAUSED;
+    else if (s === "DISABLED") metaStatus = WhatsAppTemplateStatus.DISABLED;
+
+    let category: WhatsAppTemplateCategory = WhatsAppTemplateCategory.MARKETING;
+    const cat = (metaItem.category || "").toUpperCase();
+    if (cat === "UTILITY") category = WhatsAppTemplateCategory.UTILITY;
+    else if (cat === "AUTHENTICATION") category = WhatsAppTemplateCategory.AUTHENTICATION;
+
+    // Detect variables across header and body
+    const detectedVariables: Array<{
+      component: WhatsAppVariableComponent;
+      position: number;
+      parameter: string;
+      mappingEntity?: any;
+      mappingField?: string | null;
+      fallbackValue?: string | null;
+      label?: string | null;
+      isRequired?: boolean;
+    }> = [];
+
+    if (headerComp?.text) {
+      detectedVariables.push(...this.extractVariables(WhatsAppVariableComponent.HEADER, headerComp.text));
+    }
+    if (bodyComp?.text) {
+      detectedVariables.push(...this.extractVariables(WhatsAppVariableComponent.BODY, bodyComp.text));
+    }
+
+    let headerMedia: any = null;
+    const sampleHandle = headerComp?.example?.header_handle?.[0];
+    if (sampleHandle && ["IMAGE", "VIDEO", "DOCUMENT"].includes(headerType)) {
+      headerMedia = {
+        id: `meta_${metaItem.id || dto.name}`,
+        url: sampleHandle,
+        bytes: 0,
+        format: headerType.toLowerCase(),
+        provider: "META",
+      };
+    }
+
+    const created = await whatsAppTemplateRepo.createTemplate(
+      organizationId,
+      createdById,
+      {
+        name: metaItem.name,
+        category,
+        language: metaItem.language,
+        status: metaStatus,
+        headerType,
+        headerText: headerComp?.text || null,
+        headerMedia,
+        bodyText: bodyComp?.text || "",
+        footerText: footerComp?.text || null,
+        buttons: (buttonsComp as any)?.buttons || null,
+        wabaTemplateId: metaItem.id || dto.wabaTemplateId || null,
+        metaRawPayload: metaItem,
+      },
+      detectedVariables
+    );
+
+    return created;
   }
 
   /**

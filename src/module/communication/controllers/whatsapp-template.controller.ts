@@ -9,6 +9,8 @@ import {
   updateWhatsAppTemplateSchema,
   getWhatsAppTemplatesQuerySchema,
   renderTemplatePreviewSchema,
+  browseMetaTemplatesSchema,
+  importMetaTemplateSchema,
 } from "../validators/whatsapp-template.validator.js";
 
 /**
@@ -232,6 +234,64 @@ export const uploadTemplateMedia = asyncHandler(async (req, res) => {
     res,
     "Template header media uploaded successfully",
     imageType,
+    statusCode.Created
+  );
+});
+
+/**
+ * Controller: Browse templates hosted on Meta WhatsApp Business Account
+ * @route   GET /api/v1/communication/templates/meta/browse
+ * @desc    Fetch templates directly from Meta Graph API with cursor pagination
+ */
+export const browseMetaTemplates = asyncHandler(async (req, res) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new ErrorResponse("Organization context required", statusCode.Unauthorized);
+  }
+
+  const parsed = browseMetaTemplatesSchema.parse({ query: req.query });
+  const result = await whatsAppTemplateService.browseMetaTemplates(organizationId, parsed.query);
+
+  return SuccessResponse(
+    res,
+    "Meta WhatsApp templates retrieved successfully",
+    result,
+    statusCode.OK
+  );
+});
+
+/**
+ * Controller: Import template from Meta WhatsApp Business Account
+ * @route   POST /api/v1/communication/templates/meta/import
+ * @desc    Downloads and imports a template from Meta into Homio CRM
+ */
+export const importMetaTemplate = asyncHandler(async (req, res) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new ErrorResponse("Organization context required", statusCode.Unauthorized);
+  }
+
+  const userId = req.user?.id;
+  let employeeId: string | null = null;
+  if (userId) {
+    const employee = await prisma.employee.findFirst({
+      where: { userId, organizationId, isDeleted: false },
+      select: { id: true },
+    });
+    employeeId = employee?.id || null;
+  }
+
+  const parsed = importMetaTemplateSchema.parse({ body: req.body });
+  const result = await whatsAppTemplateService.importMetaTemplate(
+    organizationId,
+    employeeId,
+    parsed.body
+  );
+
+  return SuccessResponse(
+    res,
+    "Template imported from Meta successfully",
+    result,
     statusCode.Created
   );
 });
