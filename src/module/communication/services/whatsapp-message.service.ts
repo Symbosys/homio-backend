@@ -151,6 +151,8 @@ export class WhatsAppMessageService {
       quotationId: dto.context?.quotationId || null,
       meetingId: dto.context?.meetingId || null,
       employeeId: dto.context?.employeeId || null,
+      recipientPhone: cleanPhone,
+      recipientName: dto.context?.recipientName || null,
       customOverrides: dto.context?.customOverrides || undefined,
     };
 
@@ -191,17 +193,20 @@ export class WhatsAppMessageService {
           ],
         });
       }
-    } else if (template.headerType === WhatsAppHeaderType.TEXT && template.variables) {
-      const headerVars = template.variables
-        .filter((v) => v.component === WhatsAppVariableComponent.HEADER)
-        .sort((a, b) => a.position - b.position);
+    } else if (template.headerType === WhatsAppHeaderType.TEXT) {
+      const headerParamsInText = (template.headerText || "").match(/\{\{\d+\}\}/g) || [];
+      if (headerParamsInText.length > 0) {
+        const sortedParams = Array.from(new Set(headerParamsInText)).sort((a, b) => {
+          const numA = parseInt(a.replace(/[^0-9]/g, ""), 10) || 1;
+          const numB = parseInt(b.replace(/[^0-9]/g, ""), 10) || 1;
+          return numA - numB;
+        });
 
-      if (headerVars.length > 0) {
-        const headerParams = headerVars.map((v) => {
-          const resolvedVal =
-            rendered.variables.find((rv) => rv.parameter === v.parameter)?.value ||
-            v.fallbackValue ||
-            "";
+        const headerParams = sortedParams.map((param, index) => {
+          let resolvedVal = rendered.variables.find((rv) => rv.parameter === param)?.value || "";
+          if (!resolvedVal || /^\{\{\d+\}\}$/.test(resolvedVal)) {
+            resolvedVal = index === 0 ? dto.context?.recipientName || "there" : "details";
+          }
           return {
             type: "text",
             text: resolvedVal,
@@ -215,29 +220,30 @@ export class WhatsAppMessageService {
       }
     }
 
-    // Body parameters
-    if (template.variables && template.variables.length > 0) {
-      const bodyVars = template.variables
-        .filter((v) => v.component === WhatsAppVariableComponent.BODY)
-        .sort((a, b) => a.position - b.position);
+    // Body parameters (derived directly from template body placeholders to ensure 100% Meta API sync)
+    const bodyParamsInText = (template.bodyText || "").match(/\{\{\d+\}\}/g) || [];
+    if (bodyParamsInText.length > 0) {
+      const sortedBodyParams = Array.from(new Set(bodyParamsInText)).sort((a, b) => {
+        const numA = parseInt(a.replace(/[^0-9]/g, ""), 10) || 1;
+        const numB = parseInt(b.replace(/[^0-9]/g, ""), 10) || 1;
+        return numA - numB;
+      });
 
-      if (bodyVars.length > 0) {
-        const bodyParams = bodyVars.map((v) => {
-          const resolvedVal =
-            rendered.variables.find((rv) => rv.parameter === v.parameter)?.value ||
-            v.fallbackValue ||
-            "";
-          return {
-            type: "text",
-            text: resolvedVal,
-          };
-        });
+      const bodyParams = sortedBodyParams.map((param, index) => {
+        let resolvedVal = rendered.variables.find((rv) => rv.parameter === param)?.value || "";
+        if (!resolvedVal || /^\{\{\d+\}\}$/.test(resolvedVal)) {
+          resolvedVal = index === 0 ? dto.context?.recipientName || "there" : "details";
+        }
+        return {
+          type: "text",
+          text: resolvedVal,
+        };
+      });
 
-        metaComponents.push({
-          type: "body",
-          parameters: bodyParams,
-        });
-      }
+      metaComponents.push({
+        type: "body",
+        parameters: bodyParams,
+      });
     }
 
     // 4. Construct final Meta dispatch payload

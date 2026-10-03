@@ -316,6 +316,55 @@ describe("Enterprise WhatsApp Template Management API Tests (Strict 7 APIs)", ()
       expect(result.body).toContain("Valued Customer");
       expect(result.body).toContain("Homio Design");
     });
+
+    it("should eliminate raw {{1}} and use smart fallback or recipientName when variable is unmapped and has no fallback", async () => {
+      const mockTemplate = {
+        bodyText: "Hi {{1}}, thank you for contacting us regarding {{2}}.",
+        variables: [
+          {
+            id: "v-unmapped-1",
+            templateId: MOCK_TEMPLATE_ID,
+            component: WhatsAppVariableComponent.BODY,
+            position: 1,
+            parameter: "{{1}}",
+            mappingEntity: null,
+            mappingField: null,
+            fallbackValue: null,
+            label: null,
+            isRequired: true,
+            isMapped: false,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+          {
+            id: "v-unmapped-2",
+            templateId: MOCK_TEMPLATE_ID,
+            component: WhatsAppVariableComponent.BODY,
+            position: 2,
+            parameter: "{{2}}",
+            mappingEntity: null,
+            mappingField: null,
+            fallbackValue: null,
+            label: null,
+            isRequired: true,
+            isMapped: false,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ],
+      };
+
+      const result = await variableMappingEngine.resolveTemplate(mockTemplate, {
+        organizationId: MOCK_ORG_A,
+        recipientName: "Ananya Sharma",
+      });
+
+      expect(result.body).not.toContain("{{1}}");
+      expect(result.body).not.toContain("{{2}}");
+      expect(result.body).toContain("Ananya Sharma");
+      expect(result.variables[0]?.value).toBe("Ananya Sharma");
+      expect(result.variables[1]?.value).toBe("details");
+    });
   });
 
   // =========================================================================

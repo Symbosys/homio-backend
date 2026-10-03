@@ -127,6 +127,8 @@ export const renderTemplatePreviewSchema = z.object({
     quotationId: z.string().uuid().optional().nullable(),
     meetingId: z.string().uuid().optional().nullable(),
     employeeId: z.string().uuid().optional().nullable(),
+    recipientPhone: z.string().optional().nullable(),
+    recipientName: z.string().optional().nullable(),
     customOverrides: z.record(z.string(), z.string()).optional(),
   }),
 });

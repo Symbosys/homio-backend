@@ -27,6 +27,8 @@ export const messageVariableContextSchema = z
     quotationId: z.string().uuid("quotationId must be a valid UUID").optional().nullable(),
     meetingId: z.string().uuid("meetingId must be a valid UUID").optional().nullable(),
     employeeId: z.string().uuid("employeeId must be a valid UUID").optional().nullable(),
+    recipientPhone: z.string().optional().nullable(),
+    recipientName: z.string().optional().nullable(),
     customOverrides: z.record(z.string(), z.string()).optional(),
   })
   .optional();
