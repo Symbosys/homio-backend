@@ -247,12 +247,30 @@ export class AiStudioRepository {
         },
       });
 
+      // Safe check for valid employee FK
+      let validEmployeeId: string | null = null;
+      if (params.employeeId) {
+        const emp = await tx.employee.findFirst({
+          where: {
+            OR: [
+              { id: params.employeeId },
+              { userId: params.employeeId },
+            ],
+            organizationId: params.organizationId,
+          },
+          select: { id: true },
+        });
+        if (emp) {
+          validEmployeeId = emp.id;
+        }
+      }
+
       // 3. Create immutable transaction record
       const transaction = await tx.aiCreditTransaction.create({
         data: {
           organizationId: params.organizationId,
           walletId: wallet.id,
-          employeeId: params.employeeId || null,
+          employeeId: validEmployeeId,
           creditPackId: params.creditPackId || null,
           transactionType: params.transactionType,
           credits: params.creditsToAdd,

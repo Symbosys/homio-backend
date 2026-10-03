@@ -17,6 +17,9 @@ import platformSubscriptionRoutes from "./module/subscription/routes/subscriptio
 import platformOrganizationRoutes from "./module/organization/routes/organization.routes.js";
 import platformAiStudioRoutes from "./module/ai-studio/routes/ai-studio-platform.routes.js";
 import { aiStudioTenantRouter } from "./module/ai-studio/routes/ai-studio-tenant.routes.js";
+import { doubtSolverRouter } from "./module/ai-studio/routes/doubt-solver.routes.js";
+import { roomDesignerRouter } from "./module/ai-studio/routes/room-designer.routes.js";
+import { vastuAuditRouter } from "./module/ai-studio/routes/vastu-audit.routes.js";
 import marketplaceRouter from "./module/marketplace/routes/index.js";
 import hrmsRouter from "./module/hrms/routes/index.js";
 import crmRouter from "./module/leads-crm/routes/index.js";
@@ -32,10 +35,9 @@ import quotationMasterRouter from "./module/quotation-master/routes/index.js";
 import quotationRouter from "./module/quotation/routes/index.js";
 import integrationRouter from "./module/integration/routes/index.js";
 
-
 const app = express();
 
-app.use(morgan("dev"))
+app.use(morgan("dev"));
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
@@ -49,34 +51,34 @@ app.use((req, res, next) => {
       bytes > 1024 * 1024
         ? `${(bytes / (1024 * 1024)).toFixed(2)} MB`
         : bytes > 1024
-        ? `${(bytes / 1024).toFixed(2)} KB`
-        : `${bytes} B`;
+          ? `${(bytes / 1024).toFixed(2)} KB`
+          : `${bytes} B`;
     console.log(
-      `[HTTP Payload Size] ${req.method} ${req.originalUrl || req.url} - Size: ${formattedSize} (${bytes.toLocaleString()} bytes)`
+      `[HTTP Payload Size] ${req.method} ${req.originalUrl || req.url} - Size: ${formattedSize} (${bytes.toLocaleString()} bytes)`,
     );
   }
   next();
 });
 
 app.get("/", async (req, res) => {
-    return res.json({
-        message: "Homio Backend is running...",
-        timestamp: new Date().toISOString(),
-        mode: ENV.MODE,
-        api_version: "v1"
-    });
+  return res.json({
+    message: "Homio Backend is running...",
+    timestamp: new Date().toISOString(),
+    mode: ENV.MODE,
+    api_version: "v1",
+  });
 });
 
 app.get("/health", async (req, res) => {
-    return res.json({
-        message: "OK"
-    });
+  return res.json({
+    message: "OK",
+  });
 });
 
 // API Routes
 /**
  * User & RBAC Module Routes
-*/
+ */
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/roles", roleRoutes);
@@ -163,8 +165,10 @@ app.use("/api/v1/integrations", integrationRouter);
  * AI Studio & Generative Tools Module Routes (Organization Tenant Scoped)
  */
 app.use("/api/v1/ai-studio", aiStudioTenantRouter);
+app.use("/api/v1/ai-studio/doubt-solver", doubtSolverRouter);
+app.use("/api/v1/ai-studio/room-designer", roomDesignerRouter);
+app.use("/api/v1/ai-studio/vastu", vastuAuditRouter);
 
 app.use(errorMiddleware);
-
 
 export default app;
