@@ -377,6 +377,7 @@ model Employee {
   uploadedComplaintMedia        ProjectComplaintMedia[]     @relation("EmployeeUploadedComplaintMedia")
   aiSessions                    AiSession[]                 @relation("EmployeeAiSessions")
   aiCreditTransactions          AiCreditTransaction[]       @relation("EmployeeAiTransactions")
+  createdWhatsAppTemplates      WhatsAppMessageTemplate[]   @relation("EmployeeCreatedWhatsAppTemplates")
 
   @@unique([organizationId, employeeCode])
   @@index([organizationId])

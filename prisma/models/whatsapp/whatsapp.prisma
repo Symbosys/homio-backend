@@ -1,0 +1,142 @@
+// ==========================================
+// WHATSAPP TEMPLATE ENUMS
+// ==========================================
+
+enum WhatsAppTemplateCategory {
+  MARKETING
+  UTILITY
+  AUTHENTICATION
+}
+
+enum WhatsAppTemplateStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  PAUSED
+  DISABLED
+  DELETED
+}
+
+enum WhatsAppHeaderType {
+  NONE
+  TEXT
+  IMAGE
+  DOCUMENT
+  VIDEO
+  LOCATION
+}
+
+enum WhatsAppButtonType {
+  QUICK_REPLY
+  URL
+  PHONE_NUMBER
+  COPY_CODE
+  FLOW
+}
+
+enum CrmMappingEntity {
+  LEAD
+  CUSTOMER
+  PROJECT
+  QUOTATION
+  MEETING
+  ORGANIZATION
+  ASSIGNED_EMPLOYEE
+  CUSTOM_STATIC
+}
+
+enum WhatsAppVariableComponent {
+  HEADER
+  BODY
+  BUTTON
+}
+
+// ==========================================
+// WHATSAPP MESSAGE TEMPLATE MODEL
+// ==========================================
+
+model WhatsAppMessageTemplate {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationWhatsAppTemplates", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Meta Cloud API Identification
+  name           String       @map("name") // e.g. "project_site_visit_reminder_v1" (lowercase alphanumeric + _)
+  wabaTemplateId String?      @map("waba_template_id") // Meta Template ID
+  language       String       @default("en_US") @map("language") // e.g. "en_US", "hi"
+  category       WhatsAppTemplateCategory @map("category")
+
+  // Status & Control
+  status         WhatsAppTemplateStatus   @default(DRAFT) @map("status")
+  isEnabled      Boolean                  @default(true) @map("is_enabled")
+  rejectionReason String?                 @map("rejection_reason") @db.Text
+
+  // Components Configuration
+  headerType     WhatsAppHeaderType @default(NONE) @map("header_type")
+  headerText     String?      @map("header_text")
+  headerMedia    Json?        @map("header_media") // Structured ImageType JSON
+  bodyText       String       @map("body_text") @db.Text // Contains {{1}}, {{2}}
+  bodyExamples   Json?        @map("body_examples") // Sample values array for Meta review
+  footerText     String?      @map("footer_text") // Max 60 chars
+  buttons        Json?        @map("buttons") // Array of WhatsAppTemplateButton configurations
+
+  // Dedicated Relational Variable Mappings Table
+  variables      WhatsAppTemplateVariable[] @relation("TemplateVariables")
+
+  // Meta Quality & Diagnostics
+  qualityRating  String?      @map("quality_rating") // GREEN, YELLOW, RED, UNKNOWN
+  metaRawPayload Json?        @map("meta_raw_payload") // Exact compiled payload from Meta Graph API
+
+  // Timestamps & Sync State
+  lastSyncedAt   DateTime?    @map("last_synced_at")
+  metaUpdatedAt  DateTime?    @map("meta_updated_at")
+
+  // Universal Additional Information (Rule 18)
+  additionalInformation Json? @map("additional_information")
+
+  // Creator & Audit Timestamps (Employee)
+  createdById    String?      @map("created_by_id") @db.Uuid
+  createdBy      Employee?    @relation("EmployeeCreatedWhatsAppTemplates", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  @@unique([organizationId, name, language])
+  @@index([organizationId, wabaTemplateId])
+  @@index([organizationId, status])
+  @@index([organizationId, category])
+  @@index([organizationId, language])
+  @@index([organizationId, name])
+  @@map("whatsapp_message_templates")
+}
+
+// ==========================================
+// DEDICATED TEMPLATE VARIABLE MODEL
+// ==========================================
+
+model WhatsAppTemplateVariable {
+  id             String                    @id @default(uuid()) @db.Uuid
+  templateId     String                    @map("template_id") @db.Uuid
+  template       WhatsAppMessageTemplate   @relation("TemplateVariables", fields: [templateId], references: [id], onDelete: Cascade)
+
+  component      WhatsAppVariableComponent @default(BODY) @map("component") // HEADER, BODY, BUTTON
+  position       Int                       @map("position") // 1, 2, 3...
+  parameter      String                    @map("parameter") // "{{1}}", "{{2}}"
+
+  // CRM Dynamic Variable Mapping
+  mappingEntity  CrmMappingEntity?         @map("mapping_entity") // LEAD, CUSTOMER, PROJECT, etc.
+  mappingField   String?                   @map("mapping_field") // "firstName", "phone", "projectName"
+  fallbackValue  String?                   @map("fallback_value") // Safe default text if record attribute is empty
+  label          String?                   @map("label") // Human-friendly display label (e.g. "Lead First Name")
+
+  isRequired     Boolean                   @default(true) @map("is_required")
+  isMapped       Boolean                   @default(false) @map("is_mapped")
+
+  createdAt      DateTime                  @default(now()) @map("created_at")
+  updatedAt      DateTime                  @updatedAt @map("updated_at")
+
+  @@unique([templateId, component, position])
+  @@index([templateId])
+  @@index([mappingEntity, mappingField])
+  @@map("whatsapp_template_variables")
+}

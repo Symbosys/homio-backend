@@ -34,6 +34,7 @@ import mapsRouter from "./module/maps/maps.routes.js";
 import quotationMasterRouter from "./module/quotation-master/routes/index.js";
 import quotationRouter from "./module/quotation/routes/index.js";
 import integrationRouter from "./module/integration/routes/index.js";
+import communicationRouter from "./module/communication/routes/index.js";
 
 const app = express();
 
@@ -160,6 +161,11 @@ app.use("/api/v1/quotations", quotationRouter);
  * Social & Communication Channel Integration Routes (WhatsApp Cloud API)
  */
 app.use("/api/v1/integrations", integrationRouter);
+
+/**
+ * Communication & WhatsApp Message Template Routes
+ */
+app.use("/api/v1/communication", communicationRouter);
 
 /**
  * AI Studio & Generative Tools Module Routes (Organization Tenant Scoped)
