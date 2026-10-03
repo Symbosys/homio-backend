@@ -166,29 +166,115 @@ export class MetaWhatsAppService {
   }
 
   /**
+   * Helper: Automatically resolve canonical Meta App ID from access token
+   * Self-heals in case the tenant entered a typo or truncated App ID in settings
+   */
+  async getEffectiveAppId(appId: string | undefined, accessToken: string): Promise<string> {
+    try {
+      const res = await axiosClient.get(`${this.baseUrl}/${this.graphApiVersion}/app`, {
+        params: { access_token: accessToken },
+        timeout: 10000,
+      });
+      if (res.data?.id) {
+        return res.data.id;
+      }
+    } catch {
+      // Fallback to configured appId if /app query fails
+    }
+    return appId || "";
+  }
+
+  /**
+   * Upload sample media file to Meta Resumable Upload API to obtain header_handle
+   * Required when submitting templates with IMAGE, VIDEO, or DOCUMENT headers
+   */
+  async uploadMediaSampleHandle(
+    appId: string,
+    accessToken: string,
+    fileBuffer: Buffer,
+    mimeType: string,
+    fileName: string = "sample_media"
+  ): Promise<string> {
+    try {
+      const effectiveAppId = await this.getEffectiveAppId(appId, accessToken);
+
+      // Step 1: Create upload session on Meta App
+      const sessionUrl = `${this.baseUrl}/${this.graphApiVersion}/${effectiveAppId}/uploads`;
+      const sessionRes = await axiosClient.post(
+        sessionUrl,
+        null,
+        {
+          params: {
+            file_name: fileName,
+            file_length: fileBuffer.length,
+            file_type: mimeType,
+            access_token: accessToken,
+          },
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+          timeout: 20000,
+        }
+      );
+
+      const uploadSessionId = sessionRes.data?.id;
+      if (!uploadSessionId) {
+        throw new Error("Meta did not return an upload session ID for template sample media");
+      }
+
+      // Step 2: Upload raw file buffer to session
+      const uploadUrl = `${this.baseUrl}/${this.graphApiVersion}/${uploadSessionId}`;
+      const uploadRes = await axiosClient.post(uploadUrl, fileBuffer, {
+        headers: {
+          Authorization: `OAuth ${accessToken}`,
+          file_offset: "0",
+          "Content-Type": "application/octet-stream",
+        },
+        timeout: 45000,
+      });
+
+      const handle = uploadRes.data?.h;
+      if (!handle) {
+        throw new Error("Meta did not return a valid sample handle ('h') for template media");
+      }
+
+      return handle;
+    } catch (error: any) {
+      this.handleMetaError(error, `Failed to upload sample media to Meta`);
+    }
+  }
+
+  /**
    * Centralized Meta error sanitization & translation
    * Never leaks access tokens or sensitive API keys
+   * Note: NEVER return 401 Unauthorized for third-party Meta API errors,
+   * because returning 401 causes the frontend client auth interceptor to clear the CRM user session.
    */
   private handleMetaError(error: any, contextMsg: string): never {
     const status = error?.response?.status;
     const metaError = error?.response?.data?.error;
-    const metaMsg = metaError?.message || metaError?.error_user_msg || error?.message || "Unknown error";
+    const metaCode = metaError?.code;
+    const details = metaError?.error_data?.details;
+    const rawMsg = metaError?.message || metaError?.error_user_msg || error?.message || "Unknown error";
+    const metaMsg = details ? `${rawMsg} (${details})` : rawMsg;
 
-    if (status === 401 || metaError?.type === "OAuthException") {
+    // Meta Token Expiration / Auth error (Code 190, 102 or HTTP 401 from Meta)
+    // Map to 400 Bad Request to prevent frontend interceptor from logging out the CRM user!
+    if (metaCode === 190 || metaCode === 102 || (status === 401 && metaCode !== 100)) {
       throw new ErrorResponse(
-        `Meta Authentication Failure: Invalid or expired WhatsApp Cloud API Access Token. (${metaMsg})`,
-        statusCode.Unauthorized
+        `Meta WhatsApp Authentication Error: Invalid or expired WhatsApp Cloud API Access Token. Please verify credentials in Settings > WhatsApp Integration. (${metaMsg})`,
+        statusCode.Bad_Request
       );
     }
 
-    if (status === 403) {
+    if (status === 403 || metaCode === 200) {
       throw new ErrorResponse(
         `Meta Permission Denied: Your WhatsApp Business Account lacks required permissions. (${metaMsg})`,
         statusCode.Forbidden
       );
     }
 
-    if (status === 429 || metaError?.code === 80007 || metaError?.code === 613) {
+    if (status === 429 || metaCode === 80007 || metaCode === 613) {
       throw new ErrorResponse(
         `Meta Rate Limit Exceeded: Too many template requests to WhatsApp Cloud API. Please try again shortly.`,
         statusCode.Too_Many_Requests
@@ -202,9 +288,10 @@ export class MetaWhatsAppService {
       );
     }
 
+    // Invalid parameters / validation (Code 100 etc.)
     throw new ErrorResponse(
       `${contextMsg}: ${metaMsg}`,
-      status >= 400 && status < 500 ? statusCode.Bad_Request : statusCode.Internal_Server_Error
+      statusCode.Bad_Request
     );
   }
 }

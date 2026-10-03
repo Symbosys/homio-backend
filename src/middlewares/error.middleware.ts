@@ -1,8 +1,7 @@
+import axios from "axios";
 import type { NextFunction, Request, Response } from "express";
 import { ZodError } from "zod";
-import axios, { AxiosError } from "axios";
 import { statusCode } from "../types/types.js";
-import type { ErrorResponse } from "../utils/response.util.js";
 import { zodError } from "../utils/utils.js";
 
 export const errorMiddleware = (
@@ -25,8 +24,12 @@ export const errorMiddleware = (
         ? `Meta / External API Error: ${err.response.statusText}`
         : err.message || "External service request failed");
 
+    // Note: Never return 401 for external third-party API errors (e.g. Meta Graph API, Ola Maps).
+    // Returning 401 triggers frontend client auth interceptors and logs out the CRM user.
     const httpStatus =
-      err.response?.status && err.response.status >= 400 && err.response.status < 500
+      err.response?.status === 401
+        ? statusCode.Bad_Request
+        : err.response?.status && err.response.status >= 400 && err.response.status < 500
         ? err.response.status
         : statusCode.Bad_Request;
 

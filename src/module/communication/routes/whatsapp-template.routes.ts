@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { authenticate, requirePermission } from "../../../middlewares/auth.middleware.js";
+import upload from "../../../middlewares/upload.middleware.js";
 import { Permissions } from "../../../types/permission.js";
 import {
   createTemplate,
@@ -10,6 +11,7 @@ import {
   syncTemplate,
   renderTemplate,
   getVariableDictionary,
+  uploadTemplateMedia,
 } from "../controllers/whatsapp-template.controller.js";
 
 const router = Router();
@@ -18,6 +20,18 @@ const router = Router();
  * All routes are scoped to authenticated tenant users
  */
 router.use(authenticate);
+
+/**
+ * @route   POST /api/v1/communication/templates/upload-media
+ * @desc    Upload template header media (image, video, document)
+ * Note: Must precede /:id to prevent route shadowing
+ */
+router.post(
+  "/upload-media",
+  requirePermission(Permissions.CREATE_COMMUNICATION_TEMPLATE),
+  upload.single("file", { category: "all", maxFileSize: 25 * 1024 * 1024 }),
+  uploadTemplateMedia
+);
 
 /**
  * @route   POST /api/v1/communication/templates

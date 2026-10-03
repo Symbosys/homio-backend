@@ -1,7 +1,8 @@
 import { prisma } from "../../../lib/prisma.js";
+import { storageService } from "../../../lib/storage/storage.service.js";
 import { asyncHandler } from "../../../middlewares/error.middleware.js";
 import { SuccessResponse, ErrorResponse } from "../../../utils/response.util.js";
-import { statusCode } from "../../../types/types.js";
+import { statusCode, type ImageType } from "../../../types/types.js";
 import { whatsAppTemplateService } from "../services/whatsapp-template.service.js";
 import {
   createWhatsAppTemplateSchema,
@@ -188,5 +189,49 @@ export const getVariableDictionary = asyncHandler(async (_req, res) => {
     "CRM Variable Dictionary fetched successfully",
     result,
     statusCode.OK
+  );
+});
+
+/**
+ * Controller: Upload media asset for template header
+ * @route   POST /api/v1/communication/templates/upload-media
+ * @desc    Uploads header image/video/document to cloud storage and returns ImageType
+ */
+export const uploadTemplateMedia = asyncHandler(async (req, res) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new ErrorResponse("Organization context required", statusCode.Unauthorized);
+  }
+
+  const file = req.file;
+  if (!file) {
+    throw new ErrorResponse("No file uploaded. Please select an image, video, or document.", statusCode.Bad_Request);
+  }
+
+  const uploadResult = await storageService.upload(
+    {
+      buffer: file.buffer,
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size,
+    },
+    {
+      folder: `whatsapp-templates/${organizationId}`,
+    }
+  );
+
+  const imageType: ImageType = {
+    id: uploadResult.publicId,
+    url: uploadResult.url,
+    bytes: uploadResult.bytes,
+    format: uploadResult.format,
+    provider: uploadResult.provider as any,
+  };
+
+  return SuccessResponse(
+    res,
+    "Template header media uploaded successfully",
+    imageType,
+    statusCode.Created
   );
 });

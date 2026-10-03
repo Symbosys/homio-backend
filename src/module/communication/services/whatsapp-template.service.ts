@@ -10,6 +10,8 @@ import {
   ChannelIntegrationStatus,
   statusCode,
 } from "../../../types/types.js";
+import { storageService } from "../../../lib/storage/storage.service.js";
+import { axiosClient } from "../../../lib/axios.js";
 import { ErrorResponse } from "../../../utils/response.util.js";
 import type {
   CreateWhatsAppTemplateDto,
@@ -43,6 +45,63 @@ export class WhatsAppTemplateService {
         parameter: param,
       };
     });
+  }
+
+  /**
+   * Helper: Resolves Meta header_handle for media templates via Resumable Upload API
+   */
+  private async resolveMetaHeaderHandle(
+    integration: { appId: string; accessToken: string },
+    templateName: string,
+    headerType: WhatsAppHeaderType,
+    headerMedia?: { url?: string; format?: string } | null
+  ): Promise<string | undefined> {
+    if (!["IMAGE", "VIDEO", "DOCUMENT"].includes(headerType)) {
+      return undefined;
+    }
+
+    if (!headerMedia?.url) {
+      throw new ErrorResponse(
+        `A sample ${headerType.toLowerCase()} file is required by WhatsApp Cloud API for approval. Please upload a sample ${headerType.toLowerCase()} before submitting to Meta.`,
+        statusCode.Bad_Request
+      );
+    }
+
+    try {
+      const mediaResponse = await axiosClient.get(headerMedia.url, {
+        responseType: "arraybuffer",
+        timeout: 30000,
+      });
+      const fileBuffer = Buffer.from(mediaResponse.data);
+      const mimeType =
+        headerType === WhatsAppHeaderType.IMAGE
+          ? (headerMedia.format === "png" ? "image/png" : "image/jpeg")
+          : headerType === WhatsAppHeaderType.VIDEO
+          ? "video/mp4"
+          : "application/pdf";
+      const ext =
+        headerMedia.format ||
+        (headerType === WhatsAppHeaderType.IMAGE
+          ? "jpg"
+          : headerType === WhatsAppHeaderType.VIDEO
+          ? "mp4"
+          : "pdf");
+      const fileName = `sample_${templateName}.${ext}`;
+
+      return await metaWhatsAppService.uploadMediaSampleHandle(
+        integration.appId,
+        integration.accessToken,
+        fileBuffer,
+        mimeType,
+        fileName
+      );
+    } catch (err: any) {
+      if (err instanceof ErrorResponse) throw err;
+      throw new ErrorResponse(
+        `Failed to process sample ${headerType.toLowerCase()} for Meta WhatsApp approval: ${err.message || "Could not generate sample handle"}`,
+        statusCode.Bad_Request
+      );
+    }
   }
 
   /**
@@ -119,10 +178,22 @@ export class WhatsAppTemplateService {
           text: dto.headerText,
         });
       } else if (dto.headerType !== WhatsAppHeaderType.NONE && dto.headerType) {
-        metaComponents.push({
+        const headerComp: any = {
           type: "HEADER",
           format: dto.headerType,
-        });
+        };
+        if (["IMAGE", "VIDEO", "DOCUMENT"].includes(dto.headerType)) {
+          const handle = await this.resolveMetaHeaderHandle(
+            integration,
+            dto.name,
+            dto.headerType,
+            dto.headerMedia
+          );
+          if (handle) {
+            headerComp.example = { header_handle: [handle] };
+          }
+        }
+        metaComponents.push(headerComp);
       }
 
       const bodyComponent: any = {
@@ -248,7 +319,16 @@ export class WhatsAppTemplateService {
       }
     }
 
-    // 2. If components changed and resubmitToMeta requested, update on Meta
+    // 2. Cloud Media Auto-Cleanup on Resource Update (Rule 4)
+    if (data.headerMedia !== undefined) {
+      const oldMediaId = (existing.headerMedia as any)?.id;
+      const newMediaId = (data.headerMedia as any)?.id;
+      if (oldMediaId && oldMediaId !== newMediaId) {
+        await storageService.delete(oldMediaId).catch(() => {});
+      }
+    }
+
+    // 3. If components changed and resubmitToMeta requested, update on Meta
     if (data.resubmitToMeta && existing.wabaTemplateId) {
       const integration = await whatsAppIntegrationRepo.findByOrganizationId(organizationId);
       if (!integration?.accessToken) {
@@ -258,11 +338,73 @@ export class WhatsAppTemplateService {
         );
       }
 
+      const effectiveHeaderType = data.headerType !== undefined ? data.headerType : existing.headerType;
+      const effectiveHeaderText = data.headerText !== undefined ? data.headerText : existing.headerText;
+      const effectiveHeaderMedia = data.headerMedia !== undefined ? data.headerMedia : (existing.headerMedia as any);
+      const effectiveBodyText = data.bodyText !== undefined ? data.bodyText : existing.bodyText;
+      const effectiveBodyExamples = data.bodyExamples !== undefined ? data.bodyExamples : (existing.bodyExamples as any);
+      const effectiveFooterText = data.footerText !== undefined ? data.footerText : existing.footerText;
+      const effectiveButtons = data.buttons !== undefined ? data.buttons : (existing.buttons as any);
+
+      const components: any[] = [];
+      if (effectiveHeaderType === WhatsAppHeaderType.TEXT && effectiveHeaderText) {
+        components.push({
+          type: "HEADER",
+          format: "TEXT",
+          text: effectiveHeaderText,
+        });
+      } else if (effectiveHeaderType !== WhatsAppHeaderType.NONE && effectiveHeaderType) {
+        const headerComp: any = {
+          type: "HEADER",
+          format: effectiveHeaderType,
+        };
+        if (["IMAGE", "VIDEO", "DOCUMENT"].includes(effectiveHeaderType)) {
+          const handle = await this.resolveMetaHeaderHandle(
+            integration,
+            existing.name,
+            effectiveHeaderType,
+            effectiveHeaderMedia
+          );
+          if (handle) {
+            headerComp.example = { header_handle: [handle] };
+          }
+        }
+        components.push(headerComp);
+      }
+
+      const bodyComp: any = {
+        type: "BODY",
+        text: effectiveBodyText,
+      };
+      if (effectiveBodyExamples && effectiveBodyExamples.length > 0) {
+        bodyComp.example = { body_text: [effectiveBodyExamples] };
+      }
+      components.push(bodyComp);
+
+      if (effectiveFooterText && effectiveFooterText.trim()) {
+        components.push({
+          type: "FOOTER",
+          text: effectiveFooterText.trim(),
+        });
+      }
+
+      if (effectiveButtons && effectiveButtons.length > 0) {
+        components.push({
+          type: "BUTTONS",
+          buttons: effectiveButtons.map((b: any) => ({
+            type: b.type,
+            text: b.text,
+            ...(b.url && { url: b.url }),
+            ...(b.phoneNumber && { phone_number: b.phoneNumber }),
+          })),
+        });
+      }
+
       // Meta allows component edits on APPROVED / REJECTED templates
       await metaWhatsAppService.updateTemplateComponents(
         existing.wabaTemplateId,
         integration.accessToken,
-        [] // Components array built if full edit required
+        components
       );
     }
 
@@ -286,6 +428,12 @@ export class WhatsAppTemplateService {
         integration.accessToken,
         existing.name
       );
+    }
+
+    // Cloud Media Auto-Cleanup on Resource Deletion (Rule 4)
+    const mediaId = (existing.headerMedia as any)?.id;
+    if (mediaId) {
+      await storageService.delete(mediaId).catch(() => {});
     }
 
     // Soft delete locally to preserve historical communication logs
@@ -413,7 +561,9 @@ export class WhatsAppTemplateService {
 
     return variableMappingEngine.resolveTemplate(
       {
+        headerType: template.headerType,
         headerText: template.headerText,
+        headerMedia: template.headerMedia,
         bodyText: template.bodyText,
         footerText: template.footerText,
         buttons: template.buttons,

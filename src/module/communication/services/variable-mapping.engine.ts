@@ -1,5 +1,9 @@
 import { prisma } from "../../../lib/prisma.js";
-import { CrmMappingEntity, type WhatsAppTemplateVariable } from "../../../types/types.js";
+import {
+  CrmMappingEntity,
+  WhatsAppHeaderType,
+  type WhatsAppTemplateVariable,
+} from "../../../types/types.js";
 import { ErrorResponse } from "../../../utils/response.util.js";
 import { statusCode } from "../../../types/types.js";
 
@@ -134,7 +138,9 @@ export interface VariableResolutionContext {
 }
 
 export interface RenderedTemplateResult {
+  headerType?: WhatsAppHeaderType;
   header: string | null;
+  headerMedia?: any;
   body: string;
   footer: string | null;
   buttons: any[];
@@ -183,7 +189,9 @@ export class VariableMappingEngine {
    */
   async resolveTemplate(
     template: {
+      headerType?: WhatsAppHeaderType;
       headerText?: string | null;
+      headerMedia?: any;
       bodyText: string;
       footerText?: string | null;
       buttons?: any;
@@ -382,7 +390,9 @@ export class VariableMappingEngine {
       : [];
 
     return {
+      headerType: template.headerType,
       header: finalHeader,
+      headerMedia: template.headerMedia || null,
       body: finalBody,
       footer: template.footerText || null,
       buttons: finalButtons,

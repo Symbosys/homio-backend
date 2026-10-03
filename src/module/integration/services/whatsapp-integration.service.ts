@@ -13,7 +13,8 @@ export class WhatsAppIntegrationService {
    * @param organizationId Tenant organization ID
    */
   async getIntegration(organizationId: string) {
-    const integration = await whatsAppIntegrationRepo.findByOrganizationId(organizationId);
+    const integration =
+      await whatsAppIntegrationRepo.findByOrganizationId(organizationId);
     if (!integration) {
       return null;
     }
@@ -26,13 +27,18 @@ export class WhatsAppIntegrationService {
    * @param organizationId Tenant organization ID
    * @param data Validated credentials payload
    */
-  async saveIntegration(organizationId: string, data: SaveWhatsAppIntegrationDto) {
+  async saveIntegration(
+    organizationId: string,
+    data: SaveWhatsAppIntegrationDto,
+  ) {
     // Check if phone number ID is already registered under another organization
-    const existingByPhone = await whatsAppIntegrationRepo.findByPhoneNumberId(data.phoneNumberId);
+    const existingByPhone = await whatsAppIntegrationRepo.findByPhoneNumberId(
+      data.phoneNumberId,
+    );
     if (existingByPhone && existingByPhone.organizationId !== organizationId) {
       throw new ErrorResponse(
         "This Phone Number ID is already registered under another organization. Each WhatsApp Phone Number ID must be unique.",
-        statusCode.Conflict
+        statusCode.Conflict,
       );
     }
 
@@ -46,15 +52,17 @@ export class WhatsAppIntegrationService {
    * @param organizationId Tenant organization ID
    */
   async verifyIntegration(organizationId: string) {
-    const integration = await whatsAppIntegrationRepo.findByOrganizationId(organizationId);
+    const integration =
+      await whatsAppIntegrationRepo.findByOrganizationId(organizationId);
     if (!integration) {
       throw new ErrorResponse(
         "WhatsApp integration not configured. Please enter and save credentials first.",
-        statusCode.Not_Found
+        statusCode.Not_Found,
       );
     }
 
-    const { phoneNumberId, accountId, accessToken, displayPhoneNumber } = integration;
+    const { phoneNumberId, accountId, accessToken, displayPhoneNumber } =
+      integration;
 
     // 1. Verify Phone Number ID & Token with Meta Graph API
     const metaPhoneUrl = `https://graph.facebook.com/v21.0/${phoneNumberId}`;
@@ -66,7 +74,8 @@ export class WhatsAppIntegrationService {
       code_verification_status?: string;
     }>(metaPhoneUrl, {
       params: {
-        fields: "verified_name,display_phone_number,quality_rating,code_verification_status",
+        fields:
+          "verified_name,display_phone_number,quality_rating,code_verification_status",
       },
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -93,14 +102,15 @@ export class WhatsAppIntegrationService {
     // 3. Update status to ACTIVE upon successful verification
     const updated = await whatsAppIntegrationRepo.updateStatus(
       organizationId,
-      ChannelIntegrationStatus.ACTIVE
+      ChannelIntegrationStatus.ACTIVE,
     );
 
     return {
       verified: true,
       status: ChannelIntegrationStatus.ACTIVE,
       metaVerifiedName: phoneData.verified_name || null,
-      metaDisplayPhoneNumber: phoneData.display_phone_number || displayPhoneNumber,
+      metaDisplayPhoneNumber:
+        phoneData.display_phone_number || displayPhoneNumber,
       qualityRating: phoneData.quality_rating || "UNKNOWN",
       integration: updated,
     };
@@ -111,13 +121,20 @@ export class WhatsAppIntegrationService {
    * @param organizationId Tenant organization ID
    */
   async disconnectIntegration(organizationId: string) {
-    const integration = await whatsAppIntegrationRepo.findByOrganizationId(organizationId);
+    const integration =
+      await whatsAppIntegrationRepo.findByOrganizationId(organizationId);
     if (!integration) {
-      throw new ErrorResponse("No WhatsApp integration found to disconnect", statusCode.Not_Found);
+      throw new ErrorResponse(
+        "No WhatsApp integration found to disconnect",
+        statusCode.Not_Found,
+      );
     }
 
     await whatsAppIntegrationRepo.delete(organizationId);
-    return { success: true, message: "WhatsApp integration disconnected successfully" };
+    return {
+      success: true,
+      message: "WhatsApp integration disconnected successfully",
+    };
   }
 }
 
