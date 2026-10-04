@@ -6,11 +6,38 @@ import {
   verifyWhatsAppIntegration,
   disconnectWhatsAppIntegration,
 } from "../controllers/whatsapp-integration.controller.js";
+import {
+  handleWhatsAppWebhookVerification,
+  handleWhatsAppWebhookEvent,
+} from "../controllers/whatsapp-webhook.controller.js";
 
 const router = Router();
+// https://showman-subsoil-kindness.ngrok-free.dev/api/v1/integrations/whatsapp/webhook
+
+// ==========================================
+// PUBLIC META WEBHOOK ROUTES (NO AUTH HEADER)
+// ==========================================
 
 /**
- * All routes are scoped to the authenticated tenant organization
+ * @route   GET /api/v1/integrations/whatsapp/webhook
+ * @desc    Meta WhatsApp Webhook verification challenge
+ * @access  Public (Called directly by Meta servers)
+ */
+router.get("/webhook", handleWhatsAppWebhookVerification);
+
+/**
+ * @route   POST /api/v1/integrations/whatsapp/webhook
+ * @desc    Meta WhatsApp incoming webhook event notifications (messages, statuses)
+ * @access  Public (Dispatched directly by Meta servers)
+ */
+router.post("/webhook", handleWhatsAppWebhookEvent);
+
+// ==========================================
+// AUTHENTICATED TENANT ROUTES
+// ==========================================
+
+/**
+ * All subsequent routes are scoped to the authenticated tenant organization
  */
 router.use(authenticate);
 

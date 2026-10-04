@@ -24,7 +24,7 @@ export class LeadService {
   async createLead(
     organizationId: string,
     input: CreateLeadInput,
-    userId?: string
+    userId?: string,
   ) {
     return prisma.$transaction(async (tx) => {
       let resolvedCustomerId: string;
@@ -32,9 +32,15 @@ export class LeadService {
 
       if (input.customerId) {
         // Direct existing customer reference
-        const existingCustomer = await customerRepo.findById(input.customerId, organizationId);
+        const existingCustomer = await customerRepo.findById(
+          input.customerId,
+          organizationId,
+        );
         if (!existingCustomer) {
-          throw new ErrorResponse("Customer not found in this organization", statusCode.Not_Found);
+          throw new ErrorResponse(
+            "Customer not found in this organization",
+            statusCode.Not_Found,
+          );
         }
         resolvedCustomerId = existingCustomer.id;
         inquiryNumber = existingCustomer.totalInquiriesCount + 1;
@@ -42,9 +48,15 @@ export class LeadService {
       } else if (input.customer) {
         // Find existing customer by phone within this organization (Intra-tenant deduplication)
         const normalizedPhone = input.customer.phone.trim();
-        const normalizedEmail = input.customer.email ? input.customer.email.trim().toLowerCase() : null;
+        const normalizedEmail = input.customer.email
+          ? input.customer.email.trim().toLowerCase()
+          : null;
 
-        const existingCustomer = await customerRepo.findByPhone(normalizedPhone, organizationId, tx);
+        const existingCustomer = await customerRepo.findByPhone(
+          normalizedPhone,
+          organizationId,
+          tx,
+        );
 
         if (existingCustomer) {
           // Re-use customer profile, record recurring inquiry count
@@ -58,13 +70,17 @@ export class LeadService {
           if (platformUser) {
             linkedUserId = platformUser.id;
           } else if (normalizedEmail) {
-            const platformUserByEmail = await userRepo.findByEmail(normalizedEmail);
+            const platformUserByEmail =
+              await userRepo.findByEmail(normalizedEmail);
             if (platformUserByEmail) {
               linkedUserId = platformUserByEmail.id;
             }
           }
 
-          const customerCode = await customerRepo.generateCustomerCode(organizationId, tx);
+          const customerCode = await customerRepo.generateCustomerCode(
+            organizationId,
+            tx,
+          );
 
           const newCustomer = await customerRepo.create(
             organizationId,
@@ -87,14 +103,17 @@ export class LeadService {
               shippingState: input.customer.billingState || null,
               shippingPincode: input.customer.billingPincode || null,
             },
-            tx
+            tx,
           );
 
           resolvedCustomerId = newCustomer.id;
           inquiryNumber = 1;
         }
       } else {
-        throw new ErrorResponse("Customer details or ID required", statusCode.Bad_Request);
+        throw new ErrorResponse(
+          "Customer details or ID required",
+          statusCode.Bad_Request,
+        );
       }
 
       // Generate sequential lead code (e.g. LEAD-2026-0001)
@@ -105,13 +124,25 @@ export class LeadService {
       let budgetInLakh = input.budgetInLakh;
       let budgetDisplay = input.budgetDisplay;
 
-      if (budgetInLakh !== undefined && budgetInLakh !== null && (estimatedBudget === undefined || estimatedBudget === null)) {
+      if (
+        budgetInLakh !== undefined &&
+        budgetInLakh !== null &&
+        (estimatedBudget === undefined || estimatedBudget === null)
+      ) {
         estimatedBudget = budgetInLakh * 100000;
-      } else if (estimatedBudget !== undefined && estimatedBudget !== null && (budgetInLakh === undefined || budgetInLakh === null)) {
+      } else if (
+        estimatedBudget !== undefined &&
+        estimatedBudget !== null &&
+        (budgetInLakh === undefined || budgetInLakh === null)
+      ) {
         budgetInLakh = Number((estimatedBudget / 100000).toFixed(2));
       }
 
-      if (!budgetDisplay && budgetInLakh !== undefined && budgetInLakh !== null) {
+      if (
+        !budgetDisplay &&
+        budgetInLakh !== undefined &&
+        budgetInLakh !== null
+      ) {
         budgetDisplay = `₹${budgetInLakh} L`;
       }
 
@@ -125,7 +156,9 @@ export class LeadService {
         ...leadPayload
       } = input;
 
-      const effectiveSource = channelPartnerId ? "CHANNEL_PARTNER" : (input.source || "WEBSITE");
+      const effectiveSource = channelPartnerId
+        ? "CHANNEL_PARTNER"
+        : input.source || "WEBSITE";
 
       // Create the Lead record
       const lead = await leadRepo.create(
@@ -140,7 +173,7 @@ export class LeadService {
           leadCode,
           inquiryNumber,
         },
-        tx
+        tx,
       );
 
       // Automatically link Channel Partner if selected during creation
@@ -150,16 +183,22 @@ export class LeadService {
         });
 
         if (!cp) {
-          throw new ErrorResponse("Channel partner not found in this organization", statusCode.Not_Found);
+          throw new ErrorResponse(
+            "Channel partner not found in this organization",
+            statusCode.Not_Found,
+          );
         }
 
-        const effectiveCommType = commissionType || cp.defaultCommissionType || "PERCENTAGE";
-        const effectiveCommRate = commissionRate !== undefined && commissionRate !== null
-          ? new Prisma.Decimal(commissionRate)
-          : cp.defaultCommissionValue;
-        const effectiveCommAmount = commissionAmount !== undefined && commissionAmount !== null
-          ? new Prisma.Decimal(commissionAmount)
-          : null;
+        const effectiveCommType =
+          commissionType || cp.defaultCommissionType || "PERCENTAGE";
+        const effectiveCommRate =
+          commissionRate !== undefined && commissionRate !== null
+            ? new Prisma.Decimal(commissionRate)
+            : cp.defaultCommissionValue;
+        const effectiveCommAmount =
+          commissionAmount !== undefined && commissionAmount !== null
+            ? new Prisma.Decimal(commissionAmount)
+            : null;
 
         await tx.channelPartnerLead.create({
           data: {
@@ -234,16 +273,40 @@ export class LeadService {
       throw new ErrorResponse("Lead not found", statusCode.Not_Found);
     }
 
-    const { customer, channelPartnerId, commissionType, commissionRate, commissionAmount, cpLeadStatus, ...leadFields } = input;
+    const {
+      customer,
+      channelPartnerId,
+      commissionType,
+      commissionRate,
+      commissionAmount,
+      cpLeadStatus,
+      ...leadFields
+    } = input;
 
     // Auto-compute dual budget (INR <-> Lakh) if updated
-    if (leadFields.budgetInLakh !== undefined && leadFields.estimatedBudget === undefined) {
-      leadFields.estimatedBudget = leadFields.budgetInLakh !== null ? leadFields.budgetInLakh * 100000 : null;
-    } else if (leadFields.estimatedBudget !== undefined && leadFields.budgetInLakh === undefined) {
-      leadFields.budgetInLakh = leadFields.estimatedBudget !== null ? Number((leadFields.estimatedBudget / 100000).toFixed(2)) : null;
+    if (
+      leadFields.budgetInLakh !== undefined &&
+      leadFields.estimatedBudget === undefined
+    ) {
+      leadFields.estimatedBudget =
+        leadFields.budgetInLakh !== null
+          ? leadFields.budgetInLakh * 100000
+          : null;
+    } else if (
+      leadFields.estimatedBudget !== undefined &&
+      leadFields.budgetInLakh === undefined
+    ) {
+      leadFields.budgetInLakh =
+        leadFields.estimatedBudget !== null
+          ? Number((leadFields.estimatedBudget / 100000).toFixed(2))
+          : null;
     }
 
-    if (!leadFields.budgetDisplay && leadFields.budgetInLakh !== undefined && leadFields.budgetInLakh !== null) {
+    if (
+      !leadFields.budgetDisplay &&
+      leadFields.budgetInLakh !== undefined &&
+      leadFields.budgetInLakh !== null
+    ) {
       leadFields.budgetDisplay = `₹${leadFields.budgetInLakh} L`;
     }
 
@@ -251,20 +314,40 @@ export class LeadService {
       await prisma.customer.update({
         where: { id: existing.customerId },
         data: {
-          ...(customer.firstName !== undefined ? { firstName: customer.firstName } : {}),
-          ...(customer.lastName !== undefined ? { lastName: customer.lastName } : {}),
+          ...(customer.firstName !== undefined
+            ? { firstName: customer.firstName }
+            : {}),
+          ...(customer.lastName !== undefined
+            ? { lastName: customer.lastName }
+            : {}),
           ...(customer.phone !== undefined ? { phone: customer.phone } : {}),
-          ...(customer.email !== undefined ? { email: customer.email || null } : {}),
-          ...(customer.city !== undefined ? { billingCity: customer.city || null } : {}),
-          ...(customer.billingAddress !== undefined ? { billingAddress: customer.billingAddress || null } : {}),
-          ...(customer.billingState !== undefined ? { billingState: customer.billingState || null } : {}),
-          ...(customer.billingPincode !== undefined ? { billingPincode: customer.billingPincode || null } : {}),
+          ...(customer.email !== undefined
+            ? { email: customer.email || null }
+            : {}),
+          ...(customer.city !== undefined
+            ? { billingCity: customer.city || null }
+            : {}),
+          ...(customer.billingAddress !== undefined
+            ? { billingAddress: customer.billingAddress || null }
+            : {}),
+          ...(customer.billingState !== undefined
+            ? { billingState: customer.billingState || null }
+            : {}),
+          ...(customer.billingPincode !== undefined
+            ? { billingPincode: customer.billingPincode || null }
+            : {}),
         },
       });
     }
 
     // Link/update Channel Partner if provided
-    if (channelPartnerId || commissionType || commissionRate !== undefined || commissionAmount !== undefined || cpLeadStatus) {
+    if (
+      channelPartnerId ||
+      commissionType ||
+      commissionRate !== undefined ||
+      commissionAmount !== undefined ||
+      cpLeadStatus
+    ) {
       await leadRepo.upsertChannelPartnerLead(id, organizationId, {
         channelPartnerId: channelPartnerId || undefined,
         status: cpLeadStatus,
@@ -285,7 +368,7 @@ export class LeadService {
     id: string,
     organizationId: string,
     input: UpdateLeadStatusInput,
-    userId?: string
+    userId?: string,
   ) {
     const existing = await leadRepo.findById(id, organizationId);
     if (!existing) {
@@ -303,7 +386,7 @@ export class LeadService {
       input.status,
       userId,
       input.remarks,
-      input.durationMinutes
+      input.durationMinutes,
     );
 
     // Log Activity
@@ -313,7 +396,9 @@ export class LeadService {
         leadId: id,
         type: "NOTE",
         title: `Stage changed to ${input.status}`,
-        description: input.remarks || `Lead progressed from ${existing.status} to ${input.status}`,
+        description:
+          input.remarks ||
+          `Lead progressed from ${existing.status} to ${input.status}`,
         metadata: {
           fromStage: existing.status,
           toStage: input.status,
@@ -331,7 +416,7 @@ export class LeadService {
     id: string,
     organizationId: string,
     input: AssignLeadInput,
-    assignedById?: string
+    assignedById?: string,
   ) {
     const existing = await leadRepo.findById(id, organizationId);
     if (!existing) {
@@ -341,7 +426,7 @@ export class LeadService {
     const updated = await leadRepo.update(id, organizationId, {
       assignedToId: input.assignedToId,
       assignedAt: input.assignedToId ? new Date() : null,
-      assignedById: input.assignedToId ? (assignedById || null) : null,
+      assignedById: input.assignedToId ? assignedById || null : null,
     });
 
     // Log Activity
@@ -370,7 +455,7 @@ export class LeadService {
     id: string,
     organizationId: string,
     input: ConvertLeadInput,
-    userId?: string
+    userId?: string,
   ) {
     return prisma.$transaction(async (tx) => {
       const existing = await tx.lead.findFirst({
@@ -383,7 +468,10 @@ export class LeadService {
       }
 
       if (existing.status === "WON") {
-        throw new ErrorResponse("Lead is already converted (WON)", statusCode.Bad_Request);
+        throw new ErrorResponse(
+          "Lead is already converted (WON)",
+          statusCode.Bad_Request,
+        );
       }
 
       // Update Lead to WON
@@ -416,7 +504,8 @@ export class LeadService {
           customerType: "CLIENT",
           convertedAt: new Date(),
           initialLeadId: existing.id,
-          portalAccessEnabled: input.clientPortalAccess ?? existing.customer.portalAccessEnabled,
+          portalAccessEnabled:
+            input.clientPortalAccess ?? existing.customer.portalAccessEnabled,
           ...(input.clientPortalAccess && !existing.customer.portalActivatedAt
             ? { portalActivatedAt: new Date() }
             : {}),
@@ -430,7 +519,8 @@ export class LeadService {
           customerId: existing.customerId,
           type: "CONVERSION",
           title: "Promoted to Client",
-          description: `Customer was converted to Client from Lead ${existing.leadCode}. ${input.notes || ""}`.trim(),
+          description:
+            `Customer was converted to Client from Lead ${existing.leadCode}. ${input.notes || ""}`.trim(),
           metadata: {
             leadId: existing.id,
             leadCode: existing.leadCode,
@@ -464,7 +554,7 @@ export class LeadService {
     id: string,
     organizationId: string,
     input: MarkLeadLostInput,
-    userId?: string
+    userId?: string,
   ) {
     return prisma.$transaction(async (tx) => {
       const existing = await tx.lead.findFirst({
@@ -493,7 +583,8 @@ export class LeadService {
           fromStage: existing.status,
           toStage: "LOST",
           changedById: userId || null,
-          remarks: `Reason: ${input.lostReason}. ${input.lostRemarks || ""}`.trim(),
+          remarks:
+            `Reason: ${input.lostReason}. ${input.lostRemarks || ""}`.trim(),
         },
       });
 
@@ -522,16 +613,28 @@ export class LeadService {
   async bulkActions(
     organizationId: string,
     input: BulkActionLeadsInput,
-    userId?: string
+    userId?: string,
   ) {
     if (input.action === "ASSIGN") {
-      await leadRepo.bulkAssign(input.leadIds, organizationId, input.assignedToId || null, userId);
+      await leadRepo.bulkAssign(
+        input.leadIds,
+        organizationId,
+        input.assignedToId || null,
+        userId,
+      );
       return { message: `${input.leadIds.length} leads assigned successfully` };
     }
 
     if (input.action === "UPDATE_STATUS" && input.status) {
-      await leadRepo.bulkUpdateStatus(input.leadIds, organizationId, input.status, userId);
-      return { message: `${input.leadIds.length} leads updated to ${input.status}` };
+      await leadRepo.bulkUpdateStatus(
+        input.leadIds,
+        organizationId,
+        input.status,
+        userId,
+      );
+      return {
+        message: `${input.leadIds.length} leads updated to ${input.status}`,
+      };
     }
 
     if (input.action === "DELETE") {
@@ -539,7 +642,10 @@ export class LeadService {
       return { message: `${input.leadIds.length} leads deleted successfully` };
     }
 
-    throw new ErrorResponse("Invalid bulk action requested", statusCode.Bad_Request);
+    throw new ErrorResponse(
+      "Invalid bulk action requested",
+      statusCode.Bad_Request,
+    );
   }
 
   /**
@@ -561,7 +667,7 @@ export class LeadService {
   async updateLeadChannelPartner(
     id: string,
     organizationId: string,
-    input: UpdateLeadChannelPartnerInput
+    input: UpdateLeadChannelPartnerInput,
   ) {
     const lead = await leadRepo.findById(id, organizationId);
     if (!lead) {
@@ -573,7 +679,10 @@ export class LeadService {
         where: { id: input.channelPartnerId, organizationId, isDeleted: false },
       });
       if (!cp) {
-        throw new ErrorResponse("Channel partner not found in this organization", statusCode.Not_Found);
+        throw new ErrorResponse(
+          "Channel partner not found in this organization",
+          statusCode.Not_Found,
+        );
       }
     }
 
@@ -585,7 +694,7 @@ export class LeadService {
    */
   async getDistinctProperties(
     organizationId: string,
-    query: GetDistinctPropertiesQueryInput
+    query: GetDistinctPropertiesQueryInput,
   ) {
     return leadRepo.getDistinctProperties(organizationId, query);
   }

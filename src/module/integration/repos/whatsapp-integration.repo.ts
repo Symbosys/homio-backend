@@ -25,6 +25,24 @@ export class WhatsAppIntegrationRepository {
   }
 
   /**
+   * Find WhatsApp integration by WABA Account ID
+   */
+  async findByAccountId(accountId: string) {
+    return prisma.whatsAppIntegration.findFirst({
+      where: { accountId },
+    });
+  }
+
+  /**
+   * Find WhatsApp integration by configured Webhook Verify Token
+   */
+  async findByWebhookVerifyToken(webhookVerifyToken: string) {
+    return prisma.whatsAppIntegration.findFirst({
+      where: { webhookVerifyToken },
+    });
+  }
+
+  /**
    * Upsert WhatsApp integration credentials for an organization
    */
   async upsert(organizationId: string, data: SaveWhatsAppIntegrationDto) {

@@ -17,7 +17,7 @@ export class CustomerRepository {
       userId?: string | null;
       avatarUrl?: Prisma.InputJsonValue;
     },
-    tx?: Prisma.TransactionClient
+    tx?: Prisma.TransactionClient,
   ) {
     const db = tx || prisma;
     return db.customer.create({
@@ -28,7 +28,8 @@ export class CustomerRepository {
         salutation: data.salutation || null,
         firstName: data.firstName,
         lastName: data.lastName || null,
-        displayName: data.displayName || `${data.firstName} ${data.lastName || ""}`.trim(),
+        displayName:
+          data.displayName || `${data.firstName} ${data.lastName || ""}`.trim(),
         email: data.email || null,
         phone: data.phone,
         alternatePhone: data.alternatePhone || null,
@@ -40,7 +41,9 @@ export class CustomerRepository {
         status: data.status || "ACTIVE",
         tags: data.tags || [],
         notes: data.notes || null,
-        customFields: data.customFields ? (data.customFields as Prisma.InputJsonValue) : Prisma.JsonNull,
+        customFields: data.customFields
+          ? (data.customFields as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
         avatarUrl: data.avatarUrl ? data.avatarUrl : Prisma.JsonNull,
         billingAddress: data.billingAddress || null,
         billingCity: data.billingCity || null,
@@ -249,7 +252,11 @@ export class CustomerRepository {
   /**
    * Find customer by phone within an organization (intra-tenant deduplication)
    */
-  async findByPhone(phone: string, organizationId: string, tx?: Prisma.TransactionClient) {
+  async findByPhone(
+    phone: string,
+    organizationId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
     const db = tx || prisma;
     return db.customer.findFirst({
       where: {
@@ -263,7 +270,11 @@ export class CustomerRepository {
   /**
    * Find customer by email within an organization
    */
-  async findByEmail(email: string, organizationId: string, tx?: Prisma.TransactionClient) {
+  async findByEmail(
+    email: string,
+    organizationId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
     const db = tx || prisma;
     return db.customer.findFirst({
       where: {
@@ -278,7 +289,16 @@ export class CustomerRepository {
    * Find all customers with pagination, search, and filtering
    */
   async findAll(organizationId: string, query: GetCustomersQueryInput) {
-    const { page, limit, search, customerType, status, city, sortBy, sortOrder } = query;
+    const {
+      page,
+      limit,
+      search,
+      customerType,
+      status,
+      city,
+      sortBy,
+      sortOrder,
+    } = query;
     const skip = (page - 1) * limit;
 
     const where: Prisma.CustomerWhereInput = {
@@ -364,7 +384,7 @@ export class CustomerRepository {
       portalActivatedAt?: Date | null;
       userId?: string | null;
     },
-    tx?: Prisma.TransactionClient
+    tx?: Prisma.TransactionClient,
   ) {
     const db = tx || prisma;
     const { avatarUrl, customFields, ...directFields } = data;
@@ -375,7 +395,11 @@ export class CustomerRepository {
         ...directFields,
         ...(avatarUrl !== undefined ? { avatarUrl } : {}),
         ...(customFields !== undefined
-          ? { customFields: customFields ? (customFields as Prisma.InputJsonValue) : Prisma.JsonNull }
+          ? {
+              customFields: customFields
+                ? (customFields as Prisma.InputJsonValue)
+                : Prisma.JsonNull,
+            }
           : {}),
       },
       include: {
@@ -427,7 +451,10 @@ export class CustomerRepository {
   /**
    * Generate sequential customer code (e.g. CUST-1001)
    */
-  async generateCustomerCode(organizationId: string, tx?: Prisma.TransactionClient): Promise<string> {
+  async generateCustomerCode(
+    organizationId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<string> {
     const db = tx || prisma;
     const count = await db.customer.count({
       where: { organizationId },
@@ -448,7 +475,7 @@ export class CustomerRepository {
       performedById?: string | null;
       metadata?: Prisma.InputJsonValue;
     },
-    tx?: Prisma.TransactionClient
+    tx?: Prisma.TransactionClient,
   ) {
     const db = tx || prisma;
     return db.customerActivity.create({
@@ -486,7 +513,7 @@ export class CustomerRepository {
       fileUrl: Prisma.InputJsonValue;
       uploadedById?: string | null;
     },
-    tx?: Prisma.TransactionClient
+    tx?: Prisma.TransactionClient,
   ) {
     const db = tx || prisma;
     return db.customerDocument.create({

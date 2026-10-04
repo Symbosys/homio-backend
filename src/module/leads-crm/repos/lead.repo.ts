@@ -615,7 +615,12 @@ export class LeadRepository {
             ? { convertedAt: new Date(), convertedById: changedById || null }
             : {}),
           ...(toStage !== "LOST" && fromStage === "LOST"
-            ? { lostReason: null, lostRemarks: null, lostCompetitor: null, lostAt: null }
+            ? {
+                lostReason: null,
+                lostRemarks: null,
+                lostCompetitor: null,
+                lostAt: null,
+              }
             : {}),
         },
       }),

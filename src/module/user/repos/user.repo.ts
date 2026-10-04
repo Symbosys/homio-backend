@@ -5,33 +5,37 @@ export class UserRepository {
   /**
    * Create a new user record with optional initial roles
    */
-  async create(data: {
-    organizationId?: string | null;
-    email: string;
-    passwordHash: string;
-    firstName: string;
-    lastName?: string | null;
-    phone?: string | null;
-    avatarUrl?: string | null;
-    status?: any;
-    userType?: any;
-    invitedById?: string | null;
-    roleIds?: string[];
-  }, tx?: Prisma.TransactionClient) {
+  async create(
+    data: {
+      organizationId?: string | null;
+      email: string;
+      passwordHash: string;
+      firstName: string;
+      lastName?: string | null;
+      phone?: string | null;
+      avatarUrl?: string | null;
+      status?: any;
+      userType?: any;
+      invitedById?: string | null;
+      roleIds?: string[];
+    },
+    tx?: Prisma.TransactionClient,
+  ) {
     const db = tx || prisma;
     const { roleIds, ...userData } = data;
 
     return db.user.create({
       data: {
         ...userData,
-        roles: roleIds && roleIds.length > 0
-          ? {
-              create: roleIds.map((roleId) => ({
-                roleId,
-                assignedById: data.invitedById ?? undefined,
-              })),
-            }
-          : undefined,
+        roles:
+          roleIds && roleIds.length > 0
+            ? {
+                create: roleIds.map((roleId) => ({
+                  roleId,
+                  assignedById: data.invitedById ?? undefined,
+                })),
+              }
+            : undefined,
       },
       include: {
         roles: {
@@ -148,7 +152,17 @@ export class UserRepository {
     sortBy?: string;
     sortOrder?: "asc" | "desc";
   }) {
-    const { organizationId, skip, take, search, status, userType, roleId, sortBy = "createdAt", sortOrder = "desc" } = params;
+    const {
+      organizationId,
+      skip,
+      take,
+      search,
+      status,
+      userType,
+      roleId,
+      sortBy = "createdAt",
+      sortOrder = "desc",
+    } = params;
 
     const where: any = {
       isDeleted: false,
@@ -278,10 +292,17 @@ export class UserRepository {
   /**
    * Record a failed login attempt; lock account if threshold exceeded
    */
-  async recordFailedLogin(userId: string, currentAttempts: number, lockThreshold = 5, lockMinutes = 15) {
+  async recordFailedLogin(
+    userId: string,
+    currentAttempts: number,
+    lockThreshold = 5,
+    lockMinutes = 15,
+  ) {
     const nextAttempts = currentAttempts + 1;
     const shouldLock = nextAttempts >= lockThreshold;
-    const lockedUntil = shouldLock ? new Date(Date.now() + lockMinutes * 60 * 1000) : null;
+    const lockedUntil = shouldLock
+      ? new Date(Date.now() + lockMinutes * 60 * 1000)
+      : null;
 
     return prisma.user.update({
       where: { id: userId },
@@ -343,7 +364,7 @@ export class UserRepository {
   async assignPermissions(
     userId: string,
     permissions: Array<{ permissionId: string; effect: "ALLOW" | "DENY" }>,
-    grantedById?: string
+    grantedById?: string,
   ) {
     return prisma.$transaction(async (tx) => {
       const results = [];
@@ -459,7 +480,10 @@ export class UserRepository {
   /**
    * Find roles with optional search and active status filters scoped to organization
    */
-  async findRoles(organizationId: string, params?: { search?: string; isActive?: boolean }) {
+  async findRoles(
+    organizationId: string,
+    params?: { search?: string; isActive?: boolean },
+  ) {
     const where: any = { organizationId };
 
     if (params?.isActive !== undefined) {
@@ -538,7 +562,7 @@ export class UserRepository {
       slug?: string;
       description?: string | null;
       isActive?: boolean;
-    }
+    },
   ) {
     return prisma.role.update({
       where: { id },

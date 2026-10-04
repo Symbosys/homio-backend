@@ -85,7 +85,7 @@ export class WhatsAppIntegrationService {
 
     const phoneData = phoneResponse.data;
 
-    // 2. Verify WhatsApp Business Account ID (WABA ID) if provided
+    // 2. Verify WhatsApp Business Account ID (WABA ID) and Subscribe App to WABA Webhooks
     if (accountId) {
       const metaWabaUrl = `https://graph.facebook.com/v21.0/${accountId}`;
       await axiosClient.get<{ id?: string; name?: string }>(metaWabaUrl, {
@@ -97,6 +97,29 @@ export class WhatsAppIntegrationService {
         },
         timeout: 15000,
       });
+
+      // Automatically register the App subscription on the WhatsApp Business Account
+      // This is REQUIRED by Meta Cloud API for webhook message events to be dispatched
+      try {
+        await axiosClient.post(
+          `https://graph.facebook.com/v21.0/${accountId}/subscribed_apps`,
+          {},
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+            timeout: 15000,
+          }
+        );
+        console.log(
+          `[WhatsApp Integration] Successfully subscribed Meta App to WABA ID: ${accountId}`
+        );
+      } catch (subErr) {
+        console.warn(
+          `[WhatsApp Integration] Warning: Could not auto-subscribe to WABA ${accountId}:`,
+          subErr
+        );
+      }
     }
 
     // 3. Update status to ACTIVE upon successful verification
