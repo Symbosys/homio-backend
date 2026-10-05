@@ -127,6 +127,7 @@ model Conversation {
   // Relations
   messages  ChatMessage[]          @relation("ConversationMessages")
   auditLogs ConversationAuditLog[] @relation("ConversationAuditLogs")
+  llmUsages OrganizationLlmUsage[] @relation("ConversationLlmUsages")
 
   @@unique([organizationId, channel, externalThreadId])
   @@index([organizationId, status])
@@ -184,6 +185,8 @@ model ChatMessage {
   // Provider Raw Metadata & Universal Additional Information (Rule 18)
   metadata              Json? @map("metadata")
   additionalInformation Json? @map("additional_information")
+
+  llmUsage OrganizationLlmUsage? @relation("ChatMessageLlmUsage")
 
   // Timestamps
   createdAt DateTime @default(now()) @map("created_at")

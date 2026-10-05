@@ -380,6 +380,10 @@ model Employee {
   createdWhatsAppTemplates      WhatsAppMessageTemplate[]   @relation("EmployeeCreatedWhatsAppTemplates")
   assignedConversations         Conversation[]              @relation("EmployeeAssignedConversations")
   sentChatMessages              ChatMessage[]               @relation("EmployeeSentChatMessages")
+  llmCredentialsCreated         OrganizationLlmCredential[]      @relation("LlmCredentialCreatedBy")
+  llmCredentialsUpdated         OrganizationLlmCredential[]      @relation("LlmCredentialUpdatedBy")
+  llmSettingsUpdated            OrganizationLlmSetting[]         @relation("LlmSettingUpdatedBy")
+  llmCredentialAudits           OrganizationLlmCredentialAudit[] @relation("LlmCredentialAuditActor")
 
   @@unique([organizationId, employeeCode])
   @@index([organizationId])

@@ -34,6 +34,7 @@ import mapsRouter from "./module/maps/maps.routes.js";
 import quotationMasterRouter from "./module/quotation-master/routes/index.js";
 import quotationRouter from "./module/quotation/routes/index.js";
 import integrationRouter from "./module/integration/routes/index.js";
+import llmPlatformRoutes from "./module/integration/routes/llm-platform.routes.js";
 import communicationRouter from "./module/communication/routes/index.js";
 
 const app = express();
@@ -91,6 +92,7 @@ app.use("/api/v1/permissions", permissionRoutes);
 app.use("/api/v1/platform/subscriptions", platformSubscriptionRoutes);
 app.use("/api/v1/platform/organizations", platformOrganizationRoutes);
 app.use("/api/v1/platform/ai-studio", platformAiStudioRoutes);
+app.use("/api/v1/platform/llm", llmPlatformRoutes);
 
 /**
  * Marketplace Multi-Vertical Module Routes

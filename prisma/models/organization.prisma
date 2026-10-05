@@ -119,6 +119,10 @@ model Organization {
   aiSessions                 AiSession[]                @relation("OrganizationAiSessions")
   aiCreditTransactions       AiCreditTransaction[]      @relation("OrganizationAiTransactions")
   conversations              Conversation[]             @relation("OrganizationConversations")
+  llmCredentials             OrganizationLlmCredential[]      @relation("OrganizationLlmCredentials")
+  llmSetting                 OrganizationLlmSetting?          @relation("OrganizationLlmSetting")
+  llmCredentialAudits        OrganizationLlmCredentialAudit[] @relation("OrganizationLlmCredentialAudits")
+  llmUsages                  OrganizationLlmUsage[]           @relation("OrganizationLlmUsages")
 
   @@index([slug])
   @@index([status])

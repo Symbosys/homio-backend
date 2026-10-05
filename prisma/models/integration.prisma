@@ -51,3 +51,220 @@ model WhatsAppIntegration {
   @@index([accountId])
   @@map("whatsapp_integrations")
 }
+
+// ==========================================
+// BYOK LLM PROVIDER ENUMS
+// ==========================================
+
+enum LlmProvider {
+  OPENAI
+  GEMINI
+  ANTHROPIC
+}
+
+enum LlmCredentialStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  INVALID
+  DISABLED
+}
+
+enum LlmCredentialAuditAction {
+  CREATED
+  ROTATED
+  VERIFIED
+  VERIFICATION_FAILED
+  DISABLED
+  DELETED
+}
+
+enum LlmUsageStatus {
+  SUCCESS
+  FAILED
+  BLOCKED
+}
+
+// ==========================================
+// PLATFORM MODEL LIST
+// Org picks a row. modelKey is the exact API id sent to the provider.
+// New models are inserted here. They are not new enum values.
+// ==========================================
+
+model LlmModelCatalog {
+  id          String      @id @default(uuid()) @db.Uuid
+  provider    LlmProvider @map("provider")
+  modelKey    String      @map("model_key")
+  displayName String      @map("display_name")
+  description String?     @map("description")
+
+  contextWindow   Int     @map("context_window")
+  maxOutputTokens Int?    @map("max_output_tokens")
+  supportsVision  Boolean @default(false) @map("supports_vision")
+  supportsTools   Boolean @default(false) @map("supports_tools")
+
+  isActive     Boolean @default(true) @map("is_active")
+  isDeprecated Boolean @default(false) @map("is_deprecated")
+  sortOrder    Int     @default(0) @map("sort_order")
+
+  additionalInformation Json? @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  settings OrganizationLlmSetting[] @relation("LlmSettingActiveModel")
+  usages   OrganizationLlmUsage[]   @relation("LlmUsageModel")
+
+  @@unique([provider, modelKey])
+  @@unique([id, provider])
+  @@index([provider, isActive, sortOrder])
+  @@map("llm_model_catalog")
+}
+
+// ==========================================
+// ONE API KEY PER ORG PER PROVIDER
+// apiKey is stored as provided by the organization.
+// API responses return a masked hint, never the raw key.
+// ==========================================
+
+model OrganizationLlmCredential {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationLlmCredentials", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  provider LlmProvider         @map("provider")
+  status   LlmCredentialStatus @default(PENDING_VERIFICATION) @map("status")
+
+  apiKey   String @map("api_key") @db.Text
+  externalAccountId    String? @map("external_account_id")
+
+  verifiedAt       DateTime? @map("verified_at")
+  lastVerifiedAt   DateTime? @map("last_verified_at")
+  lastErrorCode    String?   @map("last_error_code")
+  lastErrorMessage String?   @map("last_error_message") @db.Text
+  secretUpdatedAt  DateTime  @map("secret_updated_at")
+
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdBy   Employee? @relation("LlmCredentialCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?   @map("updated_by_id") @db.Uuid
+  updatedBy   Employee? @relation("LlmCredentialUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  additionalInformation Json? @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  audits OrganizationLlmCredentialAudit[] @relation("LlmCredentialAudits")
+  usages OrganizationLlmUsage[]            @relation("LlmCredentialUsages")
+
+  @@unique([organizationId, provider])
+  @@index([organizationId, status])
+  @@map("organization_llm_credentials")
+}
+
+// ==========================================
+// ONE ACTIVE CHOICE PER ORGANIZATION
+// activeModelId + activeProvider must match LlmModelCatalog(id, provider).
+// The key used at reply time is OrganizationLlmCredential
+// where (organizationId, provider) = (this.organizationId, this.activeProvider).
+// isAutoReplyEnabled stays false until a later phase turns replies on.
+// ==========================================
+
+model OrganizationLlmSetting {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @unique @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationLlmSetting", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  isAutoReplyEnabled Boolean @default(false) @map("is_auto_reply_enabled")
+
+  activeProvider LlmProvider?     @map("active_provider")
+  activeModelId  String?          @map("active_model_id") @db.Uuid
+  activeModel    LlmModelCatalog? @relation("LlmSettingActiveModel", fields: [activeModelId, activeProvider], references: [id, provider], onDelete: Restrict)
+
+  systemInstruction String?  @map("system_instruction") @db.Text
+  temperature       Decimal? @map("temperature") @db.Decimal(3, 2)
+  maxOutputTokens   Int?     @map("max_output_tokens")
+
+  updatedById String?   @map("updated_by_id") @db.Uuid
+  updatedBy   Employee? @relation("LlmSettingUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  additionalInformation Json? @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([activeModelId])
+  @@map("organization_llm_settings")
+}
+
+// ==========================================
+// APPEND-ONLY AUDIT
+// No ciphertext and no key hint in this table.
+// ==========================================
+
+model OrganizationLlmCredentialAudit {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationLlmCredentialAudits", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  provider     LlmProvider                @map("provider")
+  credentialId String?                    @map("credential_id") @db.Uuid
+  credential   OrganizationLlmCredential? @relation("LlmCredentialAudits", fields: [credentialId], references: [id], onDelete: SetNull)
+
+  action          LlmCredentialAuditAction @map("action")
+  actorEmployeeId String?                  @map("actor_employee_id") @db.Uuid
+  actorEmployee   Employee?                @relation("LlmCredentialAuditActor", fields: [actorEmployeeId], references: [id], onDelete: SetNull)
+  detail          Json?                    @map("detail")
+
+  additionalInformation Json? @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([organizationId, createdAt])
+  @@index([credentialId])
+  @@map("organization_llm_credential_audits")
+}
+
+// ==========================================
+// CALL LEDGER
+// Same migration. The integration panel does not write this.
+// The WhatsApp auto-reply worker writes it later.
+// provider and modelKey are copied at call time.
+// ==========================================
+
+model OrganizationLlmUsage {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationLlmUsages", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  provider LlmProvider @map("provider")
+  modelKey String      @map("model_key")
+
+  modelCatalogId String?          @map("model_catalog_id") @db.Uuid
+  modelCatalog   LlmModelCatalog? @relation("LlmUsageModel", fields: [modelCatalogId], references: [id], onDelete: SetNull)
+
+  credentialId String?                    @map("credential_id") @db.Uuid
+  credential   OrganizationLlmCredential? @relation("LlmCredentialUsages", fields: [credentialId], references: [id], onDelete: SetNull)
+
+  conversationId String?       @map("conversation_id") @db.Uuid
+  conversation   Conversation? @relation("ConversationLlmUsages", fields: [conversationId], references: [id], onDelete: SetNull)
+
+  chatMessageId String?      @unique @map("chat_message_id") @db.Uuid
+  chatMessage   ChatMessage? @relation("ChatMessageLlmUsage", fields: [chatMessageId], references: [id], onDelete: SetNull)
+
+  status            LlmUsageStatus @map("status")
+  promptTokens      Int?           @map("prompt_tokens")
+  completionTokens  Int?           @map("completion_tokens")
+  totalTokens       Int?           @map("total_tokens")
+  latencyMs         Int?           @map("latency_ms")
+  providerRequestId String?        @map("provider_request_id")
+  errorCode         String?        @map("error_code")
+  errorMessage      String?        @map("error_message") @db.Text
+
+  additionalInformation Json? @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, provider, createdAt])
+  @@map("organization_llm_usages")
+}
