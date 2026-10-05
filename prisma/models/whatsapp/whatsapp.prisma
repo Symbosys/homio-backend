@@ -83,6 +83,7 @@ model WhatsAppMessageTemplate {
 
   // Dedicated Relational Variable Mappings Table
   variables      WhatsAppTemplateVariable[] @relation("TemplateVariables")
+  chatMessages   ChatMessage[]              @relation("TemplateChatMessages")
 
   // Meta Quality & Diagnostics
   qualityRating  String?      @map("quality_rating") // GREEN, YELLOW, RED, UNKNOWN

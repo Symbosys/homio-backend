@@ -169,6 +169,7 @@ model Lead {
   channelPartnerLead    ChannelPartnerLead?    @relation("LeadChannelPartnerLead")
   channelPartnerPayouts ChannelPartnerPayout[] @relation("LeadChannelPartnerPayouts")
   quotations            Quotation[]            @relation("LeadQuotations")
+  conversations         Conversation[]         @relation("LeadConversations")
 
   @@unique([organizationId, leadCode])
   @@index([organizationId])

@@ -118,6 +118,7 @@ model Organization {
   aiWallet                   AiWallet?                  @relation("OrganizationAiWallet")
   aiSessions                 AiSession[]                @relation("OrganizationAiSessions")
   aiCreditTransactions       AiCreditTransaction[]      @relation("OrganizationAiTransactions")
+  conversations              Conversation[]             @relation("OrganizationConversations")
 
   @@index([slug])
   @@index([status])

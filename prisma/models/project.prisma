@@ -440,6 +440,7 @@ model Project {
   progressMedia             ProjectProgressMedia[]     @relation("ProjectProgressMedia")
   complaintMedia            ProjectComplaintMedia[]    @relation("ProjectComplaintMedia")
   tasks                     Task[]                     @relation("ProjectTasks")
+  conversations             Conversation[]             @relation("ProjectConversations")
 
   @@unique([organizationId, projectCode])
   @@index([organizationId])

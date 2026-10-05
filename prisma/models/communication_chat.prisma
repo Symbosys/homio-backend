@@ -1,0 +1,215 @@
+// ==========================================
+// OMNICHANNEL COMMUNICATION & CHAT ENUMS
+// ==========================================
+
+enum CommunicationChannel {
+  WHATSAPP
+  EMAIL
+  SMS
+  TELEGRAM
+}
+
+enum ConversationStatus {
+  OPEN
+  PENDING
+  RESOLVED
+  ARCHIVED
+}
+
+enum ConversationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum ConversationHandlingMode {
+  MANUAL_HUMAN
+  AI_AUTONOMOUS
+  AI_COPILOT
+}
+
+enum MessageDirection {
+  INCOMING
+  OUTGOING
+  INTERNAL
+}
+
+enum MessageSenderType {
+  CUSTOMER
+  EMPLOYEE_AGENT
+  AI_BOT
+  SYSTEM
+}
+
+enum MessageStatus {
+  DRAFT
+  QUEUED
+  SENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+enum MessageContentType {
+  TEXT
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
+  LOCATION
+  CONTACT
+  TEMPLATE
+  INTERACTIVE
+}
+
+// ==========================================
+// CONVERSATION THREAD MODEL
+// ==========================================
+
+model Conversation {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationConversations", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Primary External Channel & Status
+  channel        CommunicationChannel     @default(WHATSAPP) @map("channel")
+  status         ConversationStatus       @default(OPEN) @map("status")
+  priority       ConversationPriority     @default(NORMAL) @map("priority")
+  handlingMode   ConversationHandlingMode @default(MANUAL_HUMAN) @map("handling_mode")
+
+  // External Identity
+  externalThreadId String? @map("external_thread_id") // e.g. WhatsApp wa_id / Telegram chat ID
+  recipientPhone   String  @map("recipient_phone")     // Mandatory recipient phone
+  recipientEmail   String? @map("recipient_email")
+  recipientName    String? @map("recipient_name")
+
+  // CRM 360° Entity Linkages
+  leadId String @map("lead_id") @db.Uuid
+  lead   Lead   @relation("LeadConversations", fields: [leadId], references: [id], onDelete: Cascade)
+
+  projectId String?  @map("project_id") @db.Uuid
+  project   Project? @relation("ProjectConversations", fields: [projectId], references: [id], onDelete: SetNull)
+
+  // Assignment & Ownership
+  assignedEmployeeId String?   @map("assigned_employee_id") @db.Uuid
+  assignedEmployee   Employee? @relation("EmployeeAssignedConversations", fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
+
+  assignedTeamId String? @map("assigned_team_id") @db.Uuid
+  assignedTeam   Team?   @relation("TeamAssignedConversations", fields: [assignedTeamId], references: [id], onDelete: SetNull)
+
+  // Live Ribbon & Inbox Metrics
+  unreadCount          Int              @default(0) @map("unread_count")
+  isStarred            Boolean          @default(false) @map("is_starred")
+  isPinned             Boolean          @default(false) @map("is_pinned")
+  lastMessageText      String?          @map("last_message_text") @db.Text
+  lastMessageAt        DateTime         @default(now()) @map("last_message_at")
+  lastMessageDirection MessageDirection @default(INCOMING) @map("last_message_direction")
+
+  // AI Insights & Automation
+  aiSentiment        String?   @map("ai_sentiment") // POSITIVE, NEUTRAL, NEGATIVE, URGENT
+  aiSummary          String?   @map("ai_summary") @db.Text
+  aiSuggestedReply   String?   @map("ai_suggested_reply") @db.Text
+  aiLastInteractedAt DateTime? @map("ai_last_interacted_at")
+  snoozedUntil       DateTime? @map("snoozed_until")
+
+  // Custom Tags & Universal Additional Information (Rule 18)
+  tags                  String[] @default([]) @map("tags")
+  additionalInformation Json?    @map("additional_information")
+
+  // Soft Delete & Timestamps
+  isDeleted Boolean   @default(false) @map("is_deleted")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  messages  ChatMessage[]          @relation("ConversationMessages")
+  auditLogs ConversationAuditLog[] @relation("ConversationAuditLogs")
+
+  @@unique([organizationId, channel, externalThreadId])
+  @@index([organizationId, status])
+  @@index([organizationId, lastMessageAt(sort: Desc)])
+  @@index([organizationId, assignedEmployeeId])
+  @@index([organizationId, leadId])
+  @@index([organizationId, unreadCount])
+  @@index([organizationId, isStarred])
+  @@map("conversations")
+}
+
+// ==========================================
+// CHAT MESSAGE MODEL
+// ==========================================
+
+model ChatMessage {
+  id             String       @id @default(uuid()) @db.Uuid
+  conversationId String       @map("conversation_id") @db.Uuid
+  conversation   Conversation @relation("ConversationMessages", fields: [conversationId], references: [id], onDelete: Cascade)
+
+  // Sender Metadata
+  senderType       MessageSenderType @default(CUSTOMER) @map("sender_type")
+  senderEmployeeId String?           @map("sender_employee_id") @db.Uuid
+  senderEmployee   Employee?         @relation("EmployeeSentChatMessages", fields: [senderEmployeeId], references: [id], onDelete: SetNull)
+  senderName       String?           @map("sender_name")
+
+  // Direction & Tri-Mode Dispatch Route (INCOMING, OUTGOING, INTERNAL)
+  direction    MessageDirection     @default(INCOMING) @map("direction")
+  replyChannel CommunicationChannel @default(WHATSAPP) @map("reply_channel")
+
+  // Message Payload & Media
+  contentType MessageContentType @default(TEXT) @map("content_type")
+  content     String             @map("content") @db.Text
+  media       Json?              @map("media") // Structured ImageType JSON (Rule 4)
+
+  // Pre-Approved WhatsApp Template Attribution
+  templateId        String?                  @map("template_id") @db.Uuid
+  template          WhatsAppMessageTemplate? @relation("TemplateChatMessages", fields: [templateId], references: [id], onDelete: SetNull)
+  templateVariables Json?                    @map("template_variables")
+
+  // Delivery Lifecycle State
+  status            MessageStatus @default(SENT) @map("status")
+  externalMessageId String?       @map("external_message_id") // Meta wamid, Email Message-ID, Twilio SID
+  errorCode         String?       @map("error_code")
+  errorMessage      String?       @map("error_message")
+  deliveredAt       DateTime?     @map("delivered_at")
+  readAt            DateTime?     @map("read_at")
+
+  // AI Generation Context
+  aiGenerated        Boolean @default(false) @map("ai_generated")
+  aiConfidence       Float?  @map("ai_confidence")
+  aiPromptTokens     Int?    @map("ai_prompt_tokens")
+  aiCompletionTokens Int?    @map("ai_completion_tokens")
+
+  // Provider Raw Metadata & Universal Additional Information (Rule 18)
+  metadata              Json? @map("metadata")
+  additionalInformation Json? @map("additional_information")
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([conversationId, createdAt(sort: Asc)])
+  @@index([externalMessageId])
+  @@index([direction])
+  @@index([status])
+  @@map("chat_messages")
+}
+
+// ==========================================
+// CONVERSATION AUDIT LOG MODEL
+// ==========================================
+
+model ConversationAuditLog {
+  id             String       @id @default(uuid()) @db.Uuid
+  conversationId String       @map("conversation_id") @db.Uuid
+  conversation   Conversation @relation("ConversationAuditLogs", fields: [conversationId], references: [id], onDelete: Cascade)
+
+  action      String   @map("action") // ASSIGNED, TRANSFERRED, RESOLVED, REOPENED, AI_HANDOFF, SNOOZED
+  performedBy String?  @map("performed_by") // User ID, Employee ID, or "AI_BOT" / "SYSTEM"
+  details     Json?    @map("details") // Previous & new states
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([conversationId])
+  @@map("conversation_audit_logs")
+}

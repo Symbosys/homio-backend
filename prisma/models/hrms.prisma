@@ -378,6 +378,8 @@ model Employee {
   aiSessions                    AiSession[]                 @relation("EmployeeAiSessions")
   aiCreditTransactions          AiCreditTransaction[]       @relation("EmployeeAiTransactions")
   createdWhatsAppTemplates      WhatsAppMessageTemplate[]   @relation("EmployeeCreatedWhatsAppTemplates")
+  assignedConversations         Conversation[]              @relation("EmployeeAssignedConversations")
+  sentChatMessages              ChatMessage[]               @relation("EmployeeSentChatMessages")
 
   @@unique([organizationId, employeeCode])
   @@index([organizationId])
@@ -540,7 +542,8 @@ model Team {
   updatedById String?   @map("updated_by_id") @db.Uuid
 
   // Relations
-  employeeAssignments EmployeeDepartmentTeam[] @relation("TeamEmployeeAssignments")
+  employeeAssignments   EmployeeDepartmentTeam[] @relation("TeamEmployeeAssignments")
+  assignedConversations Conversation[]           @relation("TeamAssignedConversations")
 
   @@unique([departmentId, code])
   @@unique([departmentId, name])
