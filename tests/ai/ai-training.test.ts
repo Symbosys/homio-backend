@@ -230,4 +230,31 @@ describe("AI Training Module - Unit & Integration Test Suite", () => {
       }).toThrow();
     });
   });
+
+  describe("4. RAG Prompt Builder & WhatsApp Reply Engine", () => {
+    it("should construct a token-efficient, typo-tolerant, concise system prompt", async () => {
+      const { buildRagSystemPrompt } = await import("../../src/ai/prompt/index.js");
+
+      const prompt = buildRagSystemPrompt({
+        organizationName: "Symbosys Luxury Interiors",
+        tone: "Warm and direct",
+        senderName: "Rahul Sharma",
+        retrievedChunks: [
+          {
+            sourceTitle: "Rate Card 2026",
+            sourceType: "DOCUMENT",
+            chunkText: "3BHK turnkey interior pricing starts at 15 Lakhs INR.",
+          },
+        ],
+      });
+
+      expect(prompt).toContain("Symbosys Luxury Interiors");
+      expect(prompt).toContain("TYPO TOLERANCE");
+      expect(prompt).toContain("NEVER correct, mention, or point out user typos");
+      expect(prompt).toContain("CONVERSATION FORMAT");
+      expect(prompt).toContain("Rahul Sharma");
+      expect(prompt).toContain("3BHK turnkey interior pricing starts at 15 Lakhs INR");
+    });
+  });
 });
+

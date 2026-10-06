@@ -34,6 +34,21 @@ export interface RagContext {
   }>;
 }
 
+export interface ChatMessageTurn {
+  role: "user" | "assistant" | "system";
+  content: string;
+}
+
+export interface AnswerQueryOptions {
+  leadFunnelId?: string;
+  chatHistory?: ChatMessageTurn[];
+  similarityThreshold?: number;
+  maxChunks?: number;
+  systemTone?: string;
+  senderName?: string;
+  channel?: "WHATSAPP" | "PLAYGROUND" | "WEB" | "INTERNAL";
+}
+
 export interface RagResponse {
   answer: string;
   sources: Array<{
@@ -54,3 +69,4 @@ export interface RagResponse {
     modelKey: string;
   };
 }
+

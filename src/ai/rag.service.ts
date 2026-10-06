@@ -1,7 +1,7 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { ChatAnthropic } from "@langchain/anthropic";
-import { HumanMessage, SystemMessage } from "@langchain/core/messages";
+import { HumanMessage, SystemMessage, AIMessage } from "@langchain/core/messages";
 import { prisma } from "../lib/prisma.js";
 import {
   LlmCredentialStatus,
@@ -10,12 +10,18 @@ import {
 } from "../types/types.js";
 import { ErrorResponse } from "../utils/response.util.js";
 import { vectorStoreService } from "./vector-store.service.js";
-import type { RagResponse } from "./interfaces/ai-rag.interface.js";
+import { buildRagSystemPrompt } from "./prompt/index.js";
+import type {
+  AnswerQueryOptions,
+  ChatMessageTurn,
+  RagResponse,
+  RetrievedChunk,
+} from "./interfaces/ai-rag.interface.js";
 
 /**
- * Enterprise RAG Inference Engine
- * Assembles guardrails, few-shot golden conversation exemplars, and vector knowledge chunks
- * to generate enterprise-grade answers using the organization's verified LLM keys.
+ * Enterprise RAG & Conversational Inference Engine
+ * Answers customer questions via WhatsApp, CRM live chats, and studio testing
+ * with strict typo tolerance, verified knowledge grounding, and concise messaging.
  */
 export class RagService {
   /**
@@ -120,72 +126,25 @@ export class RagService {
   }
 
   /**
-   * Evaluates guardrail constraints prior to query execution.
-   */
-  async evaluateGuardrails(organizationId: string, query: string) {
-    const guardrail = await prisma.aiGuardrailConfig.findUnique({
-      where: { organizationId },
-    });
-
-    if (!guardrail) {
-      return { isBlocked: false, guardrail: null, isEscalation: false, guardrailNotes: undefined, response: undefined };
-    }
-
-    const lowerQuery = query.toLowerCase();
-
-    // 1. Check prohibited / restricted keywords
-    for (const keyword of guardrail.restrictedKeywords) {
-      if (keyword.trim() && lowerQuery.includes(keyword.toLowerCase().trim())) {
-        return {
-          isBlocked: true,
-          isEscalation: false,
-          reason: `Query violates organization guardrail policy: restricted keyword (${keyword})`,
-          guardrailNotes: `Blocked by restricted keyword filter [${keyword}]`,
-          response:
-            guardrail.disclaimerText ||
-            "I apologize, but I am not authorized to discuss this topic based on company policy.",
-          guardrail,
-        };
-      }
-    }
-
-    // 2. Check human escalation keywords
-    for (const escalationWord of guardrail.humanEscalationKeywords) {
-      if (escalationWord.trim() && lowerQuery.includes(escalationWord.toLowerCase().trim())) {
-        return {
-          isBlocked: false,
-          isEscalation: true,
-          reason: `Human escalation triggered for keyword: ${escalationWord}`,
-          guardrailNotes: `Escalation requested [${escalationWord}]`,
-          response: undefined,
-          guardrail,
-        };
-      }
-    }
-
-    return { isBlocked: false, guardrail, isEscalation: false, guardrailNotes: undefined, response: undefined };
-  }
-
-  /**
    * Executes an end-to-end RAG workflow for a user query.
+   * Can be invoked directly from WhatsApp webhooks, omnichannel bots, or the AI Training Playground.
+   *
+   * @param organizationId - Tenant organization ID
+   * @param query - Incoming customer message or query string
+   * @param options - Funnel filters, chat history, custom tone, etc.
    */
   async answerQuery(
     organizationId: string,
     query: string,
-    options: {
-      leadFunnelId?: string;
-      similarityThreshold?: number;
-      maxChunks?: number;
-      systemTone?: string;
-    } = {},
+    options: AnswerQueryOptions = {},
   ): Promise<RagResponse> {
     const trimmedQuery = query.trim();
     if (!trimmedQuery) {
       throw new ErrorResponse("Query cannot be empty", statusCode.Bad_Request);
     }
 
-    // 1. Retrieve relevant vector knowledge chunks via pgvector
-    let retrievedChunks: Array<any> = [];
+    // 1. Retrieve relevant vector knowledge chunks via pgvector (scoped to lead funnel if specified)
+    let retrievedChunks: RetrievedChunk[] = [];
     try {
       retrievedChunks = await vectorStoreService.similaritySearch(organizationId, trimmedQuery, {
         leadFunnelId: options.leadFunnelId,
@@ -199,45 +158,62 @@ export class RagService {
     // 2. Resolve active chat model client using organization credentials
     const { chatModel, provider, modelKey } = await this.getTenantChatClient(organizationId);
 
-    // 3. Construct System Instructions
-    const tone = options.systemTone || "Professional, helpful, and concise.";
-    const orgNameSetting = await prisma.organization.findUnique({
+    // 3. Fetch Organization Display Name
+    const orgRecord = await prisma.organization.findUnique({
       where: { id: organizationId },
       select: { name: true },
     });
-    const organizationName = orgNameSetting?.name || "our organization";
+    const organizationName = orgRecord?.name || "our organization";
 
-    let systemPrompt = `You are the official AI assistant for ${organizationName}.\n`;
-    systemPrompt += `Tone & Persona: ${tone}\n\n`;
-    systemPrompt += `Instructions:\n`;
-    systemPrompt += `1. Answer the user's question accurately using the provided verified Knowledge Context.\n`;
-    systemPrompt += `2. If the context does not contain enough information to answer completely, answer helpfully based on verified information without fabricating unverified details.\n`;
-    systemPrompt += `3. Do not invent custom pricing or discounts not present in the context.\n\n`;
+    // 4. Construct Token-Optimized, Typo-Tolerant System Instructions
+    const systemPrompt = buildRagSystemPrompt({
+      organizationName,
+      tone: options.systemTone,
+      senderName: options.senderName,
+      retrievedChunks: retrievedChunks.map((c) => ({
+        sourceTitle: c.sourceTitle,
+        sourceType: c.sourceType,
+        chunkText: c.chunkText,
+      })),
+    });
 
-    if (retrievedChunks.length > 0) {
-      systemPrompt += `--- VERIFIED KNOWLEDGE CONTEXT ---\n`;
-      retrievedChunks.forEach((chunk, index) => {
-        systemPrompt += `[Source ${index + 1}: ${chunk.sourceTitle} (${chunk.sourceType})]\n${chunk.chunkText}\n\n`;
-      });
-      systemPrompt += `--- END CONTEXT ---\n`;
-    } else {
-      systemPrompt += `--- GENERAL KNOWLEDGE CONTEXT ---\n`;
-    }
-
-    // 4. Build LangChain Messages Array
-    const messages: Array<SystemMessage | HumanMessage> = [
+    // 5. Build LangChain Messages Array with Multi-Turn Chat History Support
+    const messages: Array<SystemMessage | HumanMessage | AIMessage> = [
       new SystemMessage(systemPrompt),
-      new HumanMessage(trimmedQuery),
     ];
 
-    // 5. Invoke LLM
-    const llmResult = await chatModel.invoke(messages);
-    const answerText = typeof llmResult.content === "string" ? llmResult.content : JSON.stringify(llmResult.content);
+    // Inject past conversation history if provided (e.g. from WhatsApp thread)
+    if (options.chatHistory && options.chatHistory.length > 0) {
+      // Take up to the last 6 turns for conversational context without blowing token budget
+      const recentHistory = options.chatHistory.slice(-6);
+      for (const turn of recentHistory) {
+        if (turn.role === "user") {
+          messages.push(new HumanMessage(turn.content));
+        } else if (turn.role === "assistant") {
+          messages.push(new AIMessage(turn.content));
+        }
+      }
+    }
 
-    // Compute average retrieval confidence
+    // Append Current Incoming Query
+    messages.push(new HumanMessage(trimmedQuery));
+
+    // 6. Invoke LLM
+    const llmResult = await chatModel.invoke(messages);
+    let answerText =
+      typeof llmResult.content === "string"
+        ? llmResult.content.trim()
+        : JSON.stringify(llmResult.content);
+
+    // 7. Compute average retrieval confidence
     const avgConfidence =
       retrievedChunks.length > 0
-        ? Number((retrievedChunks.reduce((acc, c) => acc + c.similarityScore, 0) / retrievedChunks.length).toFixed(4))
+        ? Number(
+            (
+              retrievedChunks.reduce((acc, c) => acc + c.similarityScore, 0) /
+              retrievedChunks.length
+            ).toFixed(4),
+          )
         : 0.85;
 
     return {
@@ -252,6 +228,44 @@ export class RagService {
       modelUsed: { provider, modelKey },
     };
   }
+
+  /**
+   * Specialized reusable helper for incoming WhatsApp auto-replies.
+   * Easily invoked by WhatsApp webhook handlers and background queue workers.
+   *
+   * @param organizationId - Tenant organization ID
+   * @param incomingMessage - The text message sent by the lead/customer on WhatsApp
+   * @param options - Additional context (customer name, funnel ID, conversation history)
+   * @returns Clean formatted WhatsApp response ready to be dispatched via Meta Cloud API
+   */
+  async generateWhatsAppReply(
+    organizationId: string,
+    incomingMessage: string,
+    options: {
+      senderName?: string;
+      leadFunnelId?: string;
+      chatHistory?: ChatMessageTurn[];
+      systemTone?: string;
+    } = {},
+  ): Promise<{
+    text: string;
+    sources: Array<{ id: string; title: string; type: string; similarityScore: number }>;
+    confidence: number;
+    modelUsed: { provider: LlmProvider; modelKey: string };
+  }> {
+    const response = await this.answerQuery(organizationId, incomingMessage, {
+      ...options,
+      channel: "WHATSAPP",
+    });
+
+    return {
+      text: response.answer,
+      sources: response.sources,
+      confidence: response.retrievalConfidence,
+      modelUsed: response.modelUsed,
+    };
+  }
 }
 
 export const ragService = new RagService();
+
