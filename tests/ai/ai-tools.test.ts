@@ -115,7 +115,7 @@ describe("Autonomous AI CRM Tools & Tool-Calling Test Suite", () => {
         conversationId: TEST_CONV_ID,
       });
 
-      expect(tools).toHaveLength(2);
+      expect(tools).toHaveLength(3);
 
       const updateTool = tools.find((t) => t.name === "update_lead_details");
       expect(updateTool).toBeDefined();
@@ -126,6 +126,11 @@ describe("Autonomous AI CRM Tools & Tool-Calling Test Suite", () => {
       expect(meetingTool).toBeDefined();
       expect(meetingTool?.name).toBe("schedule_meeting");
       expect(meetingTool?.description).toContain("meeting");
+
+      const updateMeetingTool = tools.find((t) => t.name === "update_meeting");
+      expect(updateMeetingTool).toBeDefined();
+      expect(updateMeetingTool?.name).toBe("update_meeting");
+      expect(updateMeetingTool?.description).toContain("meeting");
     });
   });
 

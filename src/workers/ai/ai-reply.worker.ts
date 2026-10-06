@@ -19,6 +19,7 @@ import {
   ConversationHandlingMode,
   ConversationStatus,
   LlmUsageStatus,
+  MeetingStatus,
   MessageContentType,
   MessageDirection,
   MessageSenderType,
@@ -102,6 +103,28 @@ export async function processAiReplyJob(job: Job<AiReplyJobData>): Promise<void>
   const recipientDisplayName = conversation.recipientName || senderName || "Customer";
   const customerPhone = conversation.recipientPhone || senderPhone;
 
+  // Check for existing active or cancelled meeting
+  const meetingOrFilter: Array<Record<string, any>> = [];
+  if (conversation.lead?.id) meetingOrFilter.push({ leadId: conversation.lead.id });
+  if (conversation.lead?.customerId) meetingOrFilter.push({ customerId: conversation.lead.customerId });
+  if (customerPhone) {
+    meetingOrFilter.push({ customer: { phone: customerPhone } });
+    meetingOrFilter.push({ attendees: { some: { phone: customerPhone } } });
+  }
+
+  let existingUpcomingMeeting = null;
+  if (meetingOrFilter.length > 0) {
+    existingUpcomingMeeting = await prisma.meeting.findFirst({
+      where: {
+        organizationId,
+        isDeleted: false,
+        OR: meetingOrFilter,
+        status: { not: MeetingStatus.COMPLETED },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
   const toonObject = {
     customer: {
       name: recipientDisplayName,
@@ -120,6 +143,20 @@ export async function processAiReplyJob(job: Job<AiReplyJobData>): Promise<void>
             ? `${conversation.lead.propertyName}${conversation.lead.propertyCity ? ` (${conversation.lead.propertyCity})` : ""}`
             : undefined,
           funnel: conversation.lead.funnel?.name,
+        }
+      : undefined,
+    upcomingMeeting: existingUpcomingMeeting
+      ? {
+          meetingCode: existingUpcomingMeeting.meetingCode,
+          status: existingUpcomingMeeting.status,
+          type: existingUpcomingMeeting.type,
+          date: existingUpcomingMeeting.meetingDate.toISOString().split("T")[0],
+          time: existingUpcomingMeeting.startTime.toLocaleTimeString("en-IN", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true,
+            timeZone: "Asia/Kolkata",
+          }),
         }
       : undefined,
   };

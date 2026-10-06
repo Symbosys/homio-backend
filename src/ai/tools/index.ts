@@ -6,9 +6,11 @@ import {
   createScheduleMeetingTool,
   type MeetingToolContext,
 } from "./meeting/schedule-meeting.tool.js";
+import { createUpdateMeetingTool } from "./meeting/update-meeting.tool.js";
 
 export * from "./leads/update-lead-details.tool.js";
 export * from "./meeting/schedule-meeting.tool.js";
+export * from "./meeting/update-meeting.tool.js";
 
 export interface TenantAiToolsContext extends LeadToolContext, MeetingToolContext {}
 
@@ -21,5 +23,6 @@ export function createTenantAiTools(context: TenantAiToolsContext) {
   return [
     createUpdateLeadDetailsTool(context),
     createScheduleMeetingTool(context),
+    createUpdateMeetingTool(context),
   ];
 }

@@ -29,6 +29,8 @@ function generateMeetingCode(): string {
 
 /**
  * Helper to safely parse date and time strings into valid Date objects.
+ * Strictly enforces current year and rolls over to next year if booking across year boundary.
+ * Never allows past years (e.g. 2023, 2024).
  */
 function parseMeetingTimings(
   meetingDateStr: string,
@@ -36,6 +38,9 @@ function parseMeetingTimings(
   durationMinutes: number = 30,
 ): { meetingDate: Date; startTime: Date; endTime: Date } {
   const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+
   let baseDate = new Date(meetingDateStr);
 
   if (isNaN(baseDate.getTime())) {
@@ -43,10 +48,26 @@ function parseMeetingTimings(
     baseDate = new Date(now.getTime() + 24 * 60 * 60 * 1000);
   }
 
-  // Set meetingDate to 00:00:00 UTC/Local
-  const meetingDate = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate());
+  let targetYear = baseDate.getFullYear();
+  const targetMonth = baseDate.getMonth();
 
-  let startTime = new Date(baseDate);
+  // If year is in the past (e.g. 2023, 2024), reset to currentYear
+  if (targetYear < currentYear) {
+    targetYear = currentYear;
+  }
+
+  // If target year is current year, but requested month has already passed in the current year
+  // (e.g. today is Dec/Oct and requested is Jan/Feb), roll over to next year
+  if (targetYear === currentYear && targetMonth < currentMonth) {
+    targetYear = currentYear + 1;
+  }
+
+  baseDate.setFullYear(targetYear);
+
+  // Set meetingDate to 00:00:00 UTC/Local
+  const meetingDate = new Date(targetYear, baseDate.getMonth(), baseDate.getDate());
+
+  let startTime = new Date(targetYear, baseDate.getMonth(), baseDate.getDate(), 11, 0, 0);
 
   if (startTimeStr) {
     // Check if ISO or contains time portion (e.g. 14:30 or 2:30 PM)
@@ -60,7 +81,7 @@ function parseMeetingTimings(
       if (meridiem === "AM" && hours === 12) hours = 0;
 
       startTime = new Date(
-        baseDate.getFullYear(),
+        targetYear,
         baseDate.getMonth(),
         baseDate.getDate(),
         hours,
@@ -70,29 +91,16 @@ function parseMeetingTimings(
     } else {
       const parsedTime = new Date(startTimeStr);
       if (!isNaN(parsedTime.getTime())) {
-        startTime = parsedTime;
-      } else {
-        // Default to 11:00 AM
         startTime = new Date(
-          baseDate.getFullYear(),
+          targetYear,
           baseDate.getMonth(),
           baseDate.getDate(),
-          11,
-          0,
+          parsedTime.getHours(),
+          parsedTime.getMinutes(),
           0,
         );
       }
     }
-  } else {
-    // Default to 11:00 AM on target date
-    startTime = new Date(
-      baseDate.getFullYear(),
-      baseDate.getMonth(),
-      baseDate.getDate(),
-      11,
-      0,
-      0,
-    );
   }
 
   const endTime = new Date(startTime.getTime() + durationMinutes * 60 * 1000);
@@ -110,6 +118,7 @@ export const scheduleMeetingSchema = z.object({
     .describe(
       "A suitable title for the meeting (e.g. 'Concept Design Consultation', 'Interior Requirement Discussion & Estimation', '3BHK Interior Consultation').",
     ),
+  meetingId: z.string().optional().describe("Existing meeting ID to update; if provided, the tool will update the meeting instead of creating a new one."),
   meetingType: z
     .enum(["ONLINE", "OFFLINE", "SITE_VISIT"])
     .default("ONLINE")
@@ -206,78 +215,237 @@ export function createScheduleMeetingTool(context: MeetingToolContext) {
           ? MeetingType.SITE_VISIT
           : MeetingType.ONLINE;
 
-      // 1. Create the Meeting Record in Database
-      const meeting = await prisma.meeting.create({
-        data: {
-          organizationId,
-          meetingCode,
-          title: meetingTitle,
-          description:
-            input.agenda ||
-            `Consultation meeting booked autonomously by AI assistant for ${clientName}.`,
-          agenda: input.agenda || "Initial concept design & requirement discussion",
-          type: meetingTypeEnum,
-          status: MeetingStatus.SCHEDULED,
-          meetingDate,
-          startTime,
-          endTime,
-          durationMinutes: input.durationMinutes || 30,
-          timezone: "Asia/Kolkata",
-          leadId: targetLeadId || null,
-          customerId: targetCustomerId || null,
-          meetingProvider: meetingTypeEnum === MeetingType.ONLINE ? "ONLINE" : null,
-          locationName:
-            meetingTypeEnum === MeetingType.OFFLINE
-              ? input.locationName || "Homio Design Studio / Office"
-              : meetingTypeEnum === MeetingType.SITE_VISIT
-              ? input.locationName || leadRecord?.propertyName || "Client Site"
-              : null,
-          locationAddress: input.locationAddress || leadRecord?.propertyAddress || null,
-          locationCity: leadRecord?.propertyCity || null,
-          customFields: {
-            bookedVia: "AI_WHATSAPP_ASSISTANT",
-            bookedAt: new Date().toISOString(),
-          } as Prisma.InputJsonValue,
-        },
-      });
+      // Check if there is an existing scheduled meeting OR a cancelled meeting for this lead/customer
+      let existingMeeting = null;
 
-      // 2. Advance Lead status if applicable
-      if (targetLeadId && leadRecord) {
+      const isUuid = (val?: string | null) =>
+        Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
+
+      // 1. If explicit meetingId passed
+      if (input.meetingId) {
         try {
-          const nextLeadStatus =
-            meetingTypeEnum === MeetingType.SITE_VISIT
-              ? LeadStatus.SITE_VISIT_SCHEDULED
-              : leadRecord.status === LeadStatus.NEW || leadRecord.status === LeadStatus.CONTACTED
-              ? LeadStatus.QUALIFIED
-              : leadRecord.status;
+          if (isUuid(input.meetingId)) {
+            existingMeeting = await prisma.meeting.findFirst({
+              where: { id: input.meetingId, organizationId, isDeleted: false },
+            });
+          } else {
+            existingMeeting = await prisma.meeting.findFirst({
+              where: { meetingCode: input.meetingId, organizationId, isDeleted: false },
+            });
+          }
+        } catch (err: any) {
+          console.warn("[Tool:schedule_meeting] Lookup by meetingId note:", err?.message);
+        }
+      }
 
-          await prisma.lead.update({
-            where: { id: targetLeadId },
-            data: { status: nextLeadStatus },
-          });
+      // 2. Search for any existing meeting for this lead / customer / phone
+      if (!existingMeeting) {
+        const orFilters: Prisma.MeetingWhereInput[] = [];
+        if (targetLeadId) orFilters.push({ leadId: targetLeadId });
+        if (targetCustomerId) orFilters.push({ customerId: targetCustomerId });
+        if (leadRecord?.customer?.phone) {
+          orFilters.push({ customer: { phone: leadRecord.customer.phone } });
+          orFilters.push({ attendees: { some: { phone: leadRecord.customer.phone } } });
+        }
 
-          // 3. Log Lead Activity
-          await prisma.leadActivity.create({
-            data: {
+        if (orFilters.length > 0) {
+          // Priority 1: Active / Scheduled / Confirmed / Rescheduled / In-Progress meeting
+          existingMeeting = await prisma.meeting.findFirst({
+            where: {
               organizationId,
-              leadId: targetLeadId,
-              type: "MEETING",
-              title: `Meeting Scheduled: ${meetingTitle}`,
-              description: `${input.meetingType} meeting scheduled for ${startTime.toLocaleString(
-                "en-IN",
-                { timeZone: "Asia/Kolkata" },
-              )}. Meeting Code: ${meetingCode}`,
-              metadata: {
-                meetingId: meeting.id,
-                meetingCode,
-                meetingType: input.meetingType,
-                startTime: startTime.toISOString(),
-                bookedVia: "AI_WHATSAPP_ASSISTANT",
-              } as any,
+              isDeleted: false,
+              OR: orFilters,
+              status: {
+                in: [
+                  MeetingStatus.SCHEDULED,
+                  MeetingStatus.CONFIRMED,
+                  MeetingStatus.RESCHEDULED,
+                  MeetingStatus.IN_PROGRESS,
+                ],
+              },
             },
+            orderBy: { createdAt: "desc" },
           });
-        } catch (leadUpdateErr: any) {
-          console.warn("[Tool:schedule_meeting] Lead status/activity note:", leadUpdateErr?.message);
+
+          // Priority 2: Any CANCELLED meeting
+          if (!existingMeeting) {
+            existingMeeting = await prisma.meeting.findFirst({
+              where: {
+                organizationId,
+                isDeleted: false,
+                OR: orFilters,
+                status: MeetingStatus.CANCELLED,
+              },
+              orderBy: { createdAt: "desc" },
+            });
+          }
+
+          // Priority 3: Any non-completed meeting
+          if (!existingMeeting) {
+            existingMeeting = await prisma.meeting.findFirst({
+              where: {
+                organizationId,
+                isDeleted: false,
+                OR: orFilters,
+                status: { not: MeetingStatus.COMPLETED },
+              },
+              orderBy: { createdAt: "desc" },
+            });
+          }
+        }
+      }
+
+      let meeting;
+      let isUpdated = false;
+
+      if (existingMeeting) {
+        // Update / Reschedule Existing Upcoming or Future Cancelled Meeting
+        isUpdated = true;
+        const prevStatus = existingMeeting.status;
+        const nextStatus =
+          prevStatus === MeetingStatus.CANCELLED
+            ? MeetingStatus.SCHEDULED
+            : MeetingStatus.SCHEDULED;
+
+        meeting = await prisma.meeting.update({
+          where: { id: existingMeeting.id },
+          data: {
+            title: meetingTitle,
+            description:
+              input.agenda ||
+              `Consultation meeting rescheduled/updated autonomously by AI assistant for ${clientName}.`,
+            agenda: input.agenda || existingMeeting.agenda || "Initial concept design & requirement discussion",
+            type: meetingTypeEnum,
+            status: nextStatus,
+            meetingDate,
+            startTime,
+            endTime,
+            durationMinutes: input.durationMinutes || existingMeeting.durationMinutes || 30,
+            timezone: "Asia/Kolkata",
+            leadId: targetLeadId || undefined,
+            customerId: targetCustomerId || undefined,
+            meetingProvider: meetingTypeEnum === MeetingType.ONLINE ? "ONLINE" : null,
+            locationName:
+              meetingTypeEnum === MeetingType.OFFLINE
+                ? input.locationName || existingMeeting.locationName || "Homio Design Studio / Office"
+                : meetingTypeEnum === MeetingType.SITE_VISIT
+                ? input.locationName || existingMeeting.locationName || leadRecord?.propertyName || "Client Site"
+                : null,
+            locationAddress:
+              input.locationAddress || existingMeeting.locationAddress || leadRecord?.propertyAddress || null,
+            locationCity: leadRecord?.propertyCity || existingMeeting.locationCity || null,
+            cancellationReason: null,
+            customFields: {
+              ...(typeof existingMeeting.customFields === "object" && existingMeeting.customFields ? existingMeeting.customFields : {}),
+              updatedVia: "AI_WHATSAPP_ASSISTANT",
+              updatedAt: new Date().toISOString(),
+              previousStatus: prevStatus,
+            } as Prisma.InputJsonValue,
+          },
+        });
+
+        // Log Reschedule / Update Activity
+        if (targetLeadId) {
+          try {
+            await prisma.leadActivity.create({
+              data: {
+                organizationId,
+                leadId: targetLeadId,
+                type: "MEETING",
+                title: `Meeting Rescheduled: ${meetingTitle}`,
+                description: `${input.meetingType} meeting rescheduled to ${startTime.toLocaleString(
+                  "en-IN",
+                  { timeZone: "Asia/Kolkata" },
+                )}. Meeting Code: ${existingMeeting.meetingCode}`,
+                metadata: {
+                  meetingId: existingMeeting.id,
+                  meetingCode: existingMeeting.meetingCode,
+                  meetingType: input.meetingType,
+                  startTime: startTime.toISOString(),
+                  isRescheduled: true,
+                  previousStatus: prevStatus,
+                  bookedVia: "AI_WHATSAPP_ASSISTANT",
+                } as any,
+              },
+            });
+          } catch (actErr: any) {
+            console.warn("[Tool:schedule_meeting] Lead activity log note:", actErr?.message);
+          }
+        }
+      } else {
+        // 1. Create the Meeting Record in Database
+        meeting = await prisma.meeting.create({
+          data: {
+            organizationId,
+            meetingCode,
+            title: meetingTitle,
+            description:
+              input.agenda ||
+              `Consultation meeting booked autonomously by AI assistant for ${clientName}.`,
+            agenda: input.agenda || "Initial concept design & requirement discussion",
+            type: meetingTypeEnum,
+            status: MeetingStatus.SCHEDULED,
+            meetingDate,
+            startTime,
+            endTime,
+            durationMinutes: input.durationMinutes || 30,
+            timezone: "Asia/Kolkata",
+            leadId: targetLeadId || null,
+            customerId: targetCustomerId || null,
+            meetingProvider: meetingTypeEnum === MeetingType.ONLINE ? "ONLINE" : null,
+            locationName:
+              meetingTypeEnum === MeetingType.OFFLINE
+                ? input.locationName || "Homio Design Studio / Office"
+                : meetingTypeEnum === MeetingType.SITE_VISIT
+                ? input.locationName || leadRecord?.propertyName || "Client Site"
+                : null,
+            locationAddress: input.locationAddress || leadRecord?.propertyAddress || null,
+            locationCity: leadRecord?.propertyCity || null,
+            customFields: {
+              bookedVia: "AI_WHATSAPP_ASSISTANT",
+              bookedAt: new Date().toISOString(),
+            } as Prisma.InputJsonValue,
+          },
+        });
+
+        // 2. Advance Lead status if applicable
+        if (targetLeadId && leadRecord) {
+          try {
+            const nextLeadStatus =
+              meetingTypeEnum === MeetingType.SITE_VISIT
+                ? LeadStatus.SITE_VISIT_SCHEDULED
+                : leadRecord.status === LeadStatus.NEW || leadRecord.status === LeadStatus.CONTACTED
+                ? LeadStatus.QUALIFIED
+                : leadRecord.status;
+
+            await prisma.lead.update({
+              where: { id: targetLeadId },
+              data: { status: nextLeadStatus },
+            });
+
+            // 3. Log Lead Activity
+            await prisma.leadActivity.create({
+              data: {
+                organizationId,
+                leadId: targetLeadId,
+                type: "MEETING",
+                title: `Meeting Scheduled: ${meetingTitle}`,
+                description: `${input.meetingType} meeting scheduled for ${startTime.toLocaleString(
+                  "en-IN",
+                  { timeZone: "Asia/Kolkata" },
+                )}. Meeting Code: ${meetingCode}`,
+                metadata: {
+                  meetingId: meeting.id,
+                  meetingCode,
+                  meetingType: input.meetingType,
+                  startTime: startTime.toISOString(),
+                  bookedVia: "AI_WHATSAPP_ASSISTANT",
+                } as any,
+              },
+            });
+          } catch (leadUpdateErr: any) {
+            console.warn("[Tool:schedule_meeting] Lead status/activity note:", leadUpdateErr?.message);
+          }
         }
       }
 
@@ -297,15 +465,20 @@ export function createScheduleMeetingTool(context: MeetingToolContext) {
 
       return {
         success: true,
-        message: `Meeting booked successfully in CRM! Code: ${meetingCode}`,
+        message: isUpdated
+          ? `Meeting ${meeting.meetingCode} updated/rescheduled successfully in CRM!`
+          : `Meeting booked successfully in CRM! Code: ${meeting.meetingCode}`,
         meetingId: meeting.id,
-        meetingCode,
+        meetingCode: meeting.meetingCode,
         title: meeting.title,
         meetingType: input.meetingType,
         scheduledDate: formattedDate,
         scheduledTime: formattedTime,
         status: meeting.status,
-        note: "Inform the customer politely that their meeting is scheduled for this date and time, and our team will contact them shortly.",
+        isUpdated,
+        note: isUpdated
+          ? "Inform the customer politely that their meeting has been updated/rescheduled to this new date and time."
+          : "Inform the customer politely that their meeting is scheduled for this date and time, and our team will contact them shortly.",
       };
     },
     {

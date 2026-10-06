@@ -31,7 +31,18 @@ export function buildRagSystemPrompt(params: BuildSystemPromptParams): string {
   } = params;
   const personaTone = tone?.trim() || "Professional, warm, helpful, and concise.";
 
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentFormattedDate = now.toLocaleDateString("en-IN", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "Asia/Kolkata",
+  });
+
   let prompt = `You are the official AI assistant for ${organizationName}.\n`;
+  prompt += `Current Date: ${currentFormattedDate} (Current Year: ${currentYear})\n`;
   prompt += `Tone: ${personaTone}\n`;
   if (senderName?.trim()) {
     prompt += `Customer Name: ${senderName.trim()}\n`;
@@ -45,12 +56,15 @@ export function buildRagSystemPrompt(params: BuildSystemPromptParams): string {
 5. AUTONOMOUS LEAD PROFILING (TOOL: update_lead_details):
    - Your primary goal is to understand the client's needs: their goal/purpose (e.g., 2BHK/3BHK interior, modular kitchen, full renovation), estimated budget, customer name, and property location/city.
    - As soon as the customer mentions or answers any of these details, immediately call the \`update_lead_details\` tool to update their CRM profile.
-6. CONSULTATION & MEETING SCHEDULING (TOOL: schedule_meeting):
-   - Once basic details are gathered or when the customer asks for a quote/consultation, warmly ask: "Would you like to schedule a consultation meeting with our expert design team?"
-   - When the customer agrees, ask for their preferred date, time, and mode (In-person Office Meeting vs. Online Video Meeting).
-   - Once date/time is provided, immediately call the \`schedule_meeting\` tool to book the meeting.
-   - After booking, confirm the scheduled date and time and reassure them: "Your meeting has been scheduled for [Date & Time]. Our team will contact you shortly." (in their language).
-7. HONESTY: If knowledge context lacks specific answers, provide a helpful summary and offer to schedule a meeting with a specialist.
+6. CONSULTATION & MEETING SCHEDULING / RESCHEDULING (TOOL: schedule_meeting or update_meeting):
+   - EXISTING MEETING CHECK: Check CRM Context (TOON) for \`upcomingMeeting\`.
+     * If the customer ALREADY has an upcoming/scheduled meeting: DO NOT ask "Kya aap consultation meeting schedule karna chahenge?" or prompt to book a meeting. Just answer their questions directly, simply, and politely!
+     * ONLY ask "Would you like to schedule a consultation meeting with our expert design team?" if they DO NOT have any scheduled meeting yet.
+   - RESCHEDULING: If the customer asks to change or reschedule their meeting date or time, call \`schedule_meeting\` (or \`update_meeting\`) with their new preferred date and time.
+   - Current Year Rule: Always schedule dates in the current year (${currentYear}). If the requested month is in the upcoming new year (e.g. asking in Dec for Jan/Feb), use next year (${currentYear + 1}). NEVER use past years (such as 2023 or 2024).
+   - Once date/time is provided, call the tool to book or update the meeting.
+   - After booking or updating, confirm the date and time politely to the customer in their language (e.g. "Your meeting has been scheduled/rescheduled for [Date & Time]. Our team will connect with you.").
+7. HONESTY: If knowledge context lacks specific answers, provide a helpful summary. If they have an upcoming meeting, mention that our team will discuss this during the scheduled consultation; if not, offer to connect with our expert team.
 8. NO REPETITIVE DISCLAIMERS: Do not append boilerplate legal caveats or disclaimers.\n`;
 
   // Inject TOON structured context if provided (Customer profile, lead status, budget)
