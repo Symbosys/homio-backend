@@ -1,82 +1,35 @@
+import { encode } from "@toon-format/toon";
+
 /**
  * Token-Oriented Object Notation (TOON) Serializer & Conversation Memory Engine
  *
- * TOON is an ultra-compact, token-efficient representation of structured objects for LLMs.
- * Compared to JSON, TOON eliminates brackets, quotes, commas, and repetitive property syntax,
- * reducing token consumption by 40-60% while improving LLM parsing accuracy.
+ * Uses official @toon-format/toon specification package to encode JSON data into
+ * compact, human-readable, token-efficient serialization for LLM prompts.
  */
 
 /**
- * Serializes a JavaScript object into compact TOON (Token-Oriented Object Notation) format.
- *
- * Example Output:
- * CUSTOMER
- *   name: Aditi Rao
- *   phone: +919876543210
- * LEAD
- *   code: LD-2026-0012
- *   status: NEW
- *   budget: 25 Lakhs
- *   property: 3BHK Oberoi Splendor
+ * Serializes a JavaScript object into compact TOON (Token-Oriented Object Notation) format
+ * using the official @toon-format/toon encoder.
  */
 export function serializeToToon(
   data: Record<string, any> | Array<any> | string | number | boolean | null | undefined,
-  indent = 0,
 ): string {
   if (data === null || data === undefined || data === "") {
     return "";
   }
 
-  const padding = " ".repeat(indent);
-
   if (typeof data !== "object") {
-    return `${padding}${String(data)}`;
+    return String(data);
   }
 
-  if (Array.isArray(data)) {
-    if (data.length === 0) return "";
-    return data
-      .map((item) => {
-        if (typeof item === "object" && item !== null) {
-          return `${padding}- ${serializeToToon(item, indent + 2).trimStart()}`;
-        }
-        return `${padding}- ${item}`;
-      })
-      .filter(Boolean)
-      .join("\n");
+  try {
+    return encode(data);
+  } catch (err: any) {
+    console.warn("[TOON] Error encoding with @toon-format/toon:", err?.message);
+    return JSON.stringify(data);
   }
-
-  const lines: string[] = [];
-
-  for (const [key, value] of Object.entries(data)) {
-    if (value === null || value === undefined || value === "") {
-      continue;
-    }
-
-    // Format top-level section headers vs nested properties
-    const formattedKey =
-      indent === 0
-        ? key.replace(/([A-Z])/g, " $1").trim().toUpperCase()
-        : key.replace(/([A-Z])/g, " $1").trim().toLowerCase();
-
-
-    if (typeof value === "object" && !Array.isArray(value)) {
-      const nested = serializeToToon(value, indent + 2);
-      if (nested.trim()) {
-        lines.push(`${padding}${formattedKey}\n${nested}`);
-      }
-    } else if (Array.isArray(value)) {
-      if (value.length > 0) {
-        lines.push(`${padding}${formattedKey}:`);
-        lines.push(serializeToToon(value, indent + 2));
-      }
-    } else {
-      lines.push(`${padding}${formattedKey}: ${value}`);
-    }
-  }
-
-  return lines.join("\n");
 }
+
 
 /**
  * Counts total words in a string.

@@ -14,6 +14,7 @@ import { processAiReplyJob } from "../../src/workers/ai/ai-reply.worker.js";
 import { processInboundMessage } from "../../src/workers/webhook/whatsapp-webhook.worker.js";
 import { prisma } from "../../src/lib/prisma.js";
 import { whatsAppIntegrationRepo } from "../../src/module/integration/repos/whatsapp-integration.repo.js";
+import { llmIntegrationRepo } from "../../src/module/integration/repos/llm-integration.repo.js";
 import { metaWhatsAppService } from "../../src/module/communication/services/meta-whatsapp.service.js";
 import { chatMessageRepo } from "../../src/module/communication/repos/chat-message.repo.js";
 import { conversationRepo } from "../../src/module/communication/repos/conversation.repo.js";
@@ -24,6 +25,7 @@ import {
   ChannelIntegrationStatus,
   ConversationHandlingMode,
   ConversationStatus,
+  LlmUsageStatus,
   MessageDirection,
   MessageSenderType,
 } from "../../src/types/types.js";
@@ -55,11 +57,11 @@ describe("Autonomous AI WhatsApp Reply Queue & Worker Test Suite", () => {
 
       const toonOutput = serializeToToon(input);
 
-      // Verify no JSON syntactic waste (curly braces, double quotes around keys, commas)
-      expect(toonOutput).toContain("CUSTOMER");
+      // Verify TOON format from @toon-format/toon package (no JSON syntactic waste like curly braces, quotes on unneeded keys, commas)
+      expect(toonOutput).toContain("customer:");
       expect(toonOutput).toContain("name: Rajesh Sharma");
-      expect(toonOutput).toContain("phone: +919876543210");
-      expect(toonOutput).toContain("LEAD");
+      expect(toonOutput).toContain("phone: \"+919876543210\"");
+      expect(toonOutput).toContain("lead:");
       expect(toonOutput).toContain("code: LD-2026-0088");
       expect(toonOutput).toContain("budget: 30 Lakhs");
       expect(toonOutput).not.toContain("{");
@@ -169,6 +171,7 @@ describe("Autonomous AI WhatsApp Reply Queue & Worker Test Suite", () => {
       let metaDispatched = false;
       let chatMessageCreated = false;
       let summaryUpdated = false;
+      let usageRecorded = false;
       const emittedEvents: Array<{ type: WebSocketEventType; payload: any }> = [];
 
       // Mock conversation in AI_AUTONOMOUS mode
@@ -219,7 +222,7 @@ describe("Autonomous AI WhatsApp Reply Queue & Worker Test Suite", () => {
       ragService.generateWhatsAppReply = mock(async (orgId, query, opts) => {
         expect(orgId).toBe(TEST_ORG_ID);
         expect(query).toBe("Do you provide 10-year warranty on modular woodwork?");
-        expect(opts.toonContext).toContain("CUSTOMER");
+        expect(opts.toonContext).toContain("customer:");
         expect(opts.toonContext).toContain("Rajesh Sharma");
         expect(opts.toonContext).toContain("Rustomjee Elements");
         expect(opts.conversationSummary).toContain("interested in 3BHK design");
@@ -228,6 +231,14 @@ describe("Autonomous AI WhatsApp Reply Queue & Worker Test Suite", () => {
           sources: [{ id: "src_1", title: "Warranty Policy", type: "FAQ" as any, similarityScore: 0.92 }],
           confidence: 0.95,
           modelUsed: { provider: "OPENAI" as any, modelKey: "gpt-4o-mini" },
+          usage: {
+            credentialId: "cred-123",
+            modelCatalogId: "cat-123",
+            promptTokens: 120,
+            completionTokens: 45,
+            totalTokens: 165,
+            latencyMs: 350,
+          },
         };
       });
 
@@ -250,6 +261,23 @@ describe("Autonomous AI WhatsApp Reply Queue & Worker Test Suite", () => {
         expect(msgData.aiGenerated).toBe(true);
         chatMessageCreated = true;
         return { id: "ai_chat_msg_1", ...msgData };
+      });
+
+      // Mock LLM usage ledger recording
+      llmIntegrationRepo.recordUsage = mock(async (usageData: any) => {
+        expect(usageData.organizationId).toBe(TEST_ORG_ID);
+        expect(usageData.provider).toBe("OPENAI");
+        expect(usageData.modelKey).toBe("gpt-4o-mini");
+        expect(usageData.conversationId).toBe(TEST_CONV_ID);
+        expect(usageData.chatMessageId).toBe("ai_chat_msg_1");
+        expect(usageData.status).toBe(LlmUsageStatus.SUCCESS);
+        expect(usageData.promptTokens).toBe(120);
+        expect(usageData.completionTokens).toBe(45);
+        expect(usageData.totalTokens).toBe(165);
+        expect(usageData.latencyMs).toBe(350);
+        expect(usageData.providerRequestId).toBe("wamid.meta_ai_outbound_123");
+        usageRecorded = true;
+        return {} as any;
       });
 
       // Mock conversation update
@@ -288,6 +316,7 @@ describe("Autonomous AI WhatsApp Reply Queue & Worker Test Suite", () => {
 
       expect(metaDispatched).toBe(true);
       expect(chatMessageCreated).toBe(true);
+      expect(usageRecorded).toBe(true);
       expect(summaryUpdated).toBe(true);
       expect(emittedEvents.some((e) => e.type === WebSocketEventType.MESSAGE_RECEIVED)).toBe(true);
       expect(emittedEvents.some((e) => e.type === WebSocketEventType.CONVERSATION_UPDATED)).toBe(true);

@@ -4,6 +4,7 @@ import {
   LlmCredentialStatus,
   LlmModelType,
   LlmProvider,
+  LlmUsageStatus,
   Prisma,
 } from "../../../types/types.js";
 
@@ -542,7 +543,53 @@ export class LlmIntegrationRepository {
   }
 
   /**
+   * Appends an LLM usage call row in organization_llm_usages table.
+   * Invoked whenever an AI inference or WhatsApp auto-reply is generated.
+   * @param data Full usage metrics and contextual IDs
+   */
+  async recordUsage(data: {
+    organizationId: string;
+    provider: LlmProvider;
+    modelKey: string;
+    modelCatalogId?: string | null;
+    credentialId?: string | null;
+    conversationId?: string | null;
+    chatMessageId?: string | null;
+    status: LlmUsageStatus;
+    promptTokens?: number | null;
+    completionTokens?: number | null;
+    totalTokens?: number | null;
+    latencyMs?: number | null;
+    providerRequestId?: string | null;
+    errorCode?: string | null;
+    errorMessage?: string | null;
+    additionalInformation?: Prisma.InputJsonValue | null;
+  }) {
+    return prisma.organizationLlmUsage.create({
+      data: {
+        organizationId: data.organizationId,
+        provider: data.provider,
+        modelKey: data.modelKey,
+        modelCatalogId: data.modelCatalogId ?? null,
+        credentialId: data.credentialId ?? null,
+        conversationId: data.conversationId ?? null,
+        chatMessageId: data.chatMessageId ?? null,
+        status: data.status,
+        promptTokens: data.promptTokens ?? null,
+        completionTokens: data.completionTokens ?? null,
+        totalTokens: data.totalTokens ?? null,
+        latencyMs: data.latencyMs ?? null,
+        providerRequestId: data.providerRequestId ?? null,
+        errorCode: data.errorCode ?? null,
+        errorMessage: data.errorMessage ?? null,
+        additionalInformation: data.additionalInformation ?? Prisma.JsonNull,
+      },
+    });
+  }
+
+  /**
    * Inserts a platform catalog model.
+
    * @param data Validated catalog fields
    */
   async createModel(data: {

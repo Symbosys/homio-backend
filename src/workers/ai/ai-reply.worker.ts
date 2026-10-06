@@ -2,6 +2,7 @@ import type { Job } from "bullmq";
 import { createWorker } from "../../lib/queue/index.js";
 import { prisma } from "../../lib/prisma.js";
 import { whatsAppIntegrationRepo } from "../../module/integration/repos/whatsapp-integration.repo.js";
+import { llmIntegrationRepo } from "../../module/integration/repos/llm-integration.repo.js";
 import { metaWhatsAppService } from "../../module/communication/services/meta-whatsapp.service.js";
 import { chatMessageRepo } from "../../module/communication/repos/chat-message.repo.js";
 import { conversationRepo } from "../../module/communication/repos/conversation.repo.js";
@@ -17,6 +18,7 @@ import {
   CommunicationChannel,
   ConversationHandlingMode,
   ConversationStatus,
+  LlmUsageStatus,
   MessageContentType,
   MessageDirection,
   MessageSenderType,
@@ -150,10 +152,10 @@ export async function processAiReplyJob(job: Job<AiReplyJobData>): Promise<void>
         chatHistory,
         toonContext,
         conversationSummary: conversation.aiSummary || undefined,
+        conversationId,
       },
     );
   } catch (err: any) {
-
     console.error(
       `[AI Reply Worker] Error generating AI reply for Org "${organizationId}":`,
       err.message,
@@ -217,7 +219,37 @@ export async function processAiReplyJob(job: Job<AiReplyJobData>): Promise<void>
     } as any,
   });
 
-  // 9. Incrementally Update Bounded Conversation Memory Summary (< 1500 words)
+  // 9. Record Call Ledger in OrganizationLlmUsage Table
+  try {
+    await llmIntegrationRepo.recordUsage({
+      organizationId,
+      provider: aiResult.modelUsed.provider,
+      modelKey: aiResult.modelUsed.modelKey,
+      modelCatalogId: aiResult.usage?.modelCatalogId ?? null,
+      credentialId: aiResult.usage?.credentialId ?? null,
+      conversationId,
+      chatMessageId: createdAiMessage.id,
+      status: externalMessageId ? LlmUsageStatus.SUCCESS : LlmUsageStatus.FAILED,
+      promptTokens: aiResult.usage?.promptTokens ?? null,
+      completionTokens: aiResult.usage?.completionTokens ?? null,
+      totalTokens: aiResult.usage?.totalTokens ?? null,
+      latencyMs: aiResult.usage?.latencyMs ?? null,
+      providerRequestId: externalMessageId || null,
+      additionalInformation: {
+        channel: "WHATSAPP",
+        sourcesCount: aiResult.sources.length,
+        retrievalConfidence: aiResult.confidence,
+        dispatchedVia: "AI_AUTONOMOUS_WORKER",
+      },
+    });
+  } catch (usageErr: any) {
+    console.warn(
+      `[AI Reply Worker] Error recording LLM usage for conversation "${conversationId}":`,
+      usageErr?.message,
+    );
+  }
+
+  // 10. Incrementally Update Bounded Conversation Memory Summary (< 1500 words)
   const updatedSummary = updateConversationMemorySummary(
     conversation.aiSummary,
     incomingMessageText,
@@ -236,7 +268,7 @@ export async function processAiReplyJob(job: Job<AiReplyJobData>): Promise<void>
     },
   });
 
-  // 10. Fetch refreshed conversation and broadcast Real-Time WebSocket Events
+  // 11. Fetch refreshed conversation and broadcast Real-Time WebSocket Events
   const refreshedConversation = await conversationRepo.findById(conversationId, organizationId);
 
   wsService.broadcastToConversation(

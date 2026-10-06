@@ -6,6 +6,7 @@ import { prisma } from "../lib/prisma.js";
 import {
   LlmCredentialStatus,
   LlmProvider,
+  LlmUsageStatus,
   statusCode,
 } from "../types/types.js";
 import { ErrorResponse } from "../utils/response.util.js";
@@ -122,6 +123,8 @@ export class RagService {
       chatModel,
       provider,
       modelKey,
+      credentialId: credential.id,
+      modelCatalogId: setting?.activeModelId || null,
     };
   }
 
@@ -143,6 +146,8 @@ export class RagService {
       throw new ErrorResponse("Query cannot be empty", statusCode.Bad_Request);
     }
 
+    const startTime = Date.now();
+
     // 1. Retrieve relevant vector knowledge chunks via pgvector (scoped to lead funnel if specified)
     let retrievedChunks: RetrievedChunk[] = [];
     try {
@@ -156,7 +161,8 @@ export class RagService {
     }
 
     // 2. Resolve active chat model client using organization credentials
-    const { chatModel, provider, modelKey } = await this.getTenantChatClient(organizationId);
+    const { chatModel, provider, modelKey, credentialId, modelCatalogId } =
+      await this.getTenantChatClient(organizationId);
 
     // 3. Fetch Organization Display Name
     const orgRecord = await prisma.organization.findUnique({
@@ -202,6 +208,8 @@ export class RagService {
 
     // 6. Invoke LLM
     const llmResult = await chatModel.invoke(messages);
+    const latencyMs = Date.now() - startTime;
+
     let answerText =
       typeof llmResult.content === "string"
         ? llmResult.content.trim()
@@ -218,6 +226,53 @@ export class RagService {
           )
         : 0.85;
 
+    // 8. Extract or estimate token usage metrics from LLM response
+    const usageMeta =
+      (llmResult as any).usage_metadata ||
+      (llmResult as any).response_metadata?.tokenUsage;
+
+    const promptTokens =
+      usageMeta?.input_tokens ??
+      usageMeta?.prompt_tokens ??
+      Math.ceil((systemPrompt.length + trimmedQuery.length) / 4);
+
+    const completionTokens =
+      usageMeta?.output_tokens ??
+      usageMeta?.completion_tokens ??
+      Math.ceil(answerText.length / 4);
+
+    const totalTokens =
+      usageMeta?.total_tokens ?? promptTokens + completionTokens;
+
+    // 9. Persist OrganizationLlmUsage call ledger record if requested (e.g. Playground queries)
+    if (options.recordUsage) {
+      try {
+        await prisma.organizationLlmUsage.create({
+          data: {
+            organizationId,
+            provider,
+            modelKey,
+            modelCatalogId: modelCatalogId ?? null,
+            credentialId: credentialId ?? null,
+            conversationId: options.conversationId || null,
+            chatMessageId: options.chatMessageId || null,
+            status: LlmUsageStatus.SUCCESS,
+            promptTokens,
+            completionTokens,
+            totalTokens,
+            latencyMs,
+            additionalInformation: {
+              channel: options.channel || "PLAYGROUND",
+              sourcesCount: retrievedChunks.length,
+              retrievalConfidence: avgConfidence,
+            },
+          },
+        });
+      } catch (usageErr: any) {
+        console.warn("[RagService] Error recording LLM usage:", usageErr?.message);
+      }
+    }
+
     return {
       answer: answerText,
       sources: retrievedChunks.map((c) => ({
@@ -228,8 +283,17 @@ export class RagService {
       })),
       retrievalConfidence: avgConfidence,
       modelUsed: { provider, modelKey },
+      usage: {
+        credentialId,
+        modelCatalogId,
+        promptTokens,
+        completionTokens,
+        totalTokens,
+        latencyMs,
+      },
     };
   }
+
 
   /**
    * Specialized reusable helper for incoming WhatsApp auto-replies.
@@ -250,12 +314,22 @@ export class RagService {
       systemTone?: string;
       toonContext?: string;
       conversationSummary?: string;
+      conversationId?: string;
+      chatMessageId?: string;
     } = {},
   ): Promise<{
     text: string;
     sources: Array<{ id: string; title: string; type: string; similarityScore: number }>;
     confidence: number;
     modelUsed: { provider: LlmProvider; modelKey: string };
+    usage?: {
+      credentialId?: string | null;
+      modelCatalogId?: string | null;
+      promptTokens?: number | null;
+      completionTokens?: number | null;
+      totalTokens?: number | null;
+      latencyMs?: number | null;
+    };
   }> {
     const response = await this.answerQuery(organizationId, incomingMessage, {
       ...options,
@@ -267,9 +341,9 @@ export class RagService {
       sources: response.sources,
       confidence: response.retrievalConfidence,
       modelUsed: response.modelUsed,
+      usage: response.usage,
     };
   }
-
 }
 
 export const ragService = new RagService();

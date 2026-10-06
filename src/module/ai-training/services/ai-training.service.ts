@@ -310,6 +310,8 @@ export class AiTrainingService {
       similarityThreshold: data.similarityThreshold,
       maxChunks: data.maxChunks,
       systemTone: data.systemTone,
+      recordUsage: true,
+      channel: "PLAYGROUND",
     });
   }
 }

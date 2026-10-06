@@ -77,7 +77,7 @@ model Conversation {
   channel        CommunicationChannel     @default(WHATSAPP) @map("channel")
   status         ConversationStatus       @default(OPEN) @map("status")
   priority       ConversationPriority     @default(NORMAL) @map("priority")
-  handlingMode   ConversationHandlingMode @default(MANUAL_HUMAN) @map("handling_mode")
+  handlingMode   ConversationHandlingMode @default(AI_AUTONOMOUS) @map("handling_mode")
 
   // External Identity
   externalThreadId String? @map("external_thread_id") // e.g. WhatsApp wa_id / Telegram chat ID

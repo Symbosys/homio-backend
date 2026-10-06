@@ -48,9 +48,11 @@ export interface AnswerQueryOptions {
   senderName?: string;
   toonContext?: string;
   conversationSummary?: string;
+  conversationId?: string;
+  chatMessageId?: string;
+  recordUsage?: boolean;
   channel?: "WHATSAPP" | "PLAYGROUND" | "WEB" | "INTERNAL";
 }
-
 
 export interface RagResponse {
   answer: string;
@@ -71,5 +73,14 @@ export interface RagResponse {
     provider: LlmProvider;
     modelKey: string;
   };
+  usage?: {
+    credentialId?: string | null;
+    modelCatalogId?: string | null;
+    promptTokens?: number | null;
+    completionTokens?: number | null;
+    totalTokens?: number | null;
+    latencyMs?: number | null;
+  };
 }
+
 
