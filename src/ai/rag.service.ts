@@ -1,7 +1,7 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { ChatAnthropic } from "@langchain/anthropic";
-import { HumanMessage, SystemMessage, AIMessage } from "@langchain/core/messages";
+import { HumanMessage, SystemMessage, AIMessage, ToolMessage } from "@langchain/core/messages";
 import { prisma } from "../lib/prisma.js";
 import {
   LlmCredentialStatus,
@@ -12,6 +12,7 @@ import {
 import { ErrorResponse } from "../utils/response.util.js";
 import { vectorStoreService } from "./vector-store.service.js";
 import { buildRagSystemPrompt } from "./prompt/index.js";
+import { createTenantAiTools } from "./tools/index.js";
 import type {
   AnswerQueryOptions,
   ChatMessageTurn,
@@ -186,7 +187,7 @@ export class RagService {
     });
 
     // 5. Build LangChain Messages Array with Multi-Turn Chat History Support
-    const messages: Array<SystemMessage | HumanMessage | AIMessage> = [
+    const messages: Array<SystemMessage | HumanMessage | AIMessage | ToolMessage> = [
       new SystemMessage(systemPrompt),
     ];
 
@@ -206,16 +207,78 @@ export class RagService {
     // Append Current Incoming Query
     messages.push(new HumanMessage(trimmedQuery));
 
-    // 6. Invoke LLM
-    const llmResult = await chatModel.invoke(messages);
+    // 6. Bind Autonomous CRM Tools (update_lead_details, schedule_meeting)
+    const enableTools = options.enableTools !== false;
+    let modelToInvoke = chatModel as any;
+    let tenantTools: any[] = [];
+
+    if (enableTools) {
+      tenantTools = createTenantAiTools({
+        organizationId,
+        leadId: options.leadId,
+        customerId: options.customerId,
+        conversationId: options.conversationId,
+      });
+
+      if (typeof modelToInvoke.bindTools === "function") {
+        modelToInvoke = modelToInvoke.bindTools(tenantTools);
+      }
+    }
+
+    // 7. Execute LLM with Multi-Turn Tool Calling Support (up to 3 iterations)
+    const currentMessages: any[] = [...messages];
+    let llmResult: any = null;
+    let maxIterations = 3;
+
+    while (maxIterations > 0) {
+      maxIterations--;
+      llmResult = await modelToInvoke.invoke(currentMessages);
+
+      const toolCalls = llmResult.tool_calls;
+      if (!toolCalls || toolCalls.length === 0) {
+        break;
+      }
+
+      currentMessages.push(llmResult);
+
+      // Execute each requested tool call
+      for (const tc of toolCalls) {
+        const matchingTool = tenantTools.find((t) => t.name === tc.name);
+        let toolOutput: any = { error: `Tool ${tc.name} not found.` };
+
+        if (matchingTool) {
+          try {
+            toolOutput = await matchingTool.invoke(tc.args);
+          } catch (toolExecErr: any) {
+            console.error(`[RagService] Tool execution failed for ${tc.name}:`, toolExecErr?.message);
+            toolOutput = { error: toolExecErr?.message || "Tool execution failed" };
+          }
+        }
+
+        currentMessages.push(
+          new ToolMessage({
+            content: typeof toolOutput === "string" ? toolOutput : JSON.stringify(toolOutput),
+            tool_call_id: tc.id || tc.name,
+          }),
+        );
+      }
+    }
+
     const latencyMs = Date.now() - startTime;
 
-    let answerText =
-      typeof llmResult.content === "string"
-        ? llmResult.content.trim()
-        : JSON.stringify(llmResult.content);
+    let answerText = "";
+    if (typeof llmResult?.content === "string") {
+      answerText = llmResult.content.trim();
+    } else if (Array.isArray(llmResult?.content)) {
+      answerText = llmResult.content
+        .map((c: any) => (typeof c === "string" ? c : c.text || JSON.stringify(c)))
+        .join("\n")
+        .trim();
+    } else if (llmResult?.content) {
+      answerText = JSON.stringify(llmResult.content);
+    }
 
-    // 7. Compute average retrieval confidence
+    // 8. Compute average retrieval confidence
     const avgConfidence =
       retrievedChunks.length > 0
         ? Number(
@@ -226,10 +289,10 @@ export class RagService {
           )
         : 0.85;
 
-    // 8. Extract or estimate token usage metrics from LLM response
+    // 9. Extract or estimate token usage metrics from LLM response
     const usageMeta =
-      (llmResult as any).usage_metadata ||
-      (llmResult as any).response_metadata?.tokenUsage;
+      (llmResult as any)?.usage_metadata ||
+      (llmResult as any)?.response_metadata?.tokenUsage;
 
     const promptTokens =
       usageMeta?.input_tokens ??
@@ -244,7 +307,7 @@ export class RagService {
     const totalTokens =
       usageMeta?.total_tokens ?? promptTokens + completionTokens;
 
-    // 9. Persist OrganizationLlmUsage call ledger record if requested (e.g. Playground queries)
+    // 10. Persist OrganizationLlmUsage call ledger record if requested (e.g. Playground queries)
     if (options.recordUsage) {
       try {
         await prisma.organizationLlmUsage.create({
@@ -294,7 +357,6 @@ export class RagService {
     };
   }
 
-
   /**
    * Specialized reusable helper for incoming WhatsApp auto-replies.
    * Easily invoked by WhatsApp webhook handlers and background queue workers.
@@ -309,6 +371,8 @@ export class RagService {
     incomingMessage: string,
     options: {
       senderName?: string;
+      leadId?: string;
+      customerId?: string;
       leadFunnelId?: string;
       chatHistory?: ChatMessageTurn[];
       systemTone?: string;
@@ -316,6 +380,7 @@ export class RagService {
       conversationSummary?: string;
       conversationId?: string;
       chatMessageId?: string;
+      enableTools?: boolean;
     } = {},
   ): Promise<{
     text: string;
@@ -334,6 +399,7 @@ export class RagService {
     const response = await this.answerQuery(organizationId, incomingMessage, {
       ...options,
       channel: "WHATSAPP",
+      enableTools: options.enableTools !== false,
     });
 
     return {

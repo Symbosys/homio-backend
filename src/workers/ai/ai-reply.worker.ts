@@ -140,7 +140,7 @@ export async function processAiReplyJob(job: Job<AiReplyJobData>): Promise<void>
       content: m.content,
     }));
 
-  // 6. Generate Context-Aware RAG Response using Tenant's BYOK LLM & Lead Funnel Knowledge Sources
+  // 6. Generate Context-Aware RAG Response using Tenant's BYOK LLM, Lead Funnel Knowledge Sources, and Autonomous Tools
   let aiResult;
   try {
     aiResult = await ragService.generateWhatsAppReply(
@@ -148,11 +148,14 @@ export async function processAiReplyJob(job: Job<AiReplyJobData>): Promise<void>
       incomingMessageText,
       {
         senderName: recipientDisplayName,
+        leadId: conversation.lead?.id || undefined,
+        customerId: conversation.lead?.customerId || undefined,
         leadFunnelId: conversation.lead?.funnelId || undefined,
         chatHistory,
         toonContext,
         conversationSummary: conversation.aiSummary || undefined,
         conversationId,
+        enableTools: true,
       },
     );
   } catch (err: any) {

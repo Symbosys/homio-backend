@@ -319,6 +319,8 @@ model Employee {
   performanceReviews PerformanceReview[] @relation("EmployeePerformanceReviews")
   conductedReviews   PerformanceReview[] @relation("ReviewerPerformanceReviews")
   payrollRecords     PayrollRecord[]     @relation("EmployeePayrollRecords")
+  createdGoogleCalendarIntegrations GoogleCalendarIntegration[] @relation("GoogleCalendarCreatedBy")
+  updatedGoogleCalendarIntegrations GoogleCalendarIntegration[] @relation("GoogleCalendarUpdatedBy")
 
   // Incentive & Notice Period Relations
   incentives            EmployeeIncentive[] @relation("EmployeeIncentives")

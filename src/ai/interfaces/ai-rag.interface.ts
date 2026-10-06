@@ -40,6 +40,8 @@ export interface ChatMessageTurn {
 }
 
 export interface AnswerQueryOptions {
+  leadId?: string;
+  customerId?: string;
   leadFunnelId?: string;
   chatHistory?: ChatMessageTurn[];
   similarityThreshold?: number;
@@ -52,6 +54,7 @@ export interface AnswerQueryOptions {
   chatMessageId?: string;
   recordUsage?: boolean;
   channel?: "WHATSAPP" | "PLAYGROUND" | "WEB" | "INTERNAL";
+  enableTools?: boolean;
 }
 
 export interface RagResponse {

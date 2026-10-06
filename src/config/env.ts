@@ -35,5 +35,19 @@ export const ENV = {
   REDIS_PORT: Number(process.env.REDIS_PORT || 6379),
   REDIS_PASSWORD: process.env.REDIS_PASSWORD || undefined,
   REDIS_DB: Number(process.env.REDIS_DB || 0),
+
+  // Google Calendar OAuth 2.0 Configuration
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || "",
+  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || "",
+  GOOGLE_REDIRECT_URI:
+    process.env.GOOGLE_REDIRECT_URI ||
+    "http://localhost:4000/api/v1/integrations/google-calendar/callback",
+  FRONTEND_URL: process.env.FRONTEND_URL || "http://localhost:1420",
+
+  // AES-256-GCM Token Encryption Secret (Derived from JWT_SECRET if unset)
+  TOKEN_ENCRYPTION_KEY:
+    process.env.TOKEN_ENCRYPTION_KEY ||
+    process.env.JWT_SECRET ||
+    "homio_default_secure_token_encryption_key_2026",
 };
 

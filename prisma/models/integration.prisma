@@ -283,3 +283,57 @@ model OrganizationLlmUsage {
   @@index([organizationId, provider, createdAt])
   @@map("organization_llm_usages")
 }
+
+// ==========================================
+// GOOGLE CALENDAR INTEGRATION ENUMS & MODELS
+// ==========================================
+
+enum GoogleCalendarIntegrationStatus {
+  CONNECTED
+  REAUTH_REQUIRED
+  DISCONNECTED
+  REVOKED
+  ERROR
+}
+
+model GoogleCalendarIntegration {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @unique @map("organization_id") @db.Uuid
+  organization   Organization @relation("OrganizationGoogleCalendarIntegration", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  status GoogleCalendarIntegrationStatus @default(CONNECTED) @map("status")
+
+  // Google Account & Calendar Details
+  googleEmail      String  @map("google_email")
+  googleAccountId  String? @map("google_account_id")
+  calendarId       String  @default("primary") @map("calendar_id")
+  calendarName     String? @map("calendar_name")
+  calendarTimezone String? @map("calendar_timezone")
+  scope            String? @map("scope") @db.Text
+
+  // Raw OAuth Tokens
+  accessToken          String?   @map("access_token") @db.Text
+  refreshToken         String?   @map("refresh_token") @db.Text
+  accessTokenExpiresAt DateTime? @map("access_token_expires_at")
+  tokenType            String?   @default("Bearer") @map("token_type")
+
+  lastSyncedAt DateTime? @map("last_synced_at")
+
+  lastErrorCode    String? @map("last_error_code")
+  lastErrorMessage String? @map("last_error_message") @db.Text
+
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdBy   Employee? @relation("GoogleCalendarCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  updatedById String?   @map("updated_by_id") @db.Uuid
+  updatedBy   Employee? @relation("GoogleCalendarUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  additionalInformation Json? @map("additional_information")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([organizationId, status])
+  @@index([organizationId, googleEmail])
+  @@map("google_calendar_integrations")
+}
