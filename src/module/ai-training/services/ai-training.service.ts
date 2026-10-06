@@ -267,7 +267,7 @@ export class AiTrainingService {
         competitorPolicy: "BLOCK_AND_REDIRECT",
         restrictedKeywords: [],
         humanEscalationKeywords: [],
-        enableDisclaimerOnQuotes: true,
+        enableDisclaimerOnQuotes: false,
         disclaimerText: null,
         additionalInformation: null,
       };

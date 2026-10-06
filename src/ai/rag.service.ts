@@ -1,11 +1,9 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { ChatAnthropic } from "@langchain/anthropic";
-import { HumanMessage, SystemMessage, AIMessage } from "@langchain/core/messages";
+import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { prisma } from "../lib/prisma.js";
 import {
-  AiCompetitorPolicy,
-  AiConversationRole,
   LlmCredentialStatus,
   LlmProvider,
   statusCode,
@@ -186,22 +184,7 @@ export class RagService {
       throw new ErrorResponse("Query cannot be empty", statusCode.Bad_Request);
     }
 
-    // 1. Evaluate guardrails
-    const guardrailCheck = await this.evaluateGuardrails(organizationId, trimmedQuery);
-    const guardrail = guardrailCheck.guardrail;
-
-    if (guardrailCheck.isBlocked) {
-      const { provider, modelKey } = await this.getTenantChatClient(organizationId);
-      return {
-        answer: guardrailCheck.response || "Query blocked by organization policy.",
-        sources: [],
-        retrievalConfidence: 0,
-        guardrailNotes: guardrailCheck.guardrailNotes,
-        modelUsed: { provider, modelKey },
-      };
-    }
-
-    // 2. Retrieve relevant vector knowledge chunks via pgvector
+    // 1. Retrieve relevant vector knowledge chunks via pgvector
     let retrievedChunks: Array<any> = [];
     try {
       retrievedChunks = await vectorStoreService.similaritySearch(organizationId, trimmedQuery, {
@@ -213,24 +196,10 @@ export class RagService {
       console.warn("[RagService] Vector similarity search note:", err?.message);
     }
 
-    // 3. Fetch few-shot golden conversation exemplars (up to 3 approved active conversations)
-    const goldenConversations = await prisma.aiGoldenConversation.findMany({
-      where: {
-        organizationId,
-        isActive: true,
-      },
-      include: {
-        turns: {
-          orderBy: { turnOrder: "asc" },
-        },
-      },
-      take: 3,
-    });
-
-    // 4. Resolve active chat model client using organization credentials
+    // 2. Resolve active chat model client using organization credentials
     const { chatModel, provider, modelKey } = await this.getTenantChatClient(organizationId);
 
-    // 5. Construct System Instructions
+    // 3. Construct System Instructions
     const tone = options.systemTone || "Professional, helpful, and concise.";
     const orgNameSetting = await prisma.organization.findUnique({
       where: { id: organizationId },
@@ -240,30 +209,9 @@ export class RagService {
 
     let systemPrompt = `You are the official AI assistant for ${organizationName}.\n`;
     systemPrompt += `Tone & Persona: ${tone}\n\n`;
-
-    if (guardrail) {
-      if (guardrail.competitorPolicy === AiCompetitorPolicy.BLOCK_AND_REDIRECT) {
-        systemPrompt += `Competitor Policy: If a user brings up direct competitor brands, politely redirect them back to ${organizationName}'s unique value and capabilities.\n\n`;
-      } else if (guardrail.competitorPolicy === AiCompetitorPolicy.NEUTRAL_COMPARISON) {
-        systemPrompt += `Competitor Policy: Present objective and factual comparisons without making disparaging remarks.\n\n`;
-      }
-
-      if (guardrail.maxDiscountPercentage) {
-        systemPrompt += `Pricing Policy: You may not offer or discuss discounts exceeding ${guardrail.maxDiscountPercentage}%. For custom pricing, direct the user to a sales representative.\n\n`;
-      }
-
-      if (guardrail.minBudgetLakh) {
-        systemPrompt += `Project Qualification: Our minimum standard engagement budget is ${guardrail.minBudgetLakh} Lakhs INR.\n\n`;
-      }
-
-      if (guardrailCheck.isEscalation) {
-        systemPrompt += `Note: This conversation has been flagged for human representative follow-up. Offer to connect the user with a specialist.\n\n`;
-      }
-    }
-
     systemPrompt += `Instructions:\n`;
     systemPrompt += `1. Answer the user's question accurately using the provided verified Knowledge Context.\n`;
-    systemPrompt += `2. If the context does not contain enough information to answer completely, answer helpfully with general guidance and suggest connecting with a representative for exact site measurements and specifications.\n`;
+    systemPrompt += `2. If the context does not contain enough information to answer completely, answer helpfully based on verified information without fabricating unverified details.\n`;
     systemPrompt += `3. Do not invent custom pricing or discounts not present in the context.\n\n`;
 
     if (retrievedChunks.length > 0) {
@@ -276,30 +224,15 @@ export class RagService {
       systemPrompt += `--- GENERAL KNOWLEDGE CONTEXT ---\n`;
     }
 
-    // 6. Build LangChain Messages Array
-    const messages: Array<SystemMessage | HumanMessage | AIMessage> = [new SystemMessage(systemPrompt)];
+    // 4. Build LangChain Messages Array
+    const messages: Array<SystemMessage | HumanMessage> = [
+      new SystemMessage(systemPrompt),
+      new HumanMessage(trimmedQuery),
+    ];
 
-    // Inject Golden Conversation Turns as Few-Shot Examples
-    for (const goldConv of goldenConversations) {
-      for (const turn of goldConv.turns) {
-        if (turn.role === AiConversationRole.USER) {
-          messages.push(new HumanMessage(turn.content));
-        } else if (turn.role === AiConversationRole.ASSISTANT) {
-          messages.push(new AIMessage(turn.content));
-        }
-      }
-    }
-
-    // Append Current User Query
-    messages.push(new HumanMessage(trimmedQuery));
-
-    // 7. Invoke LLM
+    // 5. Invoke LLM
     const llmResult = await chatModel.invoke(messages);
-    let answerText = typeof llmResult.content === "string" ? llmResult.content : JSON.stringify(llmResult.content);
-
-    if (guardrail?.enableDisclaimerOnQuotes && guardrail.disclaimerText) {
-      answerText += `\n\n_${guardrail.disclaimerText}_`;
-    }
+    const answerText = typeof llmResult.content === "string" ? llmResult.content : JSON.stringify(llmResult.content);
 
     // Compute average retrieval confidence
     const avgConfidence =
@@ -317,7 +250,6 @@ export class RagService {
       })),
       retrievalConfidence: avgConfidence,
       modelUsed: { provider, modelKey },
-      guardrailNotes: guardrailCheck.guardrailNotes,
     };
   }
 }
