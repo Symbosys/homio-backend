@@ -23,6 +23,10 @@ import {
 import { WebSocketEventType } from "../../src/lib/websocket/ws.types.js";
 import { whatsAppWebhookService } from "../../src/module/integration/services/whatsapp-webhook.service.js";
 import { whatsAppIntegrationRepo } from "../../src/module/integration/repos/whatsapp-integration.repo.js";
+import {
+  processInboundMessage,
+  processStatusUpdates,
+} from "../../src/workers/webhook/whatsapp-webhook.worker.js";
 import { leadService } from "../../src/module/leads-crm/services/lead.service.js";
 import { prisma } from "../../src/lib/prisma.js";
 
@@ -294,41 +298,26 @@ describe("Omnichannel Shared Inbox & Customer Chat - Backend Test Suite", () => 
 
       (prisma as any).conversation.update = mock(async () => ({} as any));
 
-      // Simulate incoming WhatsApp message from a brand new contact
-      await whatsAppWebhookService.processWebhookEvent({
-        object: "whatsapp_business_account",
-        entry: [
+      // Process inbound message via BullMQ Worker
+      await processInboundMessage({
+        jobType: "INBOUND_MESSAGE",
+        organizationId: MOCK_ORG_ID,
+        phoneNumberId: "1336347369564093",
+        displayPhoneNumber: "15556382076",
+        contacts: [
           {
-            id: "1419201293498643",
-            changes: [
-              {
-                field: "messages",
-                value: {
-                  messaging_product: "whatsapp",
-                  metadata: {
-                    display_phone_number: "15556382076",
-                    phone_number_id: "1336347369564093",
-                  },
-                  contacts: [
-                    {
-                      profile: { name: "Amit Kumar" },
-                      wa_id: "916202999356",
-                    },
-                  ],
-                  messages: [
-                    {
-                      from: "916202999356",
-                      id: "wamid.HBgMOTE2MjAyOTk5MzU2FQIAEhgWM0VCMEQwMjlGQjZGOUEzMTM4QkM2QQA=",
-                      timestamp: "1791115553",
-                      text: { body: "Hello, I am interested in interior design for 3BHK" },
-                      type: "text",
-                    },
-                  ],
-                },
-              },
-            ],
+            profile: { name: "Amit Kumar" },
+            wa_id: "916202999356",
           },
         ],
+        message: {
+          from: "916202999356",
+          id: "wamid.HBgMOTE2MjAyOTk5MzU2FQIAEhgWM0VCMEQwMjlGQjZGOUEzMTM4QkM2QQA=",
+          timestamp: "1791115553",
+          text: { body: "Hello, I am interested in interior design for 3BHK" },
+          type: "text",
+        },
+        receivedAt: new Date().toISOString(),
       });
 
       expect(createLeadCalled).toBe(true);
@@ -370,41 +359,26 @@ describe("Omnichannel Shared Inbox & Customer Chat - Backend Test Suite", () => 
 
       (prisma as any).conversation.update = mock(async () => ({} as any));
 
-      // Simulate second incoming message from same customer
-      await whatsAppWebhookService.processWebhookEvent({
-        object: "whatsapp_business_account",
-        entry: [
+      // Simulate second incoming message from same customer processed by worker
+      await processInboundMessage({
+        jobType: "INBOUND_MESSAGE",
+        organizationId: MOCK_ORG_ID,
+        phoneNumberId: "1336347369564093",
+        displayPhoneNumber: "15556382076",
+        contacts: [
           {
-            id: "1419201293498643",
-            changes: [
-              {
-                field: "messages",
-                value: {
-                  messaging_product: "whatsapp",
-                  metadata: {
-                    display_phone_number: "15556382076",
-                    phone_number_id: "1336347369564093",
-                  },
-                  contacts: [
-                    {
-                      profile: { name: "Amit Kumar" },
-                      wa_id: "916202999356",
-                    },
-                  ],
-                  messages: [
-                    {
-                      from: "916202999356",
-                      id: "wamid.HBgMOTE2MjAyOTk5MzU2FQIAEhgWM0VCMEQwMjlGQjZGOUEzMTM4QkM2QQA_2",
-                      timestamp: "1791115599",
-                      text: { body: "Can we schedule a call tomorrow?" },
-                      type: "text",
-                    },
-                  ],
-                },
-              },
-            ],
+            profile: { name: "Amit Kumar" },
+            wa_id: "916202999356",
           },
         ],
+        message: {
+          from: "916202999356",
+          id: "wamid.HBgMOTE2MjAyOTk5MzU2FQIAEhgWM0VCMEQwMjlGQjZGOUEzMTM4QkM2QQA_2",
+          timestamp: "1791115599",
+          text: { body: "Can we schedule a call tomorrow?" },
+          type: "text",
+        },
+        receivedAt: new Date().toISOString(),
       });
 
       // Verification: leadService.createLead was NOT called because lead already existed
@@ -429,39 +403,25 @@ describe("Omnichannel Shared Inbox & Customer Chat - Backend Test Suite", () => 
         conversationId: MOCK_CONV_ID,
       } as any));
 
-      // Simulate Meta status webhook payload
-      await whatsAppWebhookService.processWebhookEvent({
-        object: "whatsapp_business_account",
-        entry: [
+      // Simulate status update processed by worker
+      await processStatusUpdates({
+        jobType: "STATUS_UPDATE",
+        organizationId: MOCK_ORG_ID,
+        statuses: [
           {
-            id: "1419201293498643",
-            changes: [
-              {
-                field: "messages",
-                value: {
-                  messaging_product: "whatsapp",
-                  metadata: {
-                    display_phone_number: "15556382076",
-                    phone_number_id: "1336347369564093",
-                  },
-                  statuses: [
-                    {
-                      id: "wamid.HBgMOTE2MjAyOTk5MzU2FQIAEhgWM0VCMEQwMjlGQjZGOUEzMTM4QkM2QQA=",
-                      status: "read",
-                      timestamp: "1791115600",
-                      recipient_id: "916202999356",
-                    },
-                  ],
-                },
-              },
-            ],
+            id: "wamid.HBgMOTE2MjAyOTk5MzU2FQIAEhgWM0VCMEQwMjlGQjZGOUEzMTM4QkM2QQA=",
+            status: "read",
+            timestamp: "1791115600",
+            recipient_id: "916202999356",
           },
         ],
+        receivedAt: new Date().toISOString(),
       });
 
       expect(String(updatedStatus)).toBe("READ");
     });
   });
+
 
   // =========================================================================
   // SUITE 5: WebSocket Event Types & Presence

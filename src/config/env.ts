@@ -29,4 +29,11 @@ export const ENV = {
 
   MODE: process.env.MODE as "DEVELOPMENT" | "PRODUCTION",
   OLA_MAPS_API_KEY: process.env.OLA_MAPS_API_KEY || "AbLgb9uuCk5EsknyN9nd1hol4dk85ehUH7izgU1e",
+
+  // Redis Configuration for BullMQ Queues & Workers
+  REDIS_HOST: process.env.REDIS_HOST || "127.0.0.1",
+  REDIS_PORT: Number(process.env.REDIS_PORT || 6379),
+  REDIS_PASSWORD: process.env.REDIS_PASSWORD || undefined,
+  REDIS_DB: Number(process.env.REDIS_DB || 0),
 };
+
