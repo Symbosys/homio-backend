@@ -64,10 +64,11 @@ model LeadFunnel {
   updatedAt DateTime  @updatedAt @map("updated_at")
 
   // Relations
-  stages      LeadFunnelStage[]      @relation("FunnelStages")
-  formFields  LeadFunnelFormField[]  @relation("FunnelFormFields")
-  leads       Lead[]                 @relation("FunnelLeads")
-  transitions LeadFunnelTransition[] @relation("FunnelTransitions")
+  stages             LeadFunnelStage[]      @relation("FunnelStages")
+  formFields         LeadFunnelFormField[]  @relation("FunnelFormFields")
+  leads              Lead[]                 @relation("FunnelLeads")
+  transitions        LeadFunnelTransition[] @relation("FunnelTransitions")
+  aiKnowledgeSources AiKnowledgeSource[]    @relation("FunnelAiKnowledgeSources")
 
   @@unique([organizationId, slug])
   @@unique([organizationId, embedSlug])

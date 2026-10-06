@@ -1,6 +1,7 @@
 import {
   LlmCredentialAuditAction,
   LlmCredentialStatus,
+  LlmModelType,
   LlmProvider,
   Prisma,
   statusCode,
@@ -75,7 +76,7 @@ export class LlmIntegrationService {
    * Lists models the organization can select.
    * @param filters Catalog query
    */
-  async listModels(filters: { provider?: LlmProvider; search?: string; includeInactive?: boolean }) {
+  async listModels(filters: { provider?: LlmProvider; modelType?: LlmModelType; search?: string; includeInactive?: boolean }) {
     return llmIntegrationRepo.listModels(filters);
   }
 
@@ -351,6 +352,42 @@ export class LlmIntegrationService {
       );
     }
 
+    if (input.activeModelId && nextModel && nextModel.modelType !== LlmModelType.CHAT) {
+      throw new ErrorResponse(
+        "Only chat models can be selected as the auto-reply model",
+        statusCode.Bad_Request,
+      );
+    }
+
+    let nextEmbeddingModel = null;
+    if (input.activeEmbeddingModelId !== undefined) {
+      if (input.activeEmbeddingModelId !== null) {
+        nextEmbeddingModel = await llmIntegrationRepo.findModelById(input.activeEmbeddingModelId);
+        if (!nextEmbeddingModel) {
+          throw new ErrorResponse("Embedding model not found", statusCode.Not_Found);
+        }
+        if (nextEmbeddingModel.modelType !== LlmModelType.EMBEDDING) {
+          throw new ErrorResponse(
+            "Only embedding models can be selected as the vector embedding model",
+            statusCode.Bad_Request,
+          );
+        }
+        if (!nextEmbeddingModel.isActive || nextEmbeddingModel.isDeprecated) {
+          throw new ErrorResponse(
+            "This embedding model is inactive or deprecated and cannot be selected",
+            statusCode.Bad_Request,
+          );
+        }
+        const credential = await llmIntegrationRepo.findCredential(organizationId, nextEmbeddingModel.provider);
+        if (!credential || credential.status !== LlmCredentialStatus.ACTIVE) {
+          throw new ErrorResponse(
+            `Verify ${nextEmbeddingModel.provider} API key before selecting this embedding model`,
+            statusCode.Bad_Request,
+          );
+        }
+      }
+    }
+
     const requestedEnabled =
       input.isAutoReplyEnabled !== undefined
         ? input.isAutoReplyEnabled
@@ -404,6 +441,11 @@ export class LlmIntegrationService {
     if (input.activeModelId !== undefined) {
       patch.activeModelId = nextModel ? nextModel.id : null;
       patch.activeProvider = nextModel ? nextModel.provider : null;
+    }
+
+    if (input.activeEmbeddingModelId !== undefined) {
+      patch.activeEmbeddingModelId = nextEmbeddingModel ? nextEmbeddingModel.id : null;
+      patch.activeEmbeddingProvider = nextEmbeddingModel ? nextEmbeddingModel.provider : null;
     }
 
     if (input.systemInstruction !== undefined) {
@@ -476,11 +518,13 @@ export class LlmIntegrationService {
     }
 
     const data: Prisma.LlmModelCatalogUpdateInput = {};
+    if (input.modelType !== undefined) data.modelType = input.modelType;
     if (input.modelKey !== undefined) data.modelKey = input.modelKey;
     if (input.displayName !== undefined) data.displayName = input.displayName;
     if (input.description !== undefined) data.description = input.description;
     if (input.contextWindow !== undefined) data.contextWindow = input.contextWindow;
     if (input.maxOutputTokens !== undefined) data.maxOutputTokens = input.maxOutputTokens;
+    if (input.embeddingDimensions !== undefined) data.embeddingDimensions = input.embeddingDimensions;
     if (input.supportsVision !== undefined) data.supportsVision = input.supportsVision;
     if (input.supportsTools !== undefined) data.supportsTools = input.supportsTools;
     if (input.isActive !== undefined) data.isActive = input.isActive;

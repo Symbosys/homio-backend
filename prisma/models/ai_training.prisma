@@ -1,0 +1,264 @@
+// ============================================================================
+// AI TRAINING & KNOWLEDGE BASE DATABASE MODELS
+// Multi-Tenant B2B SaaS Standards with PostgreSQL pgvector RAG Indexing
+// ============================================================================
+
+enum AiSourceType {
+  DOCUMENT
+  FAQ
+  WEBSITE
+  RAW_TEXT
+}
+
+enum AiIngestionStatus {
+  PENDING
+  CHUNKING
+  EMBEDDING
+  INDEXED
+  FAILED
+  PAUSED
+}
+
+enum AiCompetitorPolicy {
+  BLOCK_AND_REDIRECT
+  NEUTRAL_COMPARISON
+  IGNORE
+}
+
+enum AiConversationRole {
+  USER
+  ASSISTANT
+}
+
+enum AiVersionStatus {
+  ACTIVE
+  SUPERSEDED
+  FAILED
+}
+
+model AiKnowledgeSource {
+  id                    String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId        String            @map("organization_id") @db.Uuid
+  type                  AiSourceType      @default(DOCUMENT)
+  title                 String            @db.VarChar(255)
+  category              String            @default("General") @db.VarChar(100)
+  status                AiIngestionStatus @default(PENDING)
+  description           String?           @db.Text
+  
+  // Structured Cloud Image / File Storage (Rule 4)
+  fileAttachment        Json?             @map("file_attachment")
+  sourceUrl             String?           @map("source_url") @db.VarChar(1000)
+  rawContent            String?           @map("raw_content") @db.Text
+  
+  // Ingestion metrics
+  chunksCount           Int               @default(0) @map("chunks_count")
+  totalTokens           Int               @default(0) @map("total_tokens")
+  fileSizeBytes         BigInt?           @map("file_size_bytes")
+  
+  // Health & diagnostics
+  lastSyncedAt          DateTime?         @map("last_synced_at")
+  lastErrorCode         String?           @map("last_error_code") @db.VarChar(100)
+  lastErrorMessage      String?           @map("last_error_message") @db.Text
+  
+  // Universal Metadata (Rule 18)
+  additionalInformation Json?             @map("additional_information")
+  
+  // Audit trails & lifecycle
+  leadFunnelId          String?           @map("lead_funnel_id") @db.Uuid
+  isDeleted             Boolean           @default(false) @map("is_deleted")
+  createdById           String?           @map("created_by_id") @db.Uuid
+  updatedById           String?           @map("updated_by_id") @db.Uuid
+  createdAt             DateTime          @default(now()) @map("created_at")
+  updatedAt             DateTime          @updatedAt @map("updated_at")
+
+  // Relations
+  organization          Organization      @relation("OrganizationAiKnowledgeSources", fields: [organizationId], references: [id], onDelete: Cascade)
+  leadFunnel            LeadFunnel?       @relation("FunnelAiKnowledgeSources", fields: [leadFunnelId], references: [id], onDelete: SetNull)
+  createdBy             Employee?         @relation("AiKnowledgeSourceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy             Employee?         @relation("AiKnowledgeSourceUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  
+  chunks                AiKnowledgeChunk[]
+  faqs                  AiKnowledgeFaq[]
+
+  @@index([organizationId, status, isDeleted])
+  @@index([organizationId, leadFunnelId])
+  @@index([organizationId, type])
+  @@index([organizationId, category])
+  @@map("ai_knowledge_sources")
+}
+
+model AiKnowledgeChunk {
+  id                    String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId        String            @map("organization_id") @db.Uuid
+  knowledgeSourceId     String            @map("knowledge_source_id") @db.Uuid
+  
+  chunkIndex            Int               @map("chunk_index")
+  chunkText             String            @map("chunk_text") @db.Text
+  tokenCount            Int               @default(0) @map("token_count")
+  
+  // Vector Embedding Attributes
+  embeddingDimensions   Int?              @map("embedding_dimensions")
+  embeddingProvider     LlmProvider?      @map("embedding_provider")
+  embeddingModelKey     String?           @map("embedding_model_key") @db.VarChar(100)
+  
+  // pgvector vector column (managed via raw SQL / Prisma Unsupported)
+  embedding             Unsupported("vector")?
+  
+  // Metadata for precision citation & page references
+  chunkMetadata         Json?             @map("chunk_metadata")
+  isActive              Boolean           @default(true) @map("is_active")
+  
+  // Universal Metadata (Rule 18)
+  additionalInformation Json?             @map("additional_information")
+  
+  createdAt             DateTime          @default(now()) @map("created_at")
+  updatedAt             DateTime          @updatedAt @map("updated_at")
+
+  // Relations
+  organization          Organization      @relation("OrganizationAiKnowledgeChunks", fields: [organizationId], references: [id], onDelete: Cascade)
+  knowledgeSource       AiKnowledgeSource @relation(fields: [knowledgeSourceId], references: [id], onDelete: Cascade)
+
+  @@unique([knowledgeSourceId, chunkIndex])
+  @@index([organizationId, isActive])
+  @@index([knowledgeSourceId])
+  @@map("ai_knowledge_chunks")
+}
+
+model AiKnowledgeFaq {
+  id                    String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId        String            @map("organization_id") @db.Uuid
+  knowledgeSourceId     String?           @map("knowledge_source_id") @db.Uuid
+  
+  question              String            @db.Text
+  answer                String            @db.Text
+  category              String            @default("General FAQ") @db.VarChar(100)
+  tags                  String[]          @default([])
+  
+  sortOrder             Int               @default(0) @map("sort_order")
+  isActive              Boolean           @default(true) @map("is_active")
+  
+  // Universal Metadata (Rule 18)
+  additionalInformation Json?             @map("additional_information")
+  
+  createdAt             DateTime          @default(now()) @map("created_at")
+  updatedAt             DateTime          @updatedAt @map("updated_at")
+
+  // Relations
+  organization          Organization      @relation("OrganizationAiKnowledgeFaqs", fields: [organizationId], references: [id], onDelete: Cascade)
+  knowledgeSource       AiKnowledgeSource? @relation(fields: [knowledgeSourceId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, category, isActive])
+  @@index([knowledgeSourceId])
+  @@map("ai_knowledge_faqs")
+}
+
+model AiGoldenConversation {
+  id                    String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId        String            @map("organization_id") @db.Uuid
+  
+  title                 String            @db.VarChar(255)
+  scenario              String            @db.VarChar(500)
+  category              String            @default("Lead Qualification") @db.VarChar(100)
+  isActive              Boolean           @default(true) @map("is_active")
+  
+  // Universal Metadata (Rule 18)
+  additionalInformation Json?             @map("additional_information")
+  
+  createdById           String?           @map("created_by_id") @db.Uuid
+  updatedById           String?           @map("updated_by_id") @db.Uuid
+  createdAt             DateTime          @default(now()) @map("created_at")
+  updatedAt             DateTime          @updatedAt @map("updated_at")
+
+  // Relations
+  organization          Organization      @relation("OrganizationAiGoldenConversations", fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy             Employee?         @relation("AiGoldenConversationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy             Employee?         @relation("AiGoldenConversationUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  
+  turns                 AiGoldenTurn[]
+
+  @@index([organizationId, category, isActive])
+  @@map("ai_golden_conversations")
+}
+
+model AiGoldenTurn {
+  id                    String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId        String             @map("conversation_id") @db.Uuid
+  
+  role                  AiConversationRole
+  content               String             @db.Text
+  turnOrder             Int                @map("turn_order")
+  
+  // Universal Metadata (Rule 18)
+  additionalInformation Json?              @map("additional_information")
+  
+  createdAt             DateTime           @default(now()) @map("created_at")
+  updatedAt             DateTime           @updatedAt @map("updated_at")
+
+  // Relations
+  conversation          AiGoldenConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, turnOrder])
+  @@index([conversationId])
+  @@map("ai_golden_turns")
+}
+
+model AiGuardrailConfig {
+  id                         String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId             String             @unique @map("organization_id") @db.Uuid
+  
+  // Commercial boundaries
+  minBudgetLakh              Decimal?           @map("min_budget_lakh") @db.Decimal(10, 2)
+  maxDiscountPercentage      Decimal?           @map("max_discount_percentage") @db.Decimal(5, 2)
+  competitorPolicy           AiCompetitorPolicy @default(BLOCK_AND_REDIRECT) @map("competitor_policy")
+  
+  // Keyword triggers
+  restrictedKeywords         String[]           @default([]) @map("restricted_keywords")
+  humanEscalationKeywords    String[]           @default([]) @map("human_escalation_keywords")
+  
+  // Disclaimers
+  enableDisclaimerOnQuotes   Boolean            @default(true) @map("enable_disclaimer_on_quotes")
+  disclaimerText             String?            @map("disclaimer_text") @db.Text
+  
+  // Universal Metadata (Rule 18)
+  additionalInformation      Json?              @map("additional_information")
+  
+  updatedById                String?            @map("updated_by_id") @db.Uuid
+  createdAt                  DateTime           @default(now()) @map("created_at")
+  updatedAt                  DateTime           @updatedAt @map("updated_at")
+
+  // Relations
+  organization               Organization       @relation("OrganizationAiGuardrailConfig", fields: [organizationId], references: [id], onDelete: Cascade)
+  updatedBy                  Employee?          @relation("AiGuardrailUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@map("ai_guardrail_configs")
+}
+
+model AiTrainingVersion {
+  id                    String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId        String            @map("organization_id") @db.Uuid
+  
+  versionTag            String            @map("version_tag") @db.VarChar(50) // e.g. "v2.4.0-prod"
+  status                AiVersionStatus   @default(ACTIVE)
+  
+  sourcesCount          Int               @default(0) @map("sources_count")
+  totalChunks           Int               @default(0) @map("total_chunks")
+  totalTokens           Int               @default(0) @map("total_tokens")
+  accuracyScore         Decimal?          @map("accuracy_score") @db.Decimal(5, 2)
+  
+  deploymentNotes       String?           @map("deployment_notes") @db.Text
+  deployedById          String?           @map("deployed_by_id") @db.Uuid
+  deployedAt            DateTime          @default(now()) @map("deployed_at")
+  
+  // Universal Metadata (Rule 18)
+  additionalInformation Json?             @map("additional_information")
+  
+  createdAt             DateTime          @default(now()) @map("created_at")
+
+  // Relations
+  organization          Organization      @relation("OrganizationAiTrainingVersions", fields: [organizationId], references: [id], onDelete: Cascade)
+  deployedBy            Employee?         @relation("AiTrainingVersionDeployedBy", fields: [deployedById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status])
+  @@index([organizationId, deployedAt(sort: Desc)])
+  @@map("ai_training_versions")
+}

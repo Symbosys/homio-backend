@@ -36,6 +36,7 @@ import quotationRouter from "./module/quotation/routes/index.js";
 import integrationRouter from "./module/integration/routes/index.js";
 import llmPlatformRoutes from "./module/integration/routes/llm-platform.routes.js";
 import communicationRouter from "./module/communication/routes/index.js";
+import aiTrainingRouter from "./module/ai-training/routes/ai-training.routes.js";
 
 const app = express();
 
@@ -176,6 +177,11 @@ app.use("/api/v1/ai-studio", aiStudioTenantRouter);
 app.use("/api/v1/ai-studio/doubt-solver", doubtSolverRouter);
 app.use("/api/v1/ai-studio/room-designer", roomDesignerRouter);
 app.use("/api/v1/ai-studio/vastu", vastuAuditRouter);
+
+/**
+ * AI Training & Knowledge Studio Module Routes (Tenant BYOK RAG & Vector Embeddings)
+ */
+app.use("/api/v1/ai-training", aiTrainingRouter);
 
 app.use(errorMiddleware);
 

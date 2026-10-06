@@ -384,6 +384,12 @@ model Employee {
   llmCredentialsUpdated         OrganizationLlmCredential[]      @relation("LlmCredentialUpdatedBy")
   llmSettingsUpdated            OrganizationLlmSetting[]         @relation("LlmSettingUpdatedBy")
   llmCredentialAudits           OrganizationLlmCredentialAudit[] @relation("LlmCredentialAuditActor")
+  createdAiKnowledgeSources     AiKnowledgeSource[]              @relation("AiKnowledgeSourceCreatedBy")
+  updatedAiKnowledgeSources     AiKnowledgeSource[]              @relation("AiKnowledgeSourceUpdatedBy")
+  createdAiGoldenConversations  AiGoldenConversation[]           @relation("AiGoldenConversationCreatedBy")
+  updatedAiGoldenConversations  AiGoldenConversation[]           @relation("AiGoldenConversationUpdatedBy")
+  updatedAiGuardrails           AiGuardrailConfig[]              @relation("AiGuardrailUpdatedBy")
+  deployedAiTrainingVersions    AiTrainingVersion[]              @relation("AiTrainingVersionDeployedBy")
 
   @@unique([organizationId, employeeCode])
   @@index([organizationId])

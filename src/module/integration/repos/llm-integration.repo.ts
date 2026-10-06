@@ -2,6 +2,7 @@ import { prisma } from "../../../lib/prisma.js";
 import {
   LlmCredentialAuditAction,
   LlmCredentialStatus,
+  LlmModelType,
   LlmProvider,
   Prisma,
 } from "../../../types/types.js";
@@ -35,6 +36,8 @@ export type LlmSettingPatch = {
   isAutoReplyEnabled?: boolean;
   activeProvider?: LlmProvider | null;
   activeModelId?: string | null;
+  activeEmbeddingProvider?: LlmProvider | null;
+  activeEmbeddingModelId?: string | null;
   systemInstruction?: string | null;
   temperature?: Prisma.Decimal | null;
   maxOutputTokens?: number | null;
@@ -47,11 +50,31 @@ const settingInclude = {
     select: {
       id: true,
       provider: true,
+      modelType: true,
       modelKey: true,
       displayName: true,
       description: true,
       contextWindow: true,
       maxOutputTokens: true,
+      embeddingDimensions: true,
+      supportsVision: true,
+      supportsTools: true,
+      isActive: true,
+      isDeprecated: true,
+      sortOrder: true,
+    },
+  },
+  activeEmbeddingModel: {
+    select: {
+      id: true,
+      provider: true,
+      modelType: true,
+      modelKey: true,
+      displayName: true,
+      description: true,
+      contextWindow: true,
+      maxOutputTokens: true,
+      embeddingDimensions: true,
       supportsVision: true,
       supportsTools: true,
       isActive: true,
@@ -69,16 +92,18 @@ export class LlmIntegrationRepository {
   /**
    * Lists catalog rows the organization may select.
    * Inactive and deprecated rows are hidden unless `includeInactive` is true.
-   * @param filters Provider and search filters from the query string
+   * @param filters Provider, modelType and search filters from the query string
    */
   async listModels(filters: {
     provider?: LlmProvider;
+    modelType?: LlmModelType;
     search?: string;
     includeInactive?: boolean;
   }) {
     return prisma.llmModelCatalog.findMany({
       where: {
         ...(filters.provider ? { provider: filters.provider } : {}),
+        ...(filters.modelType ? { modelType: filters.modelType } : {}),
         ...(filters.includeInactive ? {} : { isActive: true, isDeprecated: false }),
         ...(filters.search
           ? {
@@ -344,6 +369,8 @@ export class LlmIntegrationRepository {
           isAutoReplyEnabled: patch.isAutoReplyEnabled ?? false,
           activeProvider: patch.activeProvider ?? null,
           activeModelId: patch.activeModelId ?? null,
+          activeEmbeddingProvider: patch.activeEmbeddingProvider ?? null,
+          activeEmbeddingModelId: patch.activeEmbeddingModelId ?? null,
           systemInstruction: patch.systemInstruction ?? null,
           temperature: patch.temperature ?? null,
           maxOutputTokens: patch.maxOutputTokens ?? null,
@@ -394,7 +421,7 @@ export class LlmIntegrationRepository {
   }
 
   /**
-   * Clears the active model when its provider credential is deleted.
+   * Clears active chat or embedding model when its provider credential is deleted.
    * @param organizationId Tenant id
    * @param provider Deleted provider
    * @param employeeId Acting employee
@@ -406,19 +433,34 @@ export class LlmIntegrationRepository {
   ) {
     const setting = await prisma.organizationLlmSetting.findUnique({
       where: { organizationId },
-      select: { activeProvider: true },
+      select: { activeProvider: true, activeEmbeddingProvider: true },
     });
 
-    if (!setting || setting.activeProvider !== provider) {
+    if (!setting) return false;
+
+    const clearsChat = setting.activeProvider === provider;
+    const clearsEmbedding = setting.activeEmbeddingProvider === provider;
+
+    if (!clearsChat && !clearsEmbedding) {
       return false;
     }
 
     await prisma.organizationLlmSetting.update({
       where: { organizationId },
       data: {
-        isAutoReplyEnabled: false,
-        activeProvider: null,
-        activeModelId: null,
+        ...(clearsChat
+          ? {
+              isAutoReplyEnabled: false,
+              activeProvider: null,
+              activeModelId: null,
+            }
+          : {}),
+        ...(clearsEmbedding
+          ? {
+              activeEmbeddingProvider: null,
+              activeEmbeddingModelId: null,
+            }
+          : {}),
         updatedById: employeeId,
       },
     });
@@ -505,11 +547,13 @@ export class LlmIntegrationRepository {
    */
   async createModel(data: {
     provider: LlmProvider;
+    modelType?: LlmModelType;
     modelKey: string;
     displayName: string;
     description?: string | null;
     contextWindow: number;
     maxOutputTokens?: number | null;
+    embeddingDimensions?: number | null;
     supportsVision?: boolean;
     supportsTools?: boolean;
     isActive?: boolean;
@@ -520,11 +564,13 @@ export class LlmIntegrationRepository {
     return prisma.llmModelCatalog.create({
       data: {
         provider: data.provider,
+        modelType: data.modelType ?? LlmModelType.CHAT,
         modelKey: data.modelKey,
         displayName: data.displayName,
         description: data.description ?? null,
         contextWindow: data.contextWindow,
         maxOutputTokens: data.maxOutputTokens ?? null,
+        embeddingDimensions: data.embeddingDimensions ?? null,
         supportsVision: data.supportsVision ?? false,
         supportsTools: data.supportsTools ?? false,
         isActive: data.isActive ?? true,

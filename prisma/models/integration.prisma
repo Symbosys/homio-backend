@@ -84,6 +84,11 @@ enum LlmUsageStatus {
   BLOCKED
 }
 
+enum LlmModelType {
+  CHAT
+  EMBEDDING
+}
+
 // ==========================================
 // PLATFORM MODEL LIST
 // Org picks a row. modelKey is the exact API id sent to the provider.
@@ -91,16 +96,18 @@ enum LlmUsageStatus {
 // ==========================================
 
 model LlmModelCatalog {
-  id          String      @id @default(uuid()) @db.Uuid
-  provider    LlmProvider @map("provider")
-  modelKey    String      @map("model_key")
-  displayName String      @map("display_name")
-  description String?     @map("description")
+  id          String       @id @default(uuid()) @db.Uuid
+  provider    LlmProvider  @map("provider")
+  modelType   LlmModelType @default(CHAT) @map("model_type")
+  modelKey    String       @map("model_key")
+  displayName String       @map("display_name")
+  description String?      @map("description")
 
-  contextWindow   Int     @map("context_window")
-  maxOutputTokens Int?    @map("max_output_tokens")
-  supportsVision  Boolean @default(false) @map("supports_vision")
-  supportsTools   Boolean @default(false) @map("supports_tools")
+  contextWindow       Int     @map("context_window")
+  maxOutputTokens     Int?    @map("max_output_tokens")
+  embeddingDimensions Int?    @map("embedding_dimensions")
+  supportsVision      Boolean @default(false) @map("supports_vision")
+  supportsTools       Boolean @default(false) @map("supports_tools")
 
   isActive     Boolean @default(true) @map("is_active")
   isDeprecated Boolean @default(false) @map("is_deprecated")
@@ -111,12 +118,14 @@ model LlmModelCatalog {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  settings OrganizationLlmSetting[] @relation("LlmSettingActiveModel")
-  usages   OrganizationLlmUsage[]   @relation("LlmUsageModel")
+  settings          OrganizationLlmSetting[] @relation("LlmSettingActiveModel")
+  embeddingSettings OrganizationLlmSetting[] @relation("LlmSettingActiveEmbeddingModel")
+  usages            OrganizationLlmUsage[]   @relation("LlmUsageModel")
 
   @@unique([provider, modelKey])
   @@unique([id, provider])
   @@index([provider, isActive, sortOrder])
+  @@index([provider, modelType, isActive])
   @@map("llm_model_catalog")
 }
 
@@ -164,8 +173,9 @@ model OrganizationLlmCredential {
 // ==========================================
 // ONE ACTIVE CHOICE PER ORGANIZATION
 // activeModelId + activeProvider must match LlmModelCatalog(id, provider).
-// The key used at reply time is OrganizationLlmCredential
-// where (organizationId, provider) = (this.organizationId, this.activeProvider).
+// activeEmbeddingModelId + activeEmbeddingProvider must match LlmModelCatalog(id, provider).
+// The key used at reply/embedding time is OrganizationLlmCredential
+// where (organizationId, provider) = (this.organizationId, this.activeProvider / this.activeEmbeddingProvider).
 // isAutoReplyEnabled stays false until a later phase turns replies on.
 // ==========================================
 
@@ -180,6 +190,10 @@ model OrganizationLlmSetting {
   activeModelId  String?          @map("active_model_id") @db.Uuid
   activeModel    LlmModelCatalog? @relation("LlmSettingActiveModel", fields: [activeModelId, activeProvider], references: [id, provider], onDelete: Restrict)
 
+  activeEmbeddingProvider LlmProvider?     @map("active_embedding_provider")
+  activeEmbeddingModelId  String?          @map("active_embedding_model_id") @db.Uuid
+  activeEmbeddingModel    LlmModelCatalog? @relation("LlmSettingActiveEmbeddingModel", fields: [activeEmbeddingModelId, activeEmbeddingProvider], references: [id, provider], onDelete: Restrict)
+
   systemInstruction String?  @map("system_instruction") @db.Text
   temperature       Decimal? @map("temperature") @db.Decimal(3, 2)
   maxOutputTokens   Int?     @map("max_output_tokens")
@@ -193,6 +207,7 @@ model OrganizationLlmSetting {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([activeModelId])
+  @@index([activeEmbeddingModelId])
   @@map("organization_llm_settings")
 }
 

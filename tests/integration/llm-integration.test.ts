@@ -22,6 +22,7 @@ import {
 import {
   LlmCredentialAuditAction,
   LlmCredentialStatus,
+  LlmModelType,
   LlmProvider,
   statusCode,
 } from "../../src/types/types.js";
@@ -62,11 +63,13 @@ function modelRow(overrides: Record<string, unknown> = {}) {
   return {
     id: MODEL_ID,
     provider: LlmProvider.OPENAI,
+    modelType: LlmModelType.CHAT,
     modelKey: "gpt-4o",
     displayName: "GPT-4o",
     description: null,
     contextWindow: 128000,
     maxOutputTokens: 16384,
+    embeddingDimensions: null,
     supportsVision: true,
     supportsTools: true,
     isActive: true,
@@ -86,6 +89,8 @@ function settingRow(overrides: Record<string, unknown> = {}) {
     isAutoReplyEnabled: false,
     activeProvider: LlmProvider.OPENAI,
     activeModelId: MODEL_ID,
+    activeEmbeddingProvider: null,
+    activeEmbeddingModelId: null,
     systemInstruction: null,
     temperature: null,
     maxOutputTokens: null,
@@ -94,6 +99,7 @@ function settingRow(overrides: Record<string, unknown> = {}) {
     createdAt: new Date("2026-10-05T00:00:00.000Z"),
     updatedAt: new Date("2026-10-05T00:00:00.000Z"),
     activeModel: modelRow(),
+    activeEmbeddingModel: null,
     ...overrides,
   };
 }
@@ -671,6 +677,155 @@ describe("LLM integration service", () => {
       expect(page.items).toHaveLength(1);
     } finally {
       llmIntegrationRepo.listUsages = originalList;
+    }
+  });
+
+  it("validates and stores active vector embedding model when provider key is active", async () => {
+    const EMBEDDING_MODEL_ID = "e1eebc99-9c0b-4ef8-bb6d-6bb9bd380a77";
+    const originalFindSetting = llmIntegrationRepo.findSetting;
+    const originalFindModel = llmIntegrationRepo.findModelById;
+    const originalFindCredential = llmIntegrationRepo.findCredential;
+    const originalSave = llmIntegrationRepo.saveSetting;
+    const captured: { patch: LlmSettingPatch | null } = { patch: null };
+
+    const embeddingModel = modelRow({
+      id: EMBEDDING_MODEL_ID,
+      modelType: LlmModelType.EMBEDDING,
+      modelKey: "text-embedding-3-small",
+      displayName: "Text Embedding 3 (Small)",
+      embeddingDimensions: 1536,
+      provider: LlmProvider.OPENAI,
+    });
+
+    llmIntegrationRepo.findSetting = async () => null;
+    llmIntegrationRepo.findModelById = async (id) => (id === EMBEDDING_MODEL_ID ? embeddingModel : modelRow()) as never;
+    llmIntegrationRepo.findCredential = async () =>
+      credentialRow({ status: LlmCredentialStatus.ACTIVE }) as never;
+    llmIntegrationRepo.saveSetting = async (_org, patch) => {
+      captured.patch = patch;
+      return settingRow({
+        activeEmbeddingProvider: LlmProvider.OPENAI,
+        activeEmbeddingModelId: EMBEDDING_MODEL_ID,
+        activeEmbeddingModel: embeddingModel,
+      }) as never;
+    };
+
+    try {
+      const saved = await llmIntegrationService.updateSetting(
+        ORG_ID,
+        { activeEmbeddingModelId: EMBEDDING_MODEL_ID },
+        EMPLOYEE_ID,
+      );
+
+      expect(captured.patch?.activeEmbeddingProvider).toBe(LlmProvider.OPENAI);
+      expect(captured.patch?.activeEmbeddingModelId).toBe(EMBEDDING_MODEL_ID);
+      expect(saved.activeEmbeddingModelId).toBe(EMBEDDING_MODEL_ID);
+    } finally {
+      llmIntegrationRepo.findSetting = originalFindSetting;
+      llmIntegrationRepo.findModelById = originalFindModel;
+      llmIntegrationRepo.findCredential = originalFindCredential;
+      llmIntegrationRepo.saveSetting = originalSave;
+    }
+  });
+
+  it("rejects selecting a chat model as activeEmbeddingModelId and an embedding model as activeModelId", async () => {
+    const CHAT_MODEL_ID = MODEL_ID;
+    const EMBEDDING_MODEL_ID = "e2eebc99-9c0b-4ef8-bb6d-6bb9bd380a88";
+    const originalFindSetting = llmIntegrationRepo.findSetting;
+    const originalFindModel = llmIntegrationRepo.findModelById;
+    const originalFindCredential = llmIntegrationRepo.findCredential;
+
+    const chatModel = modelRow({ id: CHAT_MODEL_ID, modelType: LlmModelType.CHAT });
+    const embeddingModel = modelRow({ id: EMBEDDING_MODEL_ID, modelType: LlmModelType.EMBEDDING });
+
+    llmIntegrationRepo.findSetting = async () => null;
+    llmIntegrationRepo.findModelById = async (id) => {
+      if (id === CHAT_MODEL_ID) return chatModel as never;
+      if (id === EMBEDDING_MODEL_ID) return embeddingModel as never;
+      return null;
+    };
+    llmIntegrationRepo.findCredential = async () =>
+      credentialRow({ status: LlmCredentialStatus.ACTIVE }) as never;
+
+    try {
+      // Trying to select a CHAT model as embedding model -> Rejected
+      await expect(
+        llmIntegrationService.updateSetting(ORG_ID, { activeEmbeddingModelId: CHAT_MODEL_ID }, EMPLOYEE_ID),
+      ).rejects.toMatchObject({ statusCode: statusCode.Bad_Request });
+
+      // Trying to select an EMBEDDING model as auto-reply chat model -> Rejected
+      await expect(
+        llmIntegrationService.updateSetting(ORG_ID, { activeModelId: EMBEDDING_MODEL_ID }, EMPLOYEE_ID),
+      ).rejects.toMatchObject({ statusCode: statusCode.Bad_Request });
+    } finally {
+      llmIntegrationRepo.findSetting = originalFindSetting;
+      llmIntegrationRepo.findModelById = originalFindModel;
+      llmIntegrationRepo.findCredential = originalFindCredential;
+    }
+  });
+
+  it("blocks selecting an embedding model if the provider API key is not active", async () => {
+    const EMBEDDING_MODEL_ID = "e3eebc99-9c0b-4ef8-bb6d-6bb9bd380a99";
+    const originalFindSetting = llmIntegrationRepo.findSetting;
+    const originalFindModel = llmIntegrationRepo.findModelById;
+    const originalFindCredential = llmIntegrationRepo.findCredential;
+
+    const embeddingModel = modelRow({
+      id: EMBEDDING_MODEL_ID,
+      modelType: LlmModelType.EMBEDDING,
+      provider: LlmProvider.GEMINI,
+    });
+
+    llmIntegrationRepo.findSetting = async () => null;
+    llmIntegrationRepo.findModelById = async () => embeddingModel as never;
+    llmIntegrationRepo.findCredential = async () =>
+      credentialRow({ status: LlmCredentialStatus.PENDING_VERIFICATION }) as never;
+
+    try {
+      await expect(
+        llmIntegrationService.updateSetting(ORG_ID, { activeEmbeddingModelId: EMBEDDING_MODEL_ID }, EMPLOYEE_ID),
+      ).rejects.toMatchObject({ statusCode: statusCode.Bad_Request });
+    } finally {
+      llmIntegrationRepo.findSetting = originalFindSetting;
+      llmIntegrationRepo.findModelById = originalFindModel;
+      llmIntegrationRepo.findCredential = originalFindCredential;
+    }
+  });
+
+  it("allows clearing the active embedding model by passing activeEmbeddingModelId: null", async () => {
+    const originalFindSetting = llmIntegrationRepo.findSetting;
+    const originalFindModel = llmIntegrationRepo.findModelById;
+    const originalSave = llmIntegrationRepo.saveSetting;
+    const captured: { patch: LlmSettingPatch | null } = { patch: null };
+
+    llmIntegrationRepo.findSetting = async () =>
+      settingRow({
+        activeEmbeddingProvider: LlmProvider.OPENAI,
+        activeEmbeddingModelId: "some-embed-id",
+      }) as never;
+    llmIntegrationRepo.findModelById = async () => modelRow() as never;
+    llmIntegrationRepo.saveSetting = async (_org, patch) => {
+      captured.patch = patch;
+      return settingRow({
+        activeEmbeddingProvider: null,
+        activeEmbeddingModelId: null,
+        activeEmbeddingModel: null,
+      }) as never;
+    };
+
+    try {
+      const saved = await llmIntegrationService.updateSetting(
+        ORG_ID,
+        { activeEmbeddingModelId: null },
+        EMPLOYEE_ID,
+      );
+      expect(captured.patch?.activeEmbeddingProvider).toBeNull();
+      expect(captured.patch?.activeEmbeddingModelId).toBeNull();
+      expect(saved.activeEmbeddingModelId).toBeNull();
+    } finally {
+      llmIntegrationRepo.findSetting = originalFindSetting;
+      llmIntegrationRepo.findModelById = originalFindModel;
+      llmIntegrationRepo.saveSetting = originalSave;
     }
   });
 });

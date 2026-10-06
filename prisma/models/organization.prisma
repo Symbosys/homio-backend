@@ -123,6 +123,12 @@ model Organization {
   llmSetting                 OrganizationLlmSetting?          @relation("OrganizationLlmSetting")
   llmCredentialAudits        OrganizationLlmCredentialAudit[] @relation("OrganizationLlmCredentialAudits")
   llmUsages                  OrganizationLlmUsage[]           @relation("OrganizationLlmUsages")
+  aiKnowledgeSources         AiKnowledgeSource[]              @relation("OrganizationAiKnowledgeSources")
+  aiKnowledgeChunks          AiKnowledgeChunk[]               @relation("OrganizationAiKnowledgeChunks")
+  aiKnowledgeFaqs            AiKnowledgeFaq[]                 @relation("OrganizationAiKnowledgeFaqs")
+  aiGoldenConversations      AiGoldenConversation[]           @relation("OrganizationAiGoldenConversations")
+  aiGuardrailConfig          AiGuardrailConfig?               @relation("OrganizationAiGuardrailConfig")
+  aiTrainingVersions         AiTrainingVersion[]              @relation("OrganizationAiTrainingVersions")
 
   @@index([slug])
   @@index([status])

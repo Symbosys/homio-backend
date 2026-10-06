@@ -1,10 +1,15 @@
 import { z } from "zod";
-import { LlmProvider } from "../../../types/types.js";
+import { LlmModelType, LlmProvider } from "../../../types/types.js";
 
 /**
  * Zod enum kept in lockstep with the Prisma `LlmProvider` enum.
  */
 export const LlmProviderEnum = z.nativeEnum(LlmProvider);
+
+/**
+ * Zod enum kept in lockstep with the Prisma `LlmModelType` enum.
+ */
+export const LlmModelTypeEnum = z.nativeEnum(LlmModelType);
 
 const additionalInformationSchema = z.record(z.string(), z.any()).optional().nullable();
 
@@ -45,6 +50,7 @@ export function validateProviderApiKey(provider: LlmProvider, apiKey: string): s
 export const listLlmModelsQuerySchema = z.object({
   query: z.object({
     provider: LlmProviderEnum.optional(),
+    modelType: LlmModelTypeEnum.optional(),
     search: z.string().trim().min(1).max(100).optional(),
     includeInactive: z
       .enum(["true", "false"])
@@ -140,6 +146,7 @@ export const updateLlmSettingSchema = z.object({
     .object({
       isAutoReplyEnabled: z.boolean().optional(),
       activeModelId: z.string().uuid("Invalid model id").nullable().optional(),
+      activeEmbeddingModelId: z.string().uuid("Invalid embedding model id").nullable().optional(),
       systemInstruction: z
         .string()
         .trim()
@@ -178,11 +185,13 @@ export type LlmPagedQuery = z.infer<typeof llmPagedQuerySchema>["query"];
 export const createLlmModelSchema = z.object({
   body: z.object({
     provider: LlmProviderEnum,
+    modelType: LlmModelTypeEnum.default(LlmModelType.CHAT),
     modelKey: z.string().trim().min(1, "Model key is required").max(200),
     displayName: z.string().trim().min(1, "Display name is required").max(200),
     description: z.string().trim().max(2000).optional().nullable(),
     contextWindow: z.number().int().min(1, "Context window must be at least 1"),
     maxOutputTokens: z.number().int().min(1).max(128000).optional().nullable(),
+    embeddingDimensions: z.number().int().min(1).max(32000).optional().nullable(),
     supportsVision: z.boolean().optional(),
     supportsTools: z.boolean().optional(),
     isActive: z.boolean().optional(),
@@ -202,11 +211,13 @@ export const updateLlmModelSchema = z.object({
   }),
   body: z
     .object({
+      modelType: LlmModelTypeEnum.optional(),
       modelKey: z.string().trim().min(1).max(200).optional(),
       displayName: z.string().trim().min(1).max(200).optional(),
       description: z.string().trim().max(2000).optional().nullable(),
       contextWindow: z.number().int().min(1).optional(),
       maxOutputTokens: z.number().int().min(1).max(128000).optional().nullable(),
+      embeddingDimensions: z.number().int().min(1).max(32000).optional().nullable(),
       supportsVision: z.boolean().optional(),
       supportsTools: z.boolean().optional(),
       isActive: z.boolean().optional(),
