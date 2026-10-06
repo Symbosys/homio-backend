@@ -46,8 +46,11 @@ export interface AnswerQueryOptions {
   maxChunks?: number;
   systemTone?: string;
   senderName?: string;
+  toonContext?: string;
+  conversationSummary?: string;
   channel?: "WHATSAPP" | "PLAYGROUND" | "WEB" | "INTERNAL";
 }
+
 
 export interface RagResponse {
   answer: string;

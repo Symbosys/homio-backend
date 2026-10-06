@@ -7,6 +7,8 @@ export interface BuildSystemPromptParams {
   organizationName: string;
   tone?: string;
   senderName?: string;
+  toonContext?: string;
+  conversationSummary?: string;
   retrievedChunks?: Array<{
     sourceTitle: string;
     sourceType: string;
@@ -19,7 +21,14 @@ export interface BuildSystemPromptParams {
  * Optimized for token efficiency, natural conversation, strict typo tolerance, and verified knowledge grounding.
  */
 export function buildRagSystemPrompt(params: BuildSystemPromptParams): string {
-  const { organizationName, tone, senderName, retrievedChunks = [] } = params;
+  const {
+    organizationName,
+    tone,
+    senderName,
+    toonContext,
+    conversationSummary,
+    retrievedChunks = [],
+  } = params;
   const personaTone = tone?.trim() || "Professional, warm, helpful, and concise.";
 
   let prompt = `You are the official AI assistant for ${organizationName}.\n`;
@@ -35,6 +44,16 @@ export function buildRagSystemPrompt(params: BuildSystemPromptParams): string {
 4. HONESTY: If the knowledge context lacks specific details to answer fully, provide a brief helpful response based on verified facts and offer to connect them with a team specialist.
 5. NO REPETITIVE DISCLAIMERS: Do not append boilerplate legal caveats or disclaimers.\n`;
 
+  // Inject TOON structured context if provided (Customer profile, lead status, budget)
+  if (toonContext?.trim()) {
+    prompt += `\n--- CRM CONTEXT (TOON) ---\n${toonContext.trim()}\n--- END CRM CONTEXT ---\n`;
+  }
+
+  // Inject bounded historical conversation summary if provided
+  if (conversationSummary?.trim()) {
+    prompt += `\n--- CONVERSATION SUMMARY ---\n${conversationSummary.trim()}\n--- END SUMMARY ---\n`;
+  }
+
   if (retrievedChunks.length > 0) {
     prompt += `\n--- VERIFIED KNOWLEDGE CONTEXT ---\n`;
     retrievedChunks.forEach((chunk, index) => {
@@ -47,3 +66,4 @@ export function buildRagSystemPrompt(params: BuildSystemPromptParams): string {
 
   return prompt;
 }
+

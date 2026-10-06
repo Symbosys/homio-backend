@@ -24,6 +24,7 @@ import {
   type InboundMessageJobData,
   type StatusUpdateJobData,
 } from "../../queues/webhook/whatsapp-webhook.queue.js";
+import { addAiReplyJob } from "../../queues/ai/ai-reply.queue.js";
 import type { MetaWebhookStatus } from "../../module/integration/types/index.js";
 
 /**
@@ -313,6 +314,39 @@ export async function processInboundMessage(data: InboundMessageJobData): Promis
   console.log(
     `[WhatsApp Worker] Successfully processed inbound message "${message.id}" for conversation "${conversation.id}" (Org: "${organizationId}")`,
   );
+
+  // =========================================================================
+  // STEP 6: CONDITIONAL AUTONOMOUS AI REPLY ENQUEUEING (3-SECOND DELAY)
+  // =========================================================================
+  if (conversation.handlingMode === ConversationHandlingMode.AI_AUTONOMOUS) {
+    try {
+      await addAiReplyJob(
+        {
+          organizationId,
+          conversationId: conversation.id,
+          incomingMessageId: createdMessage.id,
+          incomingMessageText: messageText,
+          senderPhone,
+          senderName: profileName,
+          leadId,
+          enqueuedAt: new Date().toISOString(),
+        },
+        3000, // 3-second delay
+      );
+      console.log(
+        `[WhatsApp Worker] Enqueued AI Reply job for conversation "${conversation.id}" (Delay: 3s, Mode: AI_AUTONOMOUS, Org: "${organizationId}")`,
+      );
+    } catch (err: any) {
+      console.error(
+        `[WhatsApp Worker] Failed to enqueue AI Reply job for conversation "${conversation.id}":`,
+        err.message,
+      );
+    }
+  } else {
+    console.log(
+      `[WhatsApp Worker] Conversation "${conversation.id}" handlingMode is "${conversation.handlingMode}". Skipping AI reply queue.`,
+    );
+  }
 }
 
 /**

@@ -170,6 +170,8 @@ export class RagService {
       organizationName,
       tone: options.systemTone,
       senderName: options.senderName,
+      toonContext: options.toonContext,
+      conversationSummary: options.conversationSummary,
       retrievedChunks: retrievedChunks.map((c) => ({
         sourceTitle: c.sourceTitle,
         sourceType: c.sourceType,
@@ -184,8 +186,8 @@ export class RagService {
 
     // Inject past conversation history if provided (e.g. from WhatsApp thread)
     if (options.chatHistory && options.chatHistory.length > 0) {
-      // Take up to the last 6 turns for conversational context without blowing token budget
-      const recentHistory = options.chatHistory.slice(-6);
+      // Take up to the last 4 turns for immediate conversational context (while relying on summary for long context)
+      const recentHistory = options.chatHistory.slice(-4);
       for (const turn of recentHistory) {
         if (turn.role === "user") {
           messages.push(new HumanMessage(turn.content));
@@ -235,7 +237,7 @@ export class RagService {
    *
    * @param organizationId - Tenant organization ID
    * @param incomingMessage - The text message sent by the lead/customer on WhatsApp
-   * @param options - Additional context (customer name, funnel ID, conversation history)
+   * @param options - Additional context (customer name, funnel ID, conversation history, TOON context, summary)
    * @returns Clean formatted WhatsApp response ready to be dispatched via Meta Cloud API
    */
   async generateWhatsAppReply(
@@ -246,6 +248,8 @@ export class RagService {
       leadFunnelId?: string;
       chatHistory?: ChatMessageTurn[];
       systemTone?: string;
+      toonContext?: string;
+      conversationSummary?: string;
     } = {},
   ): Promise<{
     text: string;
@@ -265,6 +269,7 @@ export class RagService {
       modelUsed: response.modelUsed,
     };
   }
+
 }
 
 export const ragService = new RagService();
