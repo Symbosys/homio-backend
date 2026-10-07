@@ -6,12 +6,14 @@ enum LeadStatus {
   NEW // Newly captured inquiry, pending assignment
   CONTACTED // First touchpoint attempted/done
   QUALIFIED // Requirements and budget validated
+  ONLINE_MEETING_SCHEDULED // Online consultation meeting scheduled
   SITE_VISIT_SCHEDULED // Site measurement scheduled
   SITE_VISIT_COMPLETED // Site visit completed
   PROPOSAL_SENT // Quotation / design estimate sent
   NEGOTIATION // Commercials or scope discussion
   WON // Converted to Client & active Project
   LOST // Lost / dropped
+  NOT_RESPONDING // Auto follow-up exhausted without response / dropped
   JUNK // Spam / invalid inquiry
 }
 
@@ -170,6 +172,8 @@ model Lead {
   channelPartnerPayouts ChannelPartnerPayout[] @relation("LeadChannelPartnerPayouts")
   quotations            Quotation[]            @relation("LeadQuotations")
   conversations         Conversation[]         @relation("LeadConversations")
+  followUpEnrollments   FollowUpEnrollment[]   @relation("LeadFollowUpEnrollments")
+  followUpExecutionLogs FollowUpExecutionLog[] @relation("LeadFollowUpExecutions")
 
   @@unique([organizationId, leadCode])
   @@index([organizationId])

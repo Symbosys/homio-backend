@@ -4,6 +4,8 @@ import { customerRepo } from "../repos/customer.repo.js";
 import { storageService } from "../../../lib/storage/storage.service.js";
 import { ErrorResponse } from "../../../utils/response.util.js";
 import { statusCode, type ImageType, Prisma } from "../../../types/types.js";
+import { leadFollowUpService } from "../../auto-followup/services/lead-followup.service.js";
+import { meetingFollowUpService } from "../../auto-followup/services/meeting-followup.service.js";
 import type {
   CreateMeetingInput,
   UpdateMeetingInput,
@@ -38,11 +40,29 @@ export class MeetingService {
 
     const meetingCode = await meetingRepo.generateMeetingCode(organizationId);
 
-    return meetingRepo.create(organizationId, {
+    const meeting = await meetingRepo.create(organizationId, {
       ...input,
       meetingCode,
       createdById,
     });
+
+    // Stop Lead No-Response Follow-Up sequence if associated with a lead
+    if (meeting.leadId) {
+      leadFollowUpService
+        .stopLeadFollowUp(organizationId, meeting.leadId, "Meeting scheduled")
+        .catch((err) =>
+          console.error(`[Auto Follow-Up] Error stopping lead follow-up for lead ${meeting.leadId}:`, err?.message || err),
+        );
+    }
+
+    // Auto-enroll scheduled meeting into Pre-Meeting Reminder sequence
+    meetingFollowUpService
+      .enrollMeeting(organizationId, meeting.id)
+      .catch((err) =>
+        console.error(`[Meeting Reminders] Error enrolling meeting ${meeting.id}:`, err?.message || err),
+      );
+
+    return meeting;
   }
 
   /**
@@ -79,7 +99,17 @@ export class MeetingService {
       throw new ErrorResponse("Meeting not found", statusCode.Not_Found);
     }
 
-    return meetingRepo.update(id, organizationId, input);
+    const updated = await meetingRepo.update(id, organizationId, input);
+
+    if (input.startTime || input.meetingDate) {
+      meetingFollowUpService
+        .onMeetingRescheduled(organizationId, id)
+        .catch((err) =>
+          console.error(`[Meeting Reminders] Error recalculating reminders for meeting ${id}:`, err?.message || err),
+        );
+    }
+
+    return updated;
   }
 
   /**
@@ -91,10 +121,26 @@ export class MeetingService {
       throw new ErrorResponse("Meeting not found", statusCode.Not_Found);
     }
 
-    return meetingRepo.update(id, organizationId, {
+    const updated = await meetingRepo.update(id, organizationId, {
       status: input.status,
       cancellationReason: input.cancellationReason || null,
     });
+
+    if (input.status === "CANCELLED") {
+      meetingFollowUpService
+        .onMeetingCancelled(organizationId, id, input.cancellationReason || "Meeting cancelled")
+        .catch((err) =>
+          console.error(`[Meeting Reminders] Error cancelling reminders for meeting ${id}:`, err?.message || err),
+        );
+    } else if (input.status === "RESCHEDULED") {
+      meetingFollowUpService
+        .onMeetingRescheduled(organizationId, id)
+        .catch((err) =>
+          console.error(`[Meeting Reminders] Error recalculating reminders for meeting ${id}:`, err?.message || err),
+        );
+    }
+
+    return updated;
   }
 
   /**
@@ -106,7 +152,7 @@ export class MeetingService {
       throw new ErrorResponse("Meeting not found", statusCode.Not_Found);
     }
 
-    return meetingRepo.update(id, organizationId, {
+    const updated = await meetingRepo.update(id, organizationId, {
       meetingDate: input.meetingDate,
       startTime: input.startTime,
       endTime: input.endTime,
@@ -116,6 +162,14 @@ export class MeetingService {
         ? `${existing.description || ""}\n[Reschedule Reason]: ${input.reason}`.trim()
         : existing.description,
     });
+
+    meetingFollowUpService
+      .onMeetingRescheduled(organizationId, id)
+      .catch((err) =>
+        console.error(`[Meeting Reminders] Error recalculating reminders for rescheduled meeting ${id}:`, err?.message || err),
+      );
+
+    return updated;
   }
 
   /**

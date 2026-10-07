@@ -82,8 +82,11 @@ model WhatsAppMessageTemplate {
   buttons        Json?        @map("buttons") // Array of WhatsAppTemplateButton configurations
 
   // Dedicated Relational Variable Mappings Table
-  variables      WhatsAppTemplateVariable[] @relation("TemplateVariables")
-  chatMessages   ChatMessage[]              @relation("TemplateChatMessages")
+  variables             WhatsAppTemplateVariable[] @relation("TemplateVariables")
+  chatMessages          ChatMessage[]              @relation("TemplateChatMessages")
+  leadFollowUpSteps     LeadFollowUpStep[]         @relation("TemplateLeadFollowUpSteps")
+  meetingFollowUpSteps  MeetingFollowUpStep[]      @relation("TemplateMeetingFollowUpSteps")
+  followUpExecutionLogs FollowUpExecutionLog[]     @relation("TemplateFollowUpExecutionLogs")
 
   // Meta Quality & Diagnostics
   qualityRating  String?      @map("quality_rating") // GREEN, YELLOW, RED, UNKNOWN

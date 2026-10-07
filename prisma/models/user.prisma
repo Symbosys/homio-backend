@@ -89,6 +89,7 @@ model User {
   createdProjectTimelines   ProjectTimeline[]       @relation("UserProjectTimelineCreated")
   createdProducts           Product[]               @relation("ProductCreatedBy")
   leadFunnelTransitions     LeadFunnelTransition[]  @relation("LeadFunnelTransitionChangedBy")
+  createdFollowUpConfigs    OrgFollowUpConfig[]     @relation("UserCreatedFollowUpConfigs")
 
   @@index([organizationId])
   @@index([email])

@@ -1,0 +1,257 @@
+// ==========================================
+// AUTO FOLLOW-UP ENUMS
+// ==========================================
+
+enum FollowUpConfigType {
+  LEAD_NO_RESPONSE
+  MEETING_REMINDER
+}
+
+enum FollowUpIntervalUnit {
+  DAYS_BEFORE
+  HOURS_BEFORE
+  MINUTES_BEFORE
+}
+
+enum FollowUpEnrollmentStatus {
+  ACTIVE
+  PAUSED
+  STOPPED_MEETING_BOOKED
+  STOPPED_CANCELLED
+  COMPLETED
+  FAILED
+}
+
+enum FollowUpExecutionStatus {
+  SCHEDULED
+  DISPATCHED
+  SKIPPED
+  FAILED
+  CANCELLED
+}
+
+// ==========================================
+// ORGANIZATION FOLLOW-UP CONFIGURATION MODEL
+// ==========================================
+
+model OrgFollowUpConfig {
+  id             String             @id @default(uuid()) @db.Uuid
+  organizationId String             @map("organization_id") @db.Uuid
+  organization   Organization       @relation("OrganizationFollowUpConfigs", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  type           FollowUpConfigType @map("type")
+  name           String             @map("name")
+  description    String?            @map("description")
+  isActive       Boolean            @default(true) @map("is_active")
+  isDefault      Boolean            @default(false) @map("is_default")
+
+  // For day-based offsets: Preferred time to dispatch messages (e.g. "10:00" = 10:00 AM)
+  preferredSendTime String          @default("10:00") @map("preferred_send_time")
+
+  // For MEETING_REMINDER: Applicable meeting types (empty means all types)
+  meetingTypes      MeetingType[]   @default([]) @map("meeting_types")
+
+  // Universal Additional Information (Rule 18)
+  additionalInformation Json?       @map("additional_information")
+
+  // Created By
+  createdById    String?            @map("created_by_id") @db.Uuid
+  createdBy      User?              @relation("UserCreatedFollowUpConfigs", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  // Relations
+  leadSteps      LeadFollowUpStep[]    @relation("ConfigLeadFollowUpSteps")
+  meetingSteps   MeetingFollowUpStep[] @relation("ConfigMeetingFollowUpSteps")
+  enrollments    FollowUpEnrollment[]  @relation("ConfigFollowUpEnrollments")
+
+  @@index([organizationId, type])
+  @@index([organizationId, isActive])
+  @@index([organizationId, isDefault])
+  @@map("org_follow_up_configs")
+}
+
+// ==========================================
+// LEAD FOLLOW-UP STEP MODEL
+// ==========================================
+
+model LeadFollowUpStep {
+  id             String                  @id @default(uuid()) @db.Uuid
+  configId       String                  @map("config_id") @db.Uuid
+  config         OrgFollowUpConfig       @relation("ConfigLeadFollowUpSteps", fields: [configId], references: [id], onDelete: Cascade)
+
+  organizationId String                  @map("organization_id") @db.Uuid
+  organization   Organization            @relation("OrganizationLeadFollowUpSteps", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  stepOrder      Int                     @map("step_order") // 1, 2, 3...
+  dayOffset      Int                     @map("day_offset") // 1 (Day 1), 3 (Day 3), 4 (Day 4), 7 (Day 7)
+  channel        CommunicationChannel    @default(WHATSAPP) @map("channel")
+
+  // Template Link
+  templateId     String?                 @map("template_id") @db.Uuid
+  template       WhatsAppMessageTemplate? @relation("TemplateLeadFollowUpSteps", fields: [templateId], references: [id], onDelete: SetNull)
+
+  // Custom Variable Overrides / Extra mappings
+  customVariables Json?                  @map("custom_variables")
+
+  isFinalStep    Boolean                 @default(false) @map("is_final_step")
+  isActive       Boolean                 @default(true) @map("is_active")
+
+  // Universal Additional Information (Rule 18)
+  additionalInformation Json?            @map("additional_information")
+
+  createdAt      DateTime                @default(now()) @map("created_at")
+  updatedAt      DateTime                @updatedAt @map("updated_at")
+
+  // Relations
+  executionLogs  FollowUpExecutionLog[]  @relation("LeadStepExecutionLogs")
+
+  @@unique([configId, stepOrder])
+  @@index([organizationId])
+  @@index([configId, dayOffset])
+  @@map("lead_follow_up_steps")
+}
+
+// ==========================================
+// MEETING FOLLOW-UP STEP MODEL
+// ==========================================
+
+model MeetingFollowUpStep {
+  id                        String                  @id @default(uuid()) @db.Uuid
+  configId                  String                  @map("config_id") @db.Uuid
+  config                    OrgFollowUpConfig       @relation("ConfigMeetingFollowUpSteps", fields: [configId], references: [id], onDelete: Cascade)
+
+  organizationId            String                  @map("organization_id") @db.Uuid
+  organization              Organization            @relation("OrganizationMeetingFollowUpSteps", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  stepOrder                 Int                     @map("step_order") // 1, 2, 3...
+  intervalUnit              FollowUpIntervalUnit    @default(HOURS_BEFORE) @map("interval_unit") // DAYS_BEFORE, HOURS_BEFORE, MINUTES_BEFORE
+  intervalValue             Int                     @map("interval_value") // 7 (Days), 3 (Days), 24 (Hours), 5 (Hours), 1 (Hour), 15 (Minutes)
+  channel                   CommunicationChannel    @default(WHATSAPP) @map("channel")
+
+  // Template Link
+  templateId                String?                 @map("template_id") @db.Uuid
+  template                  WhatsAppMessageTemplate? @relation("TemplateMeetingFollowUpSteps", fields: [templateId], references: [id], onDelete: SetNull)
+
+  // Dynamic Relative Time Variable Format (e.g., "in {count} days", "in {count} hours", "in {count} minutes")
+  dynamicTimeVariableFormat String?                 @map("dynamic_time_variable_format")
+
+  // Custom Variable Overrides / Extra mappings
+  customVariables           Json?                   @map("custom_variables")
+
+  isActive                  Boolean                 @default(true) @map("is_active")
+
+  // Universal Additional Information (Rule 18)
+  additionalInformation     Json?                   @map("additional_information")
+
+  createdAt                 DateTime                @default(now()) @map("created_at")
+  updatedAt                 DateTime                @updatedAt @map("updated_at")
+
+  // Relations
+  executionLogs             FollowUpExecutionLog[]  @relation("MeetingStepExecutionLogs")
+
+  @@unique([configId, stepOrder])
+  @@index([organizationId])
+  @@index([configId, intervalUnit, intervalValue])
+  @@map("meeting_follow_up_steps")
+}
+
+// ==========================================
+// FOLLOW-UP ENROLLMENT MODEL
+// ==========================================
+
+model FollowUpEnrollment {
+  id               String                   @id @default(uuid()) @db.Uuid
+  organizationId   String                   @map("organization_id") @db.Uuid
+  organization     Organization             @relation("OrganizationFollowUpEnrollments", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  configId         String                   @map("config_id") @db.Uuid
+  config           OrgFollowUpConfig        @relation("ConfigFollowUpEnrollments", fields: [configId], references: [id], onDelete: Cascade)
+
+  // Target Association (Lead or Meeting)
+  leadId           String?                  @map("lead_id") @db.Uuid
+  lead             Lead?                    @relation("LeadFollowUpEnrollments", fields: [leadId], references: [id], onDelete: Cascade)
+
+  meetingId        String?                  @map("meeting_id") @db.Uuid
+  meeting          Meeting?                 @relation("MeetingFollowUpEnrollments", fields: [meetingId], references: [id], onDelete: Cascade)
+
+  status           FollowUpEnrollmentStatus @default(ACTIVE) @map("status")
+  currentStepIndex Int                      @default(0) @map("current_step_index")
+  totalSteps       Int                      @default(0) @map("total_steps")
+
+  nextExecutionAt  DateTime?                @map("next_execution_at")
+  lastExecutedAt   DateTime?                @map("last_executed_at")
+
+  stopReason       String?                  @map("stop_reason")
+  stoppedAt        DateTime?                @map("stopped_at")
+
+  metadata         Json?                    @map("metadata")
+
+  // Universal Additional Information (Rule 18)
+  additionalInformation Json?               @map("additional_information")
+
+  createdAt        DateTime                 @default(now()) @map("created_at")
+  updatedAt        DateTime                 @updatedAt @map("updated_at")
+
+  // Relations
+  executionLogs    FollowUpExecutionLog[]   @relation("EnrollmentExecutionLogs")
+
+  @@index([organizationId, status])
+  @@index([organizationId, leadId])
+  @@index([organizationId, meetingId])
+  @@index([status, nextExecutionAt])
+  @@map("follow_up_enrollments")
+}
+
+// ==========================================
+// FOLLOW-UP EXECUTION LOG MODEL
+// ==========================================
+
+model FollowUpExecutionLog {
+  id                    String                  @id @default(uuid()) @db.Uuid
+  organizationId        String                  @map("organization_id") @db.Uuid
+  organization          Organization            @relation("OrganizationFollowUpExecutionLogs", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  enrollmentId          String                  @map("enrollment_id") @db.Uuid
+  enrollment            FollowUpEnrollment      @relation("EnrollmentExecutionLogs", fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  leadStepId            String?                 @map("lead_step_id") @db.Uuid
+  leadStep              LeadFollowUpStep?       @relation("LeadStepExecutionLogs", fields: [leadStepId], references: [id], onDelete: SetNull)
+
+  meetingStepId         String?                 @map("meeting_step_id") @db.Uuid
+  meetingStep           MeetingFollowUpStep?    @relation("MeetingStepExecutionLogs", fields: [meetingStepId], references: [id], onDelete: SetNull)
+
+  leadId                String?                 @map("lead_id") @db.Uuid
+  lead                  Lead?                   @relation("LeadFollowUpExecutions", fields: [leadId], references: [id], onDelete: SetNull)
+
+  meetingId             String?                 @map("meeting_id") @db.Uuid
+  meeting               Meeting?                @relation("MeetingFollowUpExecutions", fields: [meetingId], references: [id], onDelete: SetNull)
+
+  templateId            String?                 @map("template_id") @db.Uuid
+  template              WhatsAppMessageTemplate? @relation("TemplateFollowUpExecutionLogs", fields: [templateId], references: [id], onDelete: SetNull)
+
+  chatMessageId         String?                 @map("chat_message_id") @db.Uuid
+  chatMessage           ChatMessage?            @relation("ChatMessageFollowUpExecutions", fields: [chatMessageId], references: [id], onDelete: SetNull)
+
+  status                FollowUpExecutionStatus @default(SCHEDULED) @map("status")
+  scheduledFor          DateTime                @map("scheduled_for")
+  executedAt            DateTime?               @map("executed_at")
+
+  renderedVariables     Json?                   @map("rendered_variables")
+  errorMessage          String?                 @map("error_message")
+  retryCount            Int                     @default(0) @map("retry_count")
+
+  // Universal Additional Information (Rule 18)
+  additionalInformation Json?                   @map("additional_information")
+
+  createdAt             DateTime                @default(now()) @map("created_at")
+  updatedAt             DateTime                @updatedAt @map("updated_at")
+
+  @@index([organizationId, status])
+  @@index([enrollmentId])
+  @@index([scheduledFor, status])
+  @@index([leadId])
+  @@index([meetingId])
+  @@map("follow_up_execution_logs")
+}

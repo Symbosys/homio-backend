@@ -114,8 +114,10 @@ model Meeting {
   updatedAt DateTime  @updatedAt @map("updated_at")
 
   // Relations
-  attendees MeetingAttendee[] @relation("MeetingAttendees")
-  documents MeetingDocument[] @relation("MeetingDocuments")
+  attendees             MeetingAttendee[]      @relation("MeetingAttendees")
+  documents             MeetingDocument[]      @relation("MeetingDocuments")
+  followUpEnrollments   FollowUpEnrollment[]   @relation("MeetingFollowUpEnrollments")
+  followUpExecutionLogs FollowUpExecutionLog[] @relation("MeetingFollowUpExecutions")
 
   @@unique([organizationId, meetingCode])
   @@index([organizationId])

@@ -4,6 +4,7 @@ import { customerRepo } from "../repos/customer.repo.js";
 import { userRepo } from "../../user/repos/user.repo.js";
 import { ErrorResponse } from "../../../utils/response.util.js";
 import { statusCode, Prisma } from "../../../types/types.js";
+import { leadFollowUpService } from "../../auto-followup/services/lead-followup.service.js";
 import type {
   CreateLeadInput,
   UpdateLeadInput,
@@ -26,7 +27,7 @@ export class LeadService {
     input: CreateLeadInput,
     userId?: string,
   ) {
-    return prisma.$transaction(async (tx) => {
+    const createdLead = await prisma.$transaction(async (tx) => {
       let resolvedCustomerId: string;
       let inquiryNumber = 1;
 
@@ -244,6 +245,15 @@ export class LeadService {
 
       return lead;
     });
+
+    // Auto-enroll new lead in active/default follow-up sequence
+    leadFollowUpService
+      .enrollLead(organizationId, createdLead.id)
+      .catch((err) =>
+        console.error(`[Lead Auto Follow-Up] Error enrolling lead ${createdLead.id}:`, err?.message || err),
+      );
+
+    return createdLead;
   }
 
   /**

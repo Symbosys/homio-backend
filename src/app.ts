@@ -37,6 +37,7 @@ import integrationRouter from "./module/integration/routes/index.js";
 import llmPlatformRoutes from "./module/integration/routes/llm-platform.routes.js";
 import communicationRouter from "./module/communication/routes/index.js";
 import aiTrainingRouter from "./module/ai-training/routes/ai-training.routes.js";
+import autoFollowUpRoutes from "./module/auto-followup/routes/auto-followup.routes.js";
 
 const app = express();
 
@@ -182,6 +183,11 @@ app.use("/api/v1/ai-studio/vastu", vastuAuditRouter);
  * AI Training & Knowledge Studio Module Routes (Tenant BYOK RAG & Vector Embeddings)
  */
 app.use("/api/v1/ai-training", aiTrainingRouter);
+
+/**
+ * Enterprise Auto Follow-Up & Reminder Engine Module Routes
+ */
+app.use("/api/v1/auto-followup", autoFollowUpRoutes);
 
 app.use(errorMiddleware);
 

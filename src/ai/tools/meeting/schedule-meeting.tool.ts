@@ -7,6 +7,8 @@ import {
   MeetingType,
   Prisma,
 } from "../../../types/types.js";
+import { leadFollowUpService } from "../../../module/auto-followup/services/lead-followup.service.js";
+import { meetingFollowUpService } from "../../../module/auto-followup/services/meeting-followup.service.js";
 
 /**
  * Contextual metadata injected when creating the tool instance for a specific tenant conversation.
@@ -447,6 +449,28 @@ export function createScheduleMeetingTool(context: MeetingToolContext) {
             console.warn("[Tool:schedule_meeting] Lead status/activity note:", leadUpdateErr?.message);
           }
         }
+      }
+
+      // 4. Trigger Auto Follow-Up Lifecycle Integrations
+      if (isUpdated) {
+        meetingFollowUpService
+          .onMeetingRescheduled(organizationId, meeting.id)
+          .catch((err) =>
+            console.error(`[AI Meeting Tool] Error recalculating reminders for meeting ${meeting.id}:`, err?.message || err),
+          );
+      } else {
+        if (targetLeadId) {
+          leadFollowUpService
+            .stopLeadFollowUp(organizationId, targetLeadId, "Meeting scheduled via AI assistant")
+            .catch((err) =>
+              console.error(`[AI Meeting Tool] Error stopping lead follow-up for lead ${targetLeadId}:`, err?.message || err),
+            );
+        }
+        meetingFollowUpService
+          .enrollMeeting(organizationId, meeting.id)
+          .catch((err) =>
+            console.error(`[AI Meeting Tool] Error enrolling meeting ${meeting.id}:`, err?.message || err),
+          );
       }
 
       const formattedDate = startTime.toLocaleDateString("en-IN", {

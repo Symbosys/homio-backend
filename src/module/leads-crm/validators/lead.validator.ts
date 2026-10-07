@@ -1,45 +1,17 @@
 import { z } from "zod";
-import { LeadLostReason } from "../../../types/types.js";
+import {
+  LeadLostReason,
+  LeadStatus,
+  LeadSource,
+  LeadPriority,
+  LeadProjectType,
+} from "../../../types/types.js";
 
 export const LeadLostReasonEnum = z.nativeEnum(LeadLostReason);
-
-// Enums matching schema
-export const LeadStatusEnum = z.enum([
-  "NEW",
-  "CONTACTED",
-  "QUALIFIED",
-  "SITE_VISIT_SCHEDULED",
-  "SITE_VISIT_COMPLETED",
-  "PROPOSAL_SENT",
-  "NEGOTIATION",
-  "WON",
-  "LOST",
-  "JUNK",
-]);
-
-export const LeadSourceEnum = z.enum([
-  "WEBSITE",
-  "META_ADS",
-  "GOOGLE_ADS",
-  "INSTAGRAM",
-  "WALK_IN",
-  "PHONE_INQUIRY",
-  "PROPERTY_PORTAL",
-  "CHANNEL_PARTNER",
-  "EXHIBITION",
-  "OFFLINE_CAMPAIGN",
-  "OTHER",
-]);
-
-export const LeadPriorityEnum = z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]);
-
-export const LeadProjectTypeEnum = z.enum([
-  "RESIDENTIAL",
-  "COMMERCIAL",
-  "PLANNING_2D",
-  "RENOVATION",
-  "OTHER",
-]);
+export const LeadStatusEnum = z.nativeEnum(LeadStatus);
+export const LeadSourceEnum = z.nativeEnum(LeadSource);
+export const LeadPriorityEnum = z.nativeEnum(LeadPriority);
+export const LeadProjectTypeEnum = z.nativeEnum(LeadProjectType);
 
 export const leadIdParamSchema = z.object({
   params: z.object({

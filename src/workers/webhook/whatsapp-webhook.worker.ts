@@ -214,7 +214,7 @@ export async function processInboundMessage(data: InboundMessageJobData): Promis
   let isNewConversation = false;
 
   if (!conversation) {
-    conversation = await conversationRepo.create(organizationId, {
+    conversation = (await conversationRepo.create(organizationId, {
       channel: CommunicationChannel.WHATSAPP,
       status: ConversationStatus.OPEN,
       priority: "NORMAL",
@@ -228,7 +228,7 @@ export async function processInboundMessage(data: InboundMessageJobData): Promis
       lastMessageAt: new Date(),
       lastMessageDirection: MessageDirection.INCOMING,
       tags: ["WhatsApp Inbound"],
-    });
+    })) as any;
     isNewConversation = true;
   } else {
     if (!conversation.leadId) {
@@ -236,6 +236,11 @@ export async function processInboundMessage(data: InboundMessageJobData): Promis
         lead: { connect: { id: leadId } },
       });
     }
+  }
+
+  if (!conversation) {
+    console.error("[WhatsApp Webhook] Could not find or create conversation thread.");
+    return;
   }
 
   // =========================================================================

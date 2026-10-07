@@ -130,6 +130,11 @@ model Organization {
   aiGuardrailConfig          AiGuardrailConfig?               @relation("OrganizationAiGuardrailConfig")
   aiTrainingVersions         AiTrainingVersion[]              @relation("OrganizationAiTrainingVersions")
   googleCalendarIntegration  GoogleCalendarIntegration?       @relation("OrganizationGoogleCalendarIntegration")
+  followUpConfigs            OrgFollowUpConfig[]              @relation("OrganizationFollowUpConfigs")
+  leadFollowUpSteps          LeadFollowUpStep[]               @relation("OrganizationLeadFollowUpSteps")
+  meetingFollowUpSteps       MeetingFollowUpStep[]            @relation("OrganizationMeetingFollowUpSteps")
+  followUpEnrollments        FollowUpEnrollment[]             @relation("OrganizationFollowUpEnrollments")
+  followUpExecutionLogs      FollowUpExecutionLog[]           @relation("OrganizationFollowUpExecutionLogs")
 
   @@index([slug])
   @@index([status])

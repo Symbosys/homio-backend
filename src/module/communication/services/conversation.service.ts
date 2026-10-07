@@ -391,7 +391,7 @@ export class ConversationService {
       }
 
       // 3. Create the Conversation Thread
-      conversation = await conversationRepo.create(organizationId, {
+      conversation = (await conversationRepo.create(organizationId, {
         channel: input.channel,
         status: ConversationStatus.OPEN,
         priority: "NORMAL",
@@ -400,7 +400,7 @@ export class ConversationService {
         recipientPhone: formattedPhone,
         recipientEmail: input.recipientEmail,
         recipientName: input.recipientName,
-        leadId,
+        leadId: leadId!,
         projectId: input.projectId,
         assignedEmployeeId: input.assignedEmployeeId,
         assignedTeamId: input.assignedTeamId,
@@ -409,13 +409,17 @@ export class ConversationService {
         lastMessageAt: new Date(),
         lastMessageDirection: MessageDirection.OUTGOING,
         additionalInformation: input.additionalInformation as any,
-      });
+      })) as any;
 
       wsService.broadcastToOrganization(
         organizationId,
         WebSocketEventType.CONVERSATION_CREATED,
         conversation,
       );
+    }
+
+    if (!conversation) {
+      throw new ErrorResponse("Conversation thread could not be established", statusCode.Internal_Server_Error);
     }
 
     // 4. Dispatch the initial message using sendReply

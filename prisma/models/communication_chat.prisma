@@ -186,7 +186,8 @@ model ChatMessage {
   metadata              Json? @map("metadata")
   additionalInformation Json? @map("additional_information")
 
-  llmUsage OrganizationLlmUsage? @relation("ChatMessageLlmUsage")
+  llmUsage              OrganizationLlmUsage?  @relation("ChatMessageLlmUsage")
+  followUpExecutionLogs FollowUpExecutionLog[] @relation("ChatMessageFollowUpExecutions")
 
   // Timestamps
   createdAt DateTime @default(now()) @map("created_at")

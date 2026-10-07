@@ -2,6 +2,7 @@ import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { prisma } from "../../../lib/prisma.js";
 import { MeetingStatus, MeetingType, Prisma } from "../../../types/types.js";
+import { meetingFollowUpService } from "../../../module/auto-followup/services/meeting-followup.service.js";
 import type { MeetingToolContext } from "./schedule-meeting.tool.js";
 
 /**
@@ -244,6 +245,13 @@ export function createUpdateMeetingTool(context: MeetingToolContext) {
         where: { id: meeting.id },
         data,
       });
+
+      // Recalculate pre-meeting reminder sequence
+      meetingFollowUpService
+        .onMeetingRescheduled(organizationId, updated.id)
+        .catch((err) =>
+          console.error(`[AI Update Meeting Tool] Error recalculating reminders for meeting ${updated.id}:`, err?.message || err),
+        );
 
       const formattedDate = startTime.toLocaleDateString("en-IN", {
         weekday: "short",
