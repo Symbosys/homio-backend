@@ -38,6 +38,7 @@ import llmPlatformRoutes from "./module/integration/routes/llm-platform.routes.j
 import communicationRouter from "./module/communication/routes/index.js";
 import aiTrainingRouter from "./module/ai-training/routes/ai-training.routes.js";
 import autoFollowUpRoutes from "./module/auto-followup/routes/auto-followup.routes.js";
+import reportsRouter from "./module/reports/routes/index.js";
 
 const app = express();
 
@@ -188,6 +189,11 @@ app.use("/api/v1/ai-training", aiTrainingRouter);
  * Enterprise Auto Follow-Up & Reminder Engine Module Routes
  */
 app.use("/api/v1/auto-followup", autoFollowUpRoutes);
+
+/**
+ * Reports & Analytics Module Routes (Lead Performance, Conversions, Top Performers)
+ */
+app.use("/api/v1/reports", reportsRouter);
 
 app.use(errorMiddleware);
 
