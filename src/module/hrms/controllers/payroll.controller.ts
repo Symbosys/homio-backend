@@ -192,3 +192,23 @@ export const uploadPayslipPdf = asyncHandler(async (req, res) => {
   const result = await payrollService.uploadPayslipPdf(params.id, organizationId, file);
   return SuccessResponse(res, result.message, result.payslipPdf, statusCode.OK);
 });
+
+/**
+ * Controller: Get attendance-based salary calculation breakdown for a payroll record
+ */
+export const getRecordAttendanceCalculation = asyncHandler(async (req, res) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new ErrorResponse("Organization context missing", statusCode.Forbidden);
+  }
+
+  const { params } = payrollRecordIdParamSchema.parse({ params: req.params });
+  const result = await payrollService.getRecordAttendanceCalculation(params.id, organizationId);
+
+  return SuccessResponse(
+    res,
+    "Attendance-based salary calculation retrieved successfully",
+    result,
+    statusCode.OK
+  );
+});

@@ -63,6 +63,12 @@ router.get("/records", payrollController.getAllPayrollRecords);
 router.get("/records/:id", payrollController.getPayrollRecordById);
 
 /**
+ * @route   GET /api/v1/hrms/payroll/records/:id/attendance-calculation
+ * @desc    Get day-by-day attendance log and pro-rated salary calculation breakdown
+ */
+router.get("/records/:id/attendance-calculation", payrollController.getRecordAttendanceCalculation);
+
+/**
  * @route   PATCH /api/v1/hrms/payroll/records/:id
  * @desc    Manually adjust bonus, reimbursement, or deduction line items on individual payslip
  */
