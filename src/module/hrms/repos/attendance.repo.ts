@@ -178,8 +178,8 @@ export class AttendanceRepository {
       ...(startDate &&
         endDate && {
           attendanceDate: {
-            gte: new Date(startDate),
-            lte: new Date(endDate),
+            gte: new Date(`${startDate.split("T")[0]}T00:00:00.000Z`),
+            lte: new Date(`${endDate.split("T")[0]}T23:59:59.999Z`),
           },
         }),
       ...(departmentId && {
@@ -256,13 +256,12 @@ export class AttendanceRepository {
       employeeId,
       organizationId,
       ...(status && { status }),
-      ...(startDate &&
-        endDate && {
-          attendanceDate: {
-            gte: new Date(startDate),
-            lte: new Date(endDate),
-          },
-        }),
+      ...((startDate || endDate) && {
+        attendanceDate: {
+          ...(startDate && { gte: new Date(`${startDate.split("T")[0]}T00:00:00.000Z`) }),
+          ...(endDate && { lte: new Date(`${endDate.split("T")[0]}T23:59:59.999Z`) }),
+        },
+      }),
     };
 
     const [attendances, total] = await Promise.all([
