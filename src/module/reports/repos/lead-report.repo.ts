@@ -90,6 +90,8 @@ export class LeadReportRepository {
         assignedToId: true,
         assignedAt: true,
         convertedAt: true,
+        lostReason: true,
+        lostRemarks: true,
         createdAt: true,
         assignedTo: {
           select: {
@@ -163,6 +165,7 @@ export class LeadReportRepository {
 
     const statusCounts: Record<string, number> = {};
     const sourceCounts: Record<string, { total: number; converted: number; wonRevenue: number }> = {};
+    const lostReasonCounts: Record<string, { count: number; revenue: number }> = {};
     const timeSeriesMap: Record<
       string,
       { period: string; totalLeads: number; convertedLeads: number; lostLeads: number; revenue: number }
@@ -237,6 +240,15 @@ export class LeadReportRepository {
 
       // Status distribution
       statusCounts[lead.status] = (statusCounts[lead.status] || 0) + 1;
+
+      // Lost Reason distribution
+      if (isLost || lead.status === "LOST" || Boolean(lead.lostReason)) {
+        const rKey = lead.lostReason || "UNSPECIFIED";
+        const currentReason = lostReasonCounts[rKey] || { count: 0, revenue: 0 };
+        currentReason.count += 1;
+        currentReason.revenue += budgetNum;
+        lostReasonCounts[rKey] = currentReason;
+      }
 
       // Source distribution
       const currentSource = sourceCounts[lead.source] || { total: 0, converted: 0, wonRevenue: 0 };
@@ -356,6 +368,24 @@ export class LeadReportRepository {
       wonRevenue: item.wonRevenue,
     }));
 
+    // Format lost reason distribution
+    const totalLostForDistribution =
+      totalLost > 0
+        ? totalLost
+        : Object.values(lostReasonCounts).reduce((acc, v) => acc + v.count, 0);
+
+    const lostReasonDistribution = Object.entries(lostReasonCounts)
+      .map(([reason, val]) => ({
+        reason,
+        count: val.count,
+        percentage:
+          totalLostForDistribution > 0
+            ? Math.round((val.count / totalLostForDistribution) * 10000) / 100
+            : 0,
+        revenue: val.revenue,
+      }))
+      .sort((a, b) => b.count - a.count);
+
     // Format time series list
     const timeSeries = Object.values(timeSeriesMap)
       .sort((a, b) => a.period.localeCompare(b.period))
@@ -388,6 +418,7 @@ export class LeadReportRepository {
       timeSeries,
       statusDistribution,
       sourceDistribution,
+      lostReasonDistribution,
     };
   }
 
