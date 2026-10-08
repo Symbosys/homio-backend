@@ -165,24 +165,69 @@ export class TaskService {
   }
 
   /**
+   * Helper: Resolve employee entity for current user or throw (HRMS Standard)
+   */
+  private async resolveEmployeeForUser(userId: string, organizationId: string) {
+    const employee = await prisma.employee.findFirst({
+      where: {
+        userId,
+        organizationId,
+        isDeleted: false,
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        employeeCode: true,
+        designation: true,
+        workEmail: true,
+      },
+    });
+
+    if (!employee) {
+      throw new ErrorResponse(
+        "You are not assigned to this task. No active employee profile linked to your user account.",
+        statusCode.Forbidden
+      );
+    }
+
+    return employee;
+  }
+
+  /**
    * Reviewer decision: APPROVE (marks COMPLETED) or REWORK (marks RE_WORK with feedback)
+   * ONLY the designated task reviewer can review
    */
   async reviewTaskDecision(
     organizationId: string,
     id: string,
     input: ReviewTaskDecisionInput,
-    reviewerEmployeeId?: string
+    reviewerEmployeeId?: string,
+    userId?: string
   ) {
     const existingTask = await this.repo.findById(organizationId, id);
     if (!existingTask) {
       throw new ErrorResponse("Task not found", statusCode.Not_Found);
     }
 
+    let resolvedEmployeeId = reviewerEmployeeId;
+    if (userId) {
+      const employee = await this.resolveEmployeeForUser(userId, organizationId);
+      resolvedEmployeeId = employee.id;
+    }
+
+    if (!existingTask.reviewerId || !resolvedEmployeeId || existingTask.reviewerId !== resolvedEmployeeId) {
+      throw new ErrorResponse(
+        "You are not assigned to review this task. Only the designated task reviewer can review this task.",
+        statusCode.Forbidden
+      );
+    }
+
     const isApproved = input.decision === "APPROVE";
 
     const updatedTask = await this.repo.update(organizationId, id, {
       status: isApproved ? TaskStatus.COMPLETED : TaskStatus.RE_WORK,
-      reviewerId: reviewerEmployeeId || existingTask.reviewerId,
+      reviewerId: resolvedEmployeeId,
       reviewedAt: new Date(),
       completedAt: isApproved ? new Date() : null,
       reviewRemarks: input.remarks || (isApproved ? "Approved by reviewer" : "Rework requested"),

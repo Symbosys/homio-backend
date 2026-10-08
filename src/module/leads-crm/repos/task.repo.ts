@@ -33,6 +33,7 @@ export class TaskRepository {
       tags,
       customFields,
       additionalInformation,
+      milestoneId,
       ...directFields
     } = data;
 
@@ -64,7 +65,7 @@ export class TaskRepository {
         ...(checklistItems && checklistItems.length > 0
           ? {
               checklistItems: {
-                create: checklistItems.map((item, idx) => ({
+                create: checklistItems.map((item: AddChecklistItemInput, idx: number) => ({
                   organizationId,
                   title: item.title,
                   sortOrder: item.sortOrder ?? idx,
@@ -81,6 +82,16 @@ export class TaskRepository {
             firstName: true,
             lastName: true,
             designation: true,
+          },
+        },
+        reviewer: {
+          select: {
+            id: true,
+            employeeCode: true,
+            firstName: true,
+            lastName: true,
+            designation: true,
+            workEmail: true,
           },
         },
         approvedBy: {
@@ -125,6 +136,16 @@ export class TaskRepository {
       },
       include: {
         assignedTo: {
+          select: {
+            id: true,
+            employeeCode: true,
+            firstName: true,
+            lastName: true,
+            designation: true,
+            workEmail: true,
+          },
+        },
+        reviewer: {
           select: {
             id: true,
             employeeCode: true,
@@ -231,6 +252,7 @@ export class TaskRepository {
       projectId,
       employeeId,
       assignedToId,
+      reviewerId,
       fromDueDate,
       toDueDate,
       fromDate,
@@ -254,6 +276,7 @@ export class TaskRepository {
       ...(type ? { type } : {}),
       ...(leadId ? { leadId } : {}),
       ...(projectId ? { projectId } : {}),
+      ...(reviewerId ? { reviewerId } : {}),
       ...(effectiveEmployeeId
         ? {
             OR: [
@@ -311,6 +334,16 @@ export class TaskRepository {
               designation: true,
             },
           },
+          reviewer: {
+            select: {
+              id: true,
+              employeeCode: true,
+              firstName: true,
+              lastName: true,
+              designation: true,
+              workEmail: true,
+            },
+          },
           assignees: {
             include: {
               employee: {
@@ -361,7 +394,7 @@ export class TaskRepository {
    * Kanban Board grouping by status
    */
   async getKanban(organizationId: string, query: GetTaskKanbanQueryInput) {
-    const { search, priority, type, leadId, projectId, employeeId, assignedToId } = query;
+    const { search, priority, type, leadId, projectId, employeeId, assignedToId, reviewerId } = query;
     const effectiveEmployeeId = employeeId || assignedToId;
 
     const where: Prisma.TaskWhereInput = {
@@ -371,6 +404,7 @@ export class TaskRepository {
       ...(type ? { type } : {}),
       ...(leadId ? { leadId } : {}),
       ...(projectId ? { projectId } : {}),
+      ...(reviewerId ? { reviewerId } : {}),
       ...(effectiveEmployeeId
         ? {
             OR: [
@@ -393,6 +427,23 @@ export class TaskRepository {
       where,
       orderBy: { dueDate: "asc" },
       include: {
+        assignedTo: {
+          select: {
+            id: true,
+            employeeCode: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        reviewer: {
+          select: {
+            id: true,
+            employeeCode: true,
+            firstName: true,
+            lastName: true,
+            designation: true,
+          },
+        },
         assignees: {
           include: {
             employee: {
@@ -450,7 +501,22 @@ export class TaskRepository {
    */
   async update(id: string, organizationId: string, data: UpdateTaskInput, tx?: Prisma.TransactionClient) {
     const db = tx || prisma;
-    const { startDate, dueDate, completedAt, remindAt, customFields, additionalInformation, assignees, categoryId, leadId, projectId, assignedToId, ...directFields } = data;
+    const {
+      startDate,
+      dueDate,
+      completedAt,
+      remindAt,
+      customFields,
+      additionalInformation,
+      assignees,
+      categoryId,
+      leadId,
+      projectId,
+      assignedToId,
+      reviewerId,
+      milestoneId,
+      ...directFields
+    } = data;
 
     if (assignees !== undefined) {
       await db.taskAssignee.deleteMany({
@@ -477,6 +543,7 @@ export class TaskRepository {
         ...(leadId !== undefined ? { leadId: leadId || null } : {}),
         ...(projectId !== undefined ? { projectId: projectId || null } : {}),
         ...(assignedToId !== undefined ? { assignedToId: assignedToId || null } : {}),
+        ...(reviewerId !== undefined ? { reviewerId: reviewerId || null } : {}),
         ...(startDate !== undefined ? { startDate: startDate ? new Date(startDate) : null } : {}),
         ...(dueDate !== undefined ? { dueDate: dueDate ? new Date(dueDate) : null } : {}),
         ...(completedAt !== undefined ? { completedAt: completedAt ? new Date(completedAt) : null } : {}),
@@ -490,6 +557,7 @@ export class TaskRepository {
       },
       include: {
         assignedTo: { select: { id: true, employeeCode: true, firstName: true, lastName: true } },
+        reviewer: { select: { id: true, employeeCode: true, firstName: true, lastName: true, designation: true } },
         approvedBy: { select: { id: true, employeeCode: true, firstName: true, lastName: true, designation: true } },
         category: { select: { id: true, name: true, slug: true, code: true, color: true, icon: true } },
         assignees: {

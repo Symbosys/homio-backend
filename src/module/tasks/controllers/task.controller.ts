@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { taskService, TaskService } from "../services/task.service.js";
 import { SuccessResponse } from "../../../utils/response.util.js";
 import { statusCode } from "../../../types/types.js";
+import { prisma } from "../../../lib/prisma.js";
 import {
   createTaskSchema,
   updateTaskSchema,
@@ -118,13 +119,14 @@ export class TaskController {
   reviewTaskDecision = async (req: Request, res: Response) => {
     const validated = reviewTaskDecisionSchema.parse({ params: req.params, body: req.body });
     const organizationId = (req as any).user.organizationId;
-    const reviewerEmployeeId = (req as any).user.employeeId;
+    const userId = (req as any).user.id;
 
     const task = await this.service.reviewTaskDecision(
       organizationId,
       validated.params.id,
       validated.body,
-      reviewerEmployeeId
+      undefined,
+      userId
     );
 
     return SuccessResponse(res, "Task review recorded successfully", task, statusCode.OK);

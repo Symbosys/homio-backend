@@ -92,7 +92,7 @@ export const updateTask = asyncHandler(async (req, res) => {
   }
 
   const parsed = updateTaskSchema.parse({ params: req.params, body: req.body });
-  const result = await taskService.updateTask(parsed.params.id, organizationId, parsed.body);
+  const result = await taskService.updateTask(parsed.params.id, organizationId, parsed.body, req.user?.id);
   return SuccessResponse(res, "Task updated successfully", result, statusCode.OK);
 });
 
@@ -125,7 +125,7 @@ export const updateTaskPriority = asyncHandler(async (req, res) => {
   }
 
   const parsed = updateTaskPrioritySchema.parse({ params: req.params, body: req.body });
-  const result = await taskService.updateTaskPriority(parsed.params.id, organizationId, parsed.body);
+  const result = await taskService.updateTaskPriority(parsed.params.id, organizationId, parsed.body, req.user?.id);
   return SuccessResponse(res, "Task priority updated successfully", result, statusCode.OK);
 });
 
@@ -149,7 +149,7 @@ export const submitTaskForReview = asyncHandler(async (req, res) => {
 });
 
 /**
- * Controller: Approve and verify task completion
+ * Controller: Approve and verify task completion (Reviewer only)
  */
 export const approveTask = asyncHandler(async (req, res) => {
   const organizationId = req.user?.organizationId;
@@ -169,7 +169,7 @@ export const approveTask = asyncHandler(async (req, res) => {
 });
 
 /**
- * Controller: Reject task and request rework
+ * Controller: Reject task and request rework (Reviewer only)
  */
 export const rejectTaskForRework = asyncHandler(async (req, res) => {
   const organizationId = req.user?.organizationId;
@@ -238,7 +238,8 @@ export const removeTaskAssignee = asyncHandler(async (req, res) => {
   const result = await taskService.removeAssignee(
     organizationId,
     parsed.params.id,
-    parsed.params.employeeId
+    parsed.params.employeeId,
+    req.user?.id
   );
   return SuccessResponse(res, "Assignee removed successfully", result, statusCode.OK);
 });
@@ -256,7 +257,8 @@ export const setPrimaryTaskAssignee = asyncHandler(async (req, res) => {
   const result = await taskService.setPrimaryAssignee(
     organizationId,
     parsed.params.id,
-    parsed.params.employeeId
+    parsed.params.employeeId,
+    req.user?.id
   );
   return SuccessResponse(res, "Primary assignee set successfully", result, statusCode.OK);
 });
@@ -271,7 +273,7 @@ export const addTaskChecklistItem = asyncHandler(async (req, res) => {
   }
 
   const parsed = addChecklistItemSchema.parse({ params: req.params, body: req.body });
-  const result = await taskService.addChecklistItem(organizationId, parsed.params.id, parsed.body);
+  const result = await taskService.addChecklistItem(organizationId, parsed.params.id, parsed.body, req.user?.id);
   return SuccessResponse(res, "Checklist item added successfully", result, statusCode.Created);
 });
 
@@ -289,7 +291,8 @@ export const updateTaskChecklistItem = asyncHandler(async (req, res) => {
     organizationId,
     parsed.params.id,
     parsed.params.itemId,
-    parsed.body
+    parsed.body,
+    req.user?.id
   );
   return SuccessResponse(res, "Checklist item updated successfully", result, statusCode.OK);
 });
@@ -307,7 +310,8 @@ export const deleteTaskChecklistItem = asyncHandler(async (req, res) => {
   const result = await taskService.deleteChecklistItem(
     organizationId,
     parsed.params.id,
-    parsed.params.itemId
+    parsed.params.itemId,
+    req.user?.id
   );
   return SuccessResponse(res, "Checklist item deleted successfully", result, statusCode.OK);
 });
@@ -322,7 +326,7 @@ export const addTaskActivity = asyncHandler(async (req, res) => {
   }
 
   const parsed = addTaskActivitySchema.parse({ params: req.params, body: req.body });
-  const result = await taskService.addActivity(organizationId, parsed.params.id, parsed.body);
+  const result = await taskService.addActivity(organizationId, parsed.params.id, parsed.body, req.user?.id);
   return SuccessResponse(res, "Comment added successfully", result, statusCode.Created);
 });
 
@@ -336,7 +340,7 @@ export const deleteTaskActivity = asyncHandler(async (req, res) => {
   }
 
   const parsed = taskActivityIdParamSchema.parse({ params: req.params });
-  const result = await taskService.deleteActivity(organizationId, "", parsed.params.id);
+  const result = await taskService.deleteActivity(organizationId, "", parsed.params.id, req.user?.id);
   return SuccessResponse(res, "Comment deleted successfully", result, statusCode.OK);
 });
 
@@ -359,6 +363,7 @@ export const uploadTaskDocument = asyncHandler(async (req, res) => {
     parsed.params.id,
     parsed.body,
     req.file,
+    req.user?.id,
     req.user?.id
   );
   return SuccessResponse(res, "Task document uploaded successfully", result, statusCode.Created);

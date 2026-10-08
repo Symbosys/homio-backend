@@ -8,8 +8,19 @@ const imageTypeSchema = z.object({
   provider: z.enum(["CLOUDINARY", "AWS_S3", "AZURE_BLOB", "LOCAL"]),
 });
 
-export const genderEnum = z.enum(["MALE", "FEMALE", "NON_BINARY", "OTHER", "PREFER_NOT_TO_SAY"]);
-export const maritalStatusEnum = z.enum(["SINGLE", "MARRIED", "DIVORCED", "WIDOWED"]);
+export const genderEnum = z.enum([
+  "MALE",
+  "FEMALE",
+  "NON_BINARY",
+  "OTHER",
+  "PREFER_NOT_TO_SAY",
+]);
+export const maritalStatusEnum = z.enum([
+  "SINGLE",
+  "MARRIED",
+  "DIVORCED",
+  "WIDOWED",
+]);
 export const bloodGroupEnum = z.enum([
   "A_POSITIVE",
   "A_NEGATIVE",
@@ -50,7 +61,12 @@ export const departmentMemberRoleEnum = z.enum([
   "INTERN",
 ]);
 
-export const userStatusEnum = z.enum(["ACTIVE", "INACTIVE", "SUSPENDED", "PENDING_VERIFICATION"]);
+export const userStatusEnum = z.enum([
+  "ACTIVE",
+  "INACTIVE",
+  "SUSPENDED",
+  "PENDING_VERIFICATION",
+]);
 export const userTypeEnum = z.enum(["PLATFORM_ADMIN", "ADMIN", "USER"]);
 
 export const createEmployeeSchema = z.object({
@@ -65,9 +81,25 @@ export const createEmployeeSchema = z.object({
         z.string().transform((v) => v === "true" || v === "1"),
       ])
       .optional(),
-    userEmail: z.string().trim().email("Invalid user login email").nullable().optional(),
-    userPhone: z.string().trim().max(20).nullable().optional().or(z.literal("")),
-    userPassword: z.string().trim().min(6, "Password must be at least 6 characters").nullable().optional(),
+    userEmail: z
+      .string()
+      .trim()
+      .email("Invalid user login email")
+      .nullable()
+      .optional(),
+    userPhone: z
+      .string()
+      .trim()
+      .max(20)
+      .nullable()
+      .optional()
+      .or(z.literal("")),
+    userPassword: z
+      .string()
+      .trim()
+      .min(6, "Password must be at least 6 characters")
+      .nullable()
+      .optional(),
     userRoleIds: z
       .union([
         z.array(z.string().uuid("Invalid role ID")),
@@ -76,7 +108,12 @@ export const createEmployeeSchema = z.object({
             const parsed = JSON.parse(val);
             return Array.isArray(parsed) ? parsed : [val];
           } catch {
-            return val ? val.split(",").map((s) => s.trim()).filter(Boolean) : [];
+            return val
+              ? val
+                  .split(",")
+                  .map((s) => s.trim())
+                  .filter(Boolean)
+              : [];
           }
         }),
       ])
@@ -85,21 +122,46 @@ export const createEmployeeSchema = z.object({
     userType: userTypeEnum.default("USER").optional(),
 
     // Employee Identification
-    employeeCode: z.string().trim().min(1, "Employee code cannot be empty").optional(), // Auto-generated if omitted
-    firstName: z.string({ message: "First name is required" }).trim().min(1, "First name cannot be empty"),
+    employeeCode: z
+      .string()
+      .trim()
+      .min(1, "Employee code cannot be empty")
+      .optional(), // Auto-generated if omitted
+    firstName: z
+      .string({ message: "First name is required" })
+      .trim()
+      .min(1, "First name cannot be empty"),
     middleName: z.string().trim().nullable().optional(),
     lastName: z.string().trim().nullable().optional(),
     displayName: z.string().trim().nullable().optional(),
-    avatarUrl: z.union([z.string().trim().url(), imageTypeSchema]).nullable().optional(),
+    avatarUrl: z
+      .union([z.string().trim().url(), imageTypeSchema])
+      .nullable()
+      .optional(),
 
     gender: genderEnum.nullable().optional(),
-    dateOfBirth: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).nullable().optional(),
+    dateOfBirth: z
+      .string()
+      .datetime()
+      .or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/))
+      .nullable()
+      .optional(),
     maritalStatus: maritalStatusEnum.nullable().optional(),
     bloodGroup: bloodGroupEnum.nullable().optional(),
 
     // Contacts
-    workEmail: z.string().trim().email("Invalid work email").nullable().optional(),
-    personalEmail: z.string().trim().email("Invalid personal email").nullable().optional(),
+    workEmail: z
+      .string()
+      .trim()
+      .email("Invalid work email")
+      .nullable()
+      .optional(),
+    personalEmail: z
+      .string()
+      .trim()
+      .email("Invalid personal email")
+      .nullable()
+      .optional(),
     workPhone: z.string().trim().nullable().optional(),
     personalPhone: z.string().trim().nullable().optional(),
 
@@ -124,12 +186,23 @@ export const createEmployeeSchema = z.object({
     // Employment details
     employmentType: employmentTypeEnum.default("FULL_TIME"),
     employmentStatus: employmentStatusEnum.default("ACTIVE"),
-    designation: z.string({ message: "Designation is required" }).trim().min(1, "Designation cannot be empty"),
+    designation: z
+      .string({ message: "Designation is required" })
+      .trim()
+      .min(1, "Designation cannot be empty"),
     workLocation: z.string().trim().nullable().optional(),
-    reportingManagerId: z.string().uuid("Invalid manager ID format").nullable().optional(),
+    reportingManagerId: z
+      .string()
+      .uuid("Invalid manager ID format")
+      .nullable()
+      .optional(),
 
     // Department & Team Assignment
-    departmentId: z.string().uuid("Invalid department ID format").nullable().optional(),
+    departmentId: z
+      .string()
+      .uuid("Invalid department ID format")
+      .nullable()
+      .optional(),
     teamId: z.string().uuid("Invalid team ID format").nullable().optional(),
     departmentRole: departmentMemberRoleEnum.default("MEMBER").optional(),
 
@@ -189,11 +262,15 @@ export const getEmployeesQuerySchema = z.object({
     reportingManagerId: z.string().uuid().optional(),
     departmentId: z.string().uuid().optional(),
     teamId: z.string().uuid().optional(),
-    sortBy: z.enum(["createdAt", "joiningDate", "firstName", "employeeCode"]).default("createdAt"),
+    sortBy: z
+      .enum(["createdAt", "joiningDate", "firstName", "employeeCode"])
+      .default("createdAt"),
     sortOrder: z.enum(["asc", "desc"]).default("desc"),
   }),
 });
 
 export type CreateEmployeeInput = z.infer<typeof createEmployeeSchema>["body"];
 export type UpdateEmployeeInput = z.infer<typeof updateEmployeeSchema>["body"];
-export type GetEmployeesQueryInput = z.infer<typeof getEmployeesQuerySchema>["query"];
+export type GetEmployeesQueryInput = z.infer<
+  typeof getEmployeesQuerySchema
+>["query"];

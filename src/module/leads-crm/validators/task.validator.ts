@@ -85,6 +85,9 @@ export const createCustomTaskSchema = z.object({
     // Primary owner / direct assignee
     assignedToId: z.string().uuid("Invalid employee ID").optional().nullable(),
 
+    // Dedicated Task Reviewer
+    reviewerId: z.string().uuid("Invalid reviewer ID").optional().nullable(),
+
     // Multi-Employee Assignees
     assignees: z.array(taskAssigneeInputSchema).default([]).optional(),
 
@@ -128,6 +131,7 @@ export const updateTaskSchema = z.object({
     actualHours: z.coerce.number().nonnegative().optional().nullable(),
 
     assignedToId: z.string().uuid().optional().nullable(),
+    reviewerId: z.string().uuid().optional().nullable(),
     assignees: z.array(taskAssigneeInputSchema).optional(),
 
     remindAt: z.string().datetime().optional().nullable(),
@@ -238,6 +242,7 @@ export const getTasksQuerySchema = z.object({
     projectId: z.string().uuid().optional(),
     employeeId: z.string().uuid().optional(),
     assignedToId: z.string().uuid().optional(),
+    reviewerId: z.string().uuid().optional(),
     fromDueDate: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional(),
     toDueDate: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional(),
     fromDate: z.string().datetime().or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional(),
@@ -258,6 +263,7 @@ export const getTaskKanbanQuerySchema = z.object({
     projectId: z.string().uuid().optional(),
     employeeId: z.string().uuid().optional(),
     assignedToId: z.string().uuid().optional(),
+    reviewerId: z.string().uuid().optional(),
   }),
 });
 

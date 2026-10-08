@@ -6,11 +6,16 @@ import type {
   GetEmployeesQueryInput,
 } from "../validators/employee.validator.js";
 
-export type CreateEmployeeRepoInput = Omit<CreateEmployeeInput, "employeeCode"> & {
+export type CreateEmployeeRepoInput = Omit<
+  CreateEmployeeInput,
+  "employeeCode"
+> & {
   employeeCode: string;
 };
 
-export function formatEmployeeWithDeptTeam<T extends { departmentAssignments?: any[] }>(emp: T | null) {
+export function formatEmployeeWithDeptTeam<
+  T extends { departmentAssignments?: any[] },
+>(emp: T | null) {
   if (!emp) return emp;
   const assignment = emp.departmentAssignments?.[0];
   return {
@@ -25,7 +30,11 @@ export class EmployeeRepository {
   /**
    * Create a new employee within an organization with optional department & team assignment
    */
-  async create(organizationId: string, data: CreateEmployeeRepoInput, createdById?: string) {
+  async create(
+    organizationId: string,
+    data: CreateEmployeeRepoInput,
+    createdById?: string,
+  ) {
     const {
       avatarUrl,
       documents,
@@ -54,10 +63,18 @@ export class EmployeeRepository {
           createdById,
           dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
           joiningDate: new Date(joiningDate),
-          probationEndDate: probationEndDate ? new Date(probationEndDate) : null,
-          confirmationDate: confirmationDate ? new Date(confirmationDate) : null,
-          avatarUrl: avatarUrl ? (avatarUrl as Prisma.InputJsonValue) : Prisma.JsonNull,
-          documents: documents ? (documents as Prisma.InputJsonValue) : Prisma.JsonNull,
+          probationEndDate: probationEndDate
+            ? new Date(probationEndDate)
+            : null,
+          confirmationDate: confirmationDate
+            ? new Date(confirmationDate)
+            : null,
+          avatarUrl: avatarUrl
+            ? (avatarUrl as Prisma.InputJsonValue)
+            : Prisma.JsonNull,
+          documents: documents
+            ? (documents as Prisma.InputJsonValue)
+            : Prisma.JsonNull,
         },
         include: {
           user: {
@@ -362,7 +379,12 @@ export class EmployeeRepository {
   /**
    * Update an employee profile and sync department & team assignment
    */
-  async update(id: string, organizationId: string, data: UpdateEmployeeInput, updatedById?: string) {
+  async update(
+    id: string,
+    organizationId: string,
+    data: UpdateEmployeeInput,
+    updatedById?: string,
+  ) {
     const {
       avatarUrl,
       documents,
@@ -393,16 +415,64 @@ export class EmployeeRepository {
         data: {
           ...directFields,
           updatedById,
-          ...(dateOfBirth !== undefined ? { dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null } : {}),
-          ...(joiningDate !== undefined ? { joiningDate: new Date(joiningDate) } : {}),
-          ...(probationEndDate !== undefined ? { probationEndDate: probationEndDate ? new Date(probationEndDate) : null } : {}),
-          ...(confirmationDate !== undefined ? { confirmationDate: confirmationDate ? new Date(confirmationDate) : null } : {}),
-          ...(resignationDate !== undefined ? { resignationDate: resignationDate ? new Date(resignationDate) : null } : {}),
-          ...(noticePeriodEndDate !== undefined ? { noticePeriodEndDate: noticePeriodEndDate ? new Date(noticePeriodEndDate) : null } : {}),
-          ...(relievingDate !== undefined ? { relievingDate: relievingDate ? new Date(relievingDate) : null } : {}),
-          ...(terminationDate !== undefined ? { terminationDate: terminationDate ? new Date(terminationDate) : null } : {}),
-          ...(avatarUrl !== undefined ? { avatarUrl: avatarUrl ? (avatarUrl as Prisma.InputJsonValue) : Prisma.JsonNull } : {}),
-          ...(documents !== undefined ? { documents: documents ? (documents as Prisma.InputJsonValue) : Prisma.JsonNull } : {}),
+          ...(dateOfBirth !== undefined
+            ? { dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null }
+            : {}),
+          ...(joiningDate !== undefined
+            ? { joiningDate: new Date(joiningDate) }
+            : {}),
+          ...(probationEndDate !== undefined
+            ? {
+                probationEndDate: probationEndDate
+                  ? new Date(probationEndDate)
+                  : null,
+              }
+            : {}),
+          ...(confirmationDate !== undefined
+            ? {
+                confirmationDate: confirmationDate
+                  ? new Date(confirmationDate)
+                  : null,
+              }
+            : {}),
+          ...(resignationDate !== undefined
+            ? {
+                resignationDate: resignationDate
+                  ? new Date(resignationDate)
+                  : null,
+              }
+            : {}),
+          ...(noticePeriodEndDate !== undefined
+            ? {
+                noticePeriodEndDate: noticePeriodEndDate
+                  ? new Date(noticePeriodEndDate)
+                  : null,
+              }
+            : {}),
+          ...(relievingDate !== undefined
+            ? { relievingDate: relievingDate ? new Date(relievingDate) : null }
+            : {}),
+          ...(terminationDate !== undefined
+            ? {
+                terminationDate: terminationDate
+                  ? new Date(terminationDate)
+                  : null,
+              }
+            : {}),
+          ...(avatarUrl !== undefined
+            ? {
+                avatarUrl: avatarUrl
+                  ? (avatarUrl as Prisma.InputJsonValue)
+                  : Prisma.JsonNull,
+              }
+            : {}),
+          ...(documents !== undefined
+            ? {
+                documents: documents
+                  ? (documents as Prisma.InputJsonValue)
+                  : Prisma.JsonNull,
+              }
+            : {}),
         },
         include: {
           reportingManager: {
@@ -435,7 +505,8 @@ export class EmployeeRepository {
               where: { id: existingAssignment.id },
               data: {
                 departmentId,
-                teamId: teamId !== undefined ? teamId : existingAssignment.teamId,
+                teamId:
+                  teamId !== undefined ? teamId : existingAssignment.teamId,
                 ...(departmentRole ? { role: departmentRole } : {}),
                 updatedById,
               },

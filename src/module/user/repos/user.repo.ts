@@ -84,6 +84,18 @@ export class UserRepository {
                 email: true,
               },
             },
+            employee: {
+              select: {
+                id: true,
+                employeeCode: true,
+              }
+            },
+            labour: {
+              select: {
+                id: true,
+                phone: true,
+              }
+            },
           }
         : {
             roles: {

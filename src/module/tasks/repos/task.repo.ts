@@ -68,6 +68,7 @@ export class TaskRepository {
     const task = await db.task.create({
       data: {
         ...taskData,
+        assignedToId: taskData.assignedToId || (assigneeIds && assigneeIds.length > 0 ? assigneeIds[0] : undefined),
         organizationId,
         createdById,
         checklistTotal,
@@ -413,6 +414,12 @@ export class TaskRepository {
 
     const updatePayload: Prisma.TaskUncheckedUpdateInput = {
       ...updateFields,
+      assignedToId:
+        updateFields.assignedToId !== undefined
+          ? updateFields.assignedToId
+          : assigneeIds && assigneeIds.length > 0
+          ? assigneeIds[0]
+          : undefined,
       ...checklistUpdates,
       customFields: updateFields.customFields !== undefined ? (updateFields.customFields as any) : undefined,
       additionalInformation: updateFields.additionalInformation !== undefined ? (updateFields.additionalInformation as any) : undefined,
