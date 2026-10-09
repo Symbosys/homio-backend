@@ -457,6 +457,27 @@ export class DesignService {
       throw new ErrorResponse("Design version not found", statusCode.Not_Found);
     }
 
+    // Prevent approving an already approved/locked version
+    if (version.status === "APPROVED" || version.isLocked) {
+      throw new ErrorResponse(
+        "This design version has already been approved and locked. Further approvals cannot be submitted.",
+        statusCode.Conflict
+      );
+    }
+
+    const existingApproved = await prisma.designVersionApproval.findFirst({
+      where: {
+        designVersionId: versionId,
+        decision: { in: ["APPROVED", "APPROVED_WITH_CONDITIONS"] },
+      },
+    });
+    if (existingApproved) {
+      throw new ErrorResponse(
+        "This design version already has an approved sign-off on record. Further approvals cannot be submitted.",
+        statusCode.Conflict
+      );
+    }
+
     // Default customerId to project's customerId if not explicitly provided
     const effectiveCustomerId = data.customerId || project.customerId;
 
