@@ -13,7 +13,11 @@ export class ProjectService {
   /**
    * Create a new Project with optional nested sub-components
    */
-  async createProject(organizationId: string, data: CreateProjectInput, userId?: string) {
+  async createProject(
+    organizationId: string,
+    data: CreateProjectInput,
+    userId?: string,
+  ) {
     // 1. Verify Customer exists and belongs to the same Organization
     const customer = await prisma.customer.findFirst({
       where: {
@@ -23,7 +27,10 @@ export class ProjectService {
       },
     });
     if (!customer) {
-      throw new ErrorResponse("Customer not found in this organization", statusCode.Not_Found);
+      throw new ErrorResponse(
+        "Customer not found in this organization",
+        statusCode.Not_Found,
+      );
     }
 
     // 2. If Lead is provided, verify it belongs to the same Organization
@@ -36,7 +43,10 @@ export class ProjectService {
         },
       });
       if (!lead) {
-        throw new ErrorResponse("Lead not found in this organization", statusCode.Not_Found);
+        throw new ErrorResponse(
+          "Lead not found in this organization",
+          statusCode.Not_Found,
+        );
       }
     }
 
@@ -57,7 +67,7 @@ export class ProjectService {
       if (employees.length !== uniqueEmployeeIds.length) {
         throw new ErrorResponse(
           "One or more assigned team members do not exist in this organization",
-          statusCode.Bad_Request
+          statusCode.Bad_Request,
         );
       }
     }
@@ -78,7 +88,7 @@ export class ProjectService {
       if (existing) {
         throw new ErrorResponse(
           `Project with code '${projectCode}' already exists in this organization`,
-          statusCode.Conflict
+          statusCode.Conflict,
         );
       }
     }
@@ -92,13 +102,29 @@ export class ProjectService {
     });
 
     // 6. Execute atomic creation via repository (with mandatory userId)
-    const project = await projectRepo.create(organizationId, { ...data, projectCode, userId: clientUser.id }, userId);
+    const project = await projectRepo.create(
+      organizationId,
+      { ...data, projectCode, userId: clientUser.id },
+      userId,
+    );
 
     // 7. Promote Customer to CLIENT, update alternate contacts/KYC, and link to global User
-    const clientAlternatePhone = data.client?.alternatePhone !== undefined ? data.client?.alternatePhone : data.clientAlternatePhone;
-    const clientAlternateRelation = data.client?.alternateContactRelation !== undefined ? data.client?.alternateContactRelation : data.clientAlternateRelation;
-    const clientPan = data.client?.panNumber !== undefined ? data.client?.panNumber : data.clientPan;
-    const clientAadhaar = data.client?.aadhaarNumber !== undefined ? data.client?.aadhaarNumber : data.clientAadhaar;
+    const clientAlternatePhone =
+      data.client?.alternatePhone !== undefined
+        ? data.client?.alternatePhone
+        : data.clientAlternatePhone;
+    const clientAlternateRelation =
+      data.client?.alternateContactRelation !== undefined
+        ? data.client?.alternateContactRelation
+        : data.clientAlternateRelation;
+    const clientPan =
+      data.client?.panNumber !== undefined
+        ? data.client?.panNumber
+        : data.clientPan;
+    const clientAadhaar =
+      data.client?.aadhaarNumber !== undefined
+        ? data.client?.aadhaarNumber
+        : data.clientAadhaar;
 
     const customerUpdateData: Prisma.CustomerUpdateInput = {
       customerType: "CLIENT",
@@ -109,16 +135,24 @@ export class ProjectService {
     };
 
     if (clientAlternatePhone !== undefined) {
-      customerUpdateData.alternatePhone = clientAlternatePhone ? clientAlternatePhone.trim() : null;
+      customerUpdateData.alternatePhone = clientAlternatePhone
+        ? clientAlternatePhone.trim()
+        : null;
     }
     if (clientAlternateRelation !== undefined) {
-      customerUpdateData.alternateContactRelation = clientAlternateRelation ? clientAlternateRelation.trim() : null;
+      customerUpdateData.alternateContactRelation = clientAlternateRelation
+        ? clientAlternateRelation.trim()
+        : null;
     }
     if (clientPan !== undefined) {
-      customerUpdateData.panNumber = clientPan ? clientPan.trim().toUpperCase() : null;
+      customerUpdateData.panNumber = clientPan
+        ? clientPan.trim().toUpperCase()
+        : null;
     }
     if (clientAadhaar !== undefined) {
-      customerUpdateData.aadhaarNumber = clientAadhaar ? clientAadhaar.trim() : null;
+      customerUpdateData.aadhaarNumber = clientAadhaar
+        ? clientAadhaar.trim()
+        : null;
     }
 
     await prisma.customer
@@ -127,7 +161,10 @@ export class ProjectService {
         data: customerUpdateData,
       })
       .catch((err) => {
-        console.error("Failed to update customer details on project create:", err);
+        console.error(
+          "Failed to update customer details on project create:",
+          err,
+        );
       });
 
     // 8. If promoted from a Lead, update Lead status to WON and link project
@@ -249,7 +286,12 @@ export class ProjectService {
   /**
    * Update project and any/all of its segregated sub-components
    */
-  async updateProject(id: string, organizationId: string, data: UpdateProjectInput, userId?: string) {
+  async updateProject(
+    id: string,
+    organizationId: string,
+    data: UpdateProjectInput,
+    userId?: string,
+  ) {
     // 1. Verify Project exists in this organization
     const existing = await projectRepo.findById(id, organizationId);
     if (!existing) {
@@ -266,7 +308,10 @@ export class ProjectService {
         },
       });
       if (!customer) {
-        throw new ErrorResponse("Customer not found in this organization", statusCode.Not_Found);
+        throw new ErrorResponse(
+          "Customer not found in this organization",
+          statusCode.Not_Found,
+        );
       }
     }
 
@@ -280,7 +325,10 @@ export class ProjectService {
         },
       });
       if (!lead) {
-        throw new ErrorResponse("Lead not found in this organization", statusCode.Not_Found);
+        throw new ErrorResponse(
+          "Lead not found in this organization",
+          statusCode.Not_Found,
+        );
       }
     }
 
@@ -297,7 +345,7 @@ export class ProjectService {
       if (duplicateCode) {
         throw new ErrorResponse(
           `Project with code '${data.projectCode}' already exists in this organization`,
-          statusCode.Conflict
+          statusCode.Conflict,
         );
       }
     }
@@ -319,39 +367,58 @@ export class ProjectService {
       if (employees.length !== uniqueEmployeeIds.length) {
         throw new ErrorResponse(
           "One or more assigned team members do not exist in this organization",
-          statusCode.Bad_Request
+          statusCode.Bad_Request,
         );
       }
     }
-
 
     // 7. Update via repository
     const updated = await projectRepo.update(id, organizationId, data, userId);
 
     // 7b. Update Customer contact / KYC fields if supplied
     const targetCustomerId = data.customerId || existing.customerId;
-    const clientAlternatePhone = data.client?.alternatePhone !== undefined ? data.client?.alternatePhone : data.clientAlternatePhone;
-    const clientAlternateRelation = data.client?.alternateContactRelation !== undefined ? data.client?.alternateContactRelation : data.clientAlternateRelation;
-    const clientPan = data.client?.panNumber !== undefined ? data.client?.panNumber : data.clientPan;
-    const clientAadhaar = data.client?.aadhaarNumber !== undefined ? data.client?.aadhaarNumber : data.clientAadhaar;
+    const clientAlternatePhone =
+      data.client?.alternatePhone !== undefined
+        ? data.client?.alternatePhone
+        : data.clientAlternatePhone;
+    const clientAlternateRelation =
+      data.client?.alternateContactRelation !== undefined
+        ? data.client?.alternateContactRelation
+        : data.clientAlternateRelation;
+    const clientPan =
+      data.client?.panNumber !== undefined
+        ? data.client?.panNumber
+        : data.clientPan;
+    const clientAadhaar =
+      data.client?.aadhaarNumber !== undefined
+        ? data.client?.aadhaarNumber
+        : data.clientAadhaar;
 
     const customerUpdateData: Prisma.CustomerUpdateInput = {};
     let shouldUpdateCustomer = false;
 
     if (clientAlternatePhone !== undefined) {
-      customerUpdateData.alternatePhone = clientAlternatePhone ? clientAlternatePhone.trim() : null;
+      customerUpdateData.alternatePhone = clientAlternatePhone
+        ? clientAlternatePhone.trim()
+        : null;
       shouldUpdateCustomer = true;
     }
     if (clientAlternateRelation !== undefined) {
-      customerUpdateData.alternateContactRelation = clientAlternateRelation ? clientAlternateRelation.trim() : null;
+      customerUpdateData.alternateContactRelation = clientAlternateRelation
+        ? clientAlternateRelation.trim()
+        : null;
       shouldUpdateCustomer = true;
     }
     if (clientPan !== undefined) {
-      customerUpdateData.panNumber = clientPan ? clientPan.trim().toUpperCase() : null;
+      customerUpdateData.panNumber = clientPan
+        ? clientPan.trim().toUpperCase()
+        : null;
       shouldUpdateCustomer = true;
     }
     if (clientAadhaar !== undefined) {
-      customerUpdateData.aadhaarNumber = clientAadhaar ? clientAadhaar.trim() : null;
+      customerUpdateData.aadhaarNumber = clientAadhaar
+        ? clientAadhaar.trim()
+        : null;
       shouldUpdateCustomer = true;
     }
 
@@ -362,7 +429,10 @@ export class ProjectService {
           data: customerUpdateData,
         })
         .catch((err) => {
-          console.error("Failed to update customer details on project update:", err);
+          console.error(
+            "Failed to update customer details on project update:",
+            err,
+          );
         });
     }
 
@@ -403,7 +473,10 @@ export class ProjectService {
         .catch(() => {});
     }
 
-    if (data.executionStatus && data.executionStatus !== existing.executionStatus) {
+    if (
+      data.executionStatus &&
+      data.executionStatus !== existing.executionStatus
+    ) {
       await prisma.projectTimeline
         .create({
           data: {

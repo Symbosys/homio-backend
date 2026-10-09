@@ -3,14 +3,17 @@ import { Prisma } from "../../../types/types.js";
 import type {
   CreateProjectInput,
   GetProjectsQueryInput,
-  UpdateProjectInput
+  UpdateProjectInput,
 } from "../validators/project.validator.js";
 
 export class ProjectRepository {
   /**
    * Auto-generate sequential, tenant-scoped Project Code e.g. "PRJ-2026-0001"
    */
-  async generateProjectCode(organizationId: string, tx?: Prisma.TransactionClient): Promise<string> {
+  async generateProjectCode(
+    organizationId: string,
+    tx?: Prisma.TransactionClient,
+  ): Promise<string> {
     const db = tx || prisma;
     const currentYear = new Date().getFullYear();
     const prefix = `PRJ-${currentYear}-`;
@@ -46,7 +49,7 @@ export class ProjectRepository {
     organizationId: string,
     data: CreateProjectInput & { projectCode: string; userId: string },
     createdById?: string,
-    tx?: Prisma.TransactionClient
+    tx?: Prisma.TransactionClient,
   ) {
     const db = tx || prisma;
 
@@ -75,10 +78,18 @@ export class ProjectRepository {
         userId: data.userId,
         organizationId,
         createdById: createdById || null,
-        coverImageUrl: coverImageUrl ? (coverImageUrl as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
-        customFields: customFields ? (customFields as Prisma.InputJsonValue) : Prisma.JsonNull,
-        stageStatuses: stageStatuses ? (stageStatuses as Prisma.InputJsonValue) : Prisma.JsonNull,
-        additionalInformation: additionalInformation ? (additionalInformation as Prisma.InputJsonValue) : Prisma.JsonNull,
+        coverImageUrl: coverImageUrl
+          ? (coverImageUrl as unknown as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
+        customFields: customFields
+          ? (customFields as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
+        stageStatuses: stageStatuses
+          ? (stageStatuses as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
+        additionalInformation: additionalInformation
+          ? (additionalInformation as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
         tags: tags || [],
 
         // 1-to-1 Site details
@@ -93,8 +104,14 @@ export class ProjectRepository {
                 pincode: site.pincode || null,
                 gpsLat: site.gpsLat || null,
                 gpsLng: site.gpsLng || null,
-                punchRadiusMeters: site.punchRadiusMeters !== undefined ? site.punchRadiusMeters : 200,
-                isPunchGeofenceStrict: site.isPunchGeofenceStrict !== undefined ? site.isPunchGeofenceStrict : true,
+                punchRadiusMeters:
+                  site.punchRadiusMeters !== undefined
+                    ? site.punchRadiusMeters
+                    : 200,
+                isPunchGeofenceStrict:
+                  site.isPunchGeofenceStrict !== undefined
+                    ? site.isPunchGeofenceStrict
+                    : true,
                 propertyType: site.propertyType || null,
                 floorNumber: site.floorNumber || null,
                 totalAreaSqft: site.totalAreaSqft || null,
@@ -105,7 +122,9 @@ export class ProjectRepository {
                 contactPhone: site.contactPhone || null,
                 contactEmail: site.contactEmail || null,
                 accessInstructions: site.accessInstructions || null,
-                additionalInformation: site.additionalInformation ? (site.additionalInformation as Prisma.InputJsonValue) : Prisma.JsonNull,
+                additionalInformation: site.additionalInformation
+                  ? (site.additionalInformation as Prisma.InputJsonValue)
+                  : Prisma.JsonNull,
               },
             }
           : undefined,
@@ -116,18 +135,32 @@ export class ProjectRepository {
               create: {
                 plannedStartDate: new Date(schedule.plannedStartDate),
                 plannedEndDate: new Date(schedule.plannedEndDate),
-                actualStartDate: schedule.actualStartDate ? new Date(schedule.actualStartDate) : null,
-                actualEndDate: schedule.actualEndDate ? new Date(schedule.actualEndDate) : null,
-                kickoffDate: schedule.kickoffDate ? new Date(schedule.kickoffDate) : null,
-                siteHandoverDate: schedule.siteHandoverDate ? new Date(schedule.siteHandoverDate) : null,
-                warrantyStartDate: schedule.warrantyStartDate ? new Date(schedule.warrantyStartDate) : null,
-                warrantyEndDate: schedule.warrantyEndDate ? new Date(schedule.warrantyEndDate) : null,
+                actualStartDate: schedule.actualStartDate
+                  ? new Date(schedule.actualStartDate)
+                  : null,
+                actualEndDate: schedule.actualEndDate
+                  ? new Date(schedule.actualEndDate)
+                  : null,
+                kickoffDate: schedule.kickoffDate
+                  ? new Date(schedule.kickoffDate)
+                  : null,
+                siteHandoverDate: schedule.siteHandoverDate
+                  ? new Date(schedule.siteHandoverDate)
+                  : null,
+                warrantyStartDate: schedule.warrantyStartDate
+                  ? new Date(schedule.warrantyStartDate)
+                  : null,
+                warrantyEndDate: schedule.warrantyEndDate
+                  ? new Date(schedule.warrantyEndDate)
+                  : null,
                 extendedWarrantyEndDate: schedule.extendedWarrantyEndDate
                   ? new Date(schedule.extendedWarrantyEndDate)
                   : null,
                 estimatedDurationDays: schedule.estimatedDurationDays ?? null,
                 actualDurationDays: schedule.actualDurationDays ?? null,
-                additionalInformation: schedule.additionalInformation ? (schedule.additionalInformation as Prisma.InputJsonValue) : Prisma.JsonNull,
+                additionalInformation: schedule.additionalInformation
+                  ? (schedule.additionalInformation as Prisma.InputJsonValue)
+                  : Prisma.JsonNull,
               },
             }
           : undefined,
@@ -143,8 +176,12 @@ export class ProjectRepository {
                 paymentProgress: metric.paymentProgress ?? 0,
                 qualityScore: metric.qualityScore ?? null,
                 safetyScore: metric.safetyScore ?? null,
-                lastEvaluatedAt: metric.lastEvaluatedAt ? new Date(metric.lastEvaluatedAt) : null,
-                additionalInformation: metric.additionalInformation ? (metric.additionalInformation as Prisma.InputJsonValue) : Prisma.JsonNull,
+                lastEvaluatedAt: metric.lastEvaluatedAt
+                  ? new Date(metric.lastEvaluatedAt)
+                  : null,
+                additionalInformation: metric.additionalInformation
+                  ? (metric.additionalInformation as Prisma.InputJsonValue)
+                  : Prisma.JsonNull,
               },
             }
           : undefined,
@@ -154,24 +191,45 @@ export class ProjectRepository {
           ? {
               create: {
                 currency: commercial.currency || "INR",
-                pricingModel: commercial.pricingModel || "TURNKEY_WITH_MATERIALS",
-                contractAmount: new Prisma.Decimal(commercial.contractAmount ?? 0),
-                initialEstimate: new Prisma.Decimal(commercial.initialEstimate ?? 0),
-                revisedEstimate: new Prisma.Decimal(commercial.revisedEstimate ?? 0),
+                pricingModel:
+                  commercial.pricingModel || "TURNKEY_WITH_MATERIALS",
+                contractAmount: new Prisma.Decimal(
+                  commercial.contractAmount ?? 0,
+                ),
+                initialEstimate: new Prisma.Decimal(
+                  commercial.initialEstimate ?? 0,
+                ),
+                revisedEstimate: new Prisma.Decimal(
+                  commercial.revisedEstimate ?? 0,
+                ),
                 designFee: new Prisma.Decimal(commercial.designFee ?? 0),
-                materialPayment: new Prisma.Decimal(commercial.materialPayment ?? 0),
-                labourPayment: new Prisma.Decimal(commercial.labourPayment ?? 0),
-                supervisionFee: new Prisma.Decimal(commercial.supervisionFee ?? 0),
-                consultingPercentage: commercial.consultingPercentage !== undefined ? commercial.consultingPercentage : null,
+                materialPayment: new Prisma.Decimal(
+                  commercial.materialPayment ?? 0,
+                ),
+                labourPayment: new Prisma.Decimal(
+                  commercial.labourPayment ?? 0,
+                ),
+                supervisionFee: new Prisma.Decimal(
+                  commercial.supervisionFee ?? 0,
+                ),
+                consultingPercentage:
+                  commercial.consultingPercentage !== undefined
+                    ? commercial.consultingPercentage
+                    : null,
                 consultingLumpSum:
-                  commercial.consultingLumpSum !== undefined && commercial.consultingLumpSum !== null
+                  commercial.consultingLumpSum !== undefined &&
+                  commercial.consultingLumpSum !== null
                     ? new Prisma.Decimal(commercial.consultingLumpSum)
                     : null,
                 consultingRateSqft:
-                  commercial.consultingRateSqft !== undefined && commercial.consultingRateSqft !== null
+                  commercial.consultingRateSqft !== undefined &&
+                  commercial.consultingRateSqft !== null
                     ? new Prisma.Decimal(commercial.consultingRateSqft)
                     : null,
-                billableAreaSqft: commercial.billableAreaSqft !== undefined ? commercial.billableAreaSqft : null,
+                billableAreaSqft:
+                  commercial.billableAreaSqft !== undefined
+                    ? commercial.billableAreaSqft
+                    : null,
                 additionalInformation: commercial.additionalInformation
                   ? (commercial.additionalInformation as Prisma.InputJsonValue)
                   : Prisma.JsonNull,
@@ -180,21 +238,24 @@ export class ProjectRepository {
           : undefined,
 
         // 1-to-Many Dynamic Team Members
-        members: members && members.length > 0
-          ? {
-              create: members.map((m) => ({
-                employeeId: m.employeeId,
-                role: m.role || "OTHER",
-                customRoleTitle: m.customRoleTitle || null,
-                responsibilities: m.responsibilities || null,
-                isPrimary: m.isPrimary ?? false,
-                isActive: m.isActive ?? true,
-                allocatedHoursPerWeek: m.allocatedHoursPerWeek ?? null,
-                assignedById: createdById || null,
-                additionalInformation: m.additionalInformation ? (m.additionalInformation as Prisma.InputJsonValue) : Prisma.JsonNull,
-              })),
-            }
-          : undefined,
+        members:
+          members && members.length > 0
+            ? {
+                create: members.map((m) => ({
+                  employeeId: m.employeeId,
+                  role: m.role || "OTHER",
+                  customRoleTitle: m.customRoleTitle || null,
+                  responsibilities: m.responsibilities || null,
+                  isPrimary: m.isPrimary ?? false,
+                  isActive: m.isActive ?? true,
+                  allocatedHoursPerWeek: m.allocatedHoursPerWeek ?? null,
+                  assignedById: createdById || null,
+                  additionalInformation: m.additionalInformation
+                    ? (m.additionalInformation as Prisma.InputJsonValue)
+                    : Prisma.JsonNull,
+                })),
+              }
+            : undefined,
       },
       include: {
         customer: {
@@ -253,7 +314,11 @@ export class ProjectRepository {
   /**
    * Get single project by ID with tenant isolation check and all child relations
    */
-  async findById(id: string, organizationId: string, tx?: Prisma.TransactionClient) {
+  async findById(
+    id: string,
+    organizationId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
     const db = tx || prisma;
     return db.project.findFirst({
       where: {
@@ -356,7 +421,6 @@ export class ProjectRepository {
       where: {
         userId,
         isDeleted: false,
-        isClientPortalVisible: true,
       },
       select: {
         id: true,
@@ -374,13 +438,19 @@ export class ProjectRepository {
             id: true,
             name: true,
             logoUrl: true,
+            email: true,
+            phone: true,
           },
         },
         site: {
           select: {
             siteName: true,
             city: true,
+            state: true,
+            pincode: true,
             address: true,
+            totalAreaSqft: true,
+            carpetAreaSqft: true,
           },
         },
         schedule: {
@@ -397,6 +467,23 @@ export class ProjectRepository {
             executionProgress: true,
           },
         },
+        members: {
+          include: {
+            employee: {
+              select: {
+                id: true,
+                employeeCode: true,
+                firstName: true,
+                lastName: true,
+                displayName: true,
+                avatarUrl: true,
+                workEmail: true,
+                workPhone: true,
+              },
+            },
+          },
+          orderBy: { createdAt: "asc" },
+        },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -405,7 +492,11 @@ export class ProjectRepository {
   /**
    * Find paginated projects with full text search, multiple filters, and sorting
    */
-  async findAll(organizationId: string, query: GetProjectsQueryInput, tx?: Prisma.TransactionClient) {
+  async findAll(
+    organizationId: string,
+    query: GetProjectsQueryInput,
+    tx?: Prisma.TransactionClient,
+  ) {
     const db = tx || prisma;
     const {
       page = 1,
@@ -439,7 +530,9 @@ export class ProjectRepository {
       ...(type ? { type } : {}),
       ...(customerId ? { customerId } : {}),
       ...(leadId ? { leadId } : {}),
-      ...(employeeId ? { members: { some: { employeeId, isActive: true } } } : {}),
+      ...(employeeId
+        ? { members: { some: { employeeId, isActive: true } } }
+        : {}),
     };
 
     if (search && search.trim() !== "") {
@@ -556,7 +649,7 @@ export class ProjectRepository {
     organizationId: string,
     data: UpdateProjectInput,
     updatedById?: string,
-    tx?: Prisma.TransactionClient
+    tx?: Prisma.TransactionClient,
   ) {
     const db = tx || prisma;
 
@@ -625,8 +718,14 @@ export class ProjectRepository {
               pincode: site.pincode || null,
               gpsLat: site.gpsLat || null,
               gpsLng: site.gpsLng || null,
-              punchRadiusMeters: site.punchRadiusMeters !== undefined ? site.punchRadiusMeters : 200,
-              isPunchGeofenceStrict: site.isPunchGeofenceStrict !== undefined ? site.isPunchGeofenceStrict : true,
+              punchRadiusMeters:
+                site.punchRadiusMeters !== undefined
+                  ? site.punchRadiusMeters
+                  : 200,
+              isPunchGeofenceStrict:
+                site.isPunchGeofenceStrict !== undefined
+                  ? site.isPunchGeofenceStrict
+                  : true,
               propertyType: site.propertyType || null,
               floorNumber: site.floorNumber || null,
               totalAreaSqft: site.totalAreaSqft || null,
@@ -642,7 +741,9 @@ export class ProjectRepository {
                 : Prisma.JsonNull,
             },
             update: {
-              ...(site.siteName !== undefined ? { siteName: site.siteName } : {}),
+              ...(site.siteName !== undefined
+                ? { siteName: site.siteName }
+                : {}),
               ...(site.address !== undefined ? { address: site.address } : {}),
               ...(site.city !== undefined ? { city: site.city } : {}),
               ...(site.state !== undefined ? { state: site.state } : {}),
@@ -650,18 +751,42 @@ export class ProjectRepository {
               ...(site.pincode !== undefined ? { pincode: site.pincode } : {}),
               ...(site.gpsLat !== undefined ? { gpsLat: site.gpsLat } : {}),
               ...(site.gpsLng !== undefined ? { gpsLng: site.gpsLng } : {}),
-              ...(site.punchRadiusMeters !== undefined ? { punchRadiusMeters: site.punchRadiusMeters } : {}),
-              ...(site.isPunchGeofenceStrict !== undefined ? { isPunchGeofenceStrict: site.isPunchGeofenceStrict } : {}),
-              ...(site.propertyType !== undefined ? { propertyType: site.propertyType } : {}),
-              ...(site.floorNumber !== undefined ? { floorNumber: site.floorNumber } : {}),
-              ...(site.totalAreaSqft !== undefined ? { totalAreaSqft: site.totalAreaSqft } : {}),
-              ...(site.workableAreaSqft !== undefined ? { workableAreaSqft: site.workableAreaSqft } : {}),
-              ...(site.carpetAreaSqft !== undefined ? { carpetAreaSqft: site.carpetAreaSqft } : {}),
-              ...(site.contactPerson !== undefined ? { contactPerson: site.contactPerson } : {}),
-              ...(site.contactPersonRelation !== undefined ? { contactPersonRelation: site.contactPersonRelation } : {}),
-              ...(site.contactPhone !== undefined ? { contactPhone: site.contactPhone } : {}),
-              ...(site.contactEmail !== undefined ? { contactEmail: site.contactEmail } : {}),
-              ...(site.accessInstructions !== undefined ? { accessInstructions: site.accessInstructions } : {}),
+              ...(site.punchRadiusMeters !== undefined
+                ? { punchRadiusMeters: site.punchRadiusMeters }
+                : {}),
+              ...(site.isPunchGeofenceStrict !== undefined
+                ? { isPunchGeofenceStrict: site.isPunchGeofenceStrict }
+                : {}),
+              ...(site.propertyType !== undefined
+                ? { propertyType: site.propertyType }
+                : {}),
+              ...(site.floorNumber !== undefined
+                ? { floorNumber: site.floorNumber }
+                : {}),
+              ...(site.totalAreaSqft !== undefined
+                ? { totalAreaSqft: site.totalAreaSqft }
+                : {}),
+              ...(site.workableAreaSqft !== undefined
+                ? { workableAreaSqft: site.workableAreaSqft }
+                : {}),
+              ...(site.carpetAreaSqft !== undefined
+                ? { carpetAreaSqft: site.carpetAreaSqft }
+                : {}),
+              ...(site.contactPerson !== undefined
+                ? { contactPerson: site.contactPerson }
+                : {}),
+              ...(site.contactPersonRelation !== undefined
+                ? { contactPersonRelation: site.contactPersonRelation }
+                : {}),
+              ...(site.contactPhone !== undefined
+                ? { contactPhone: site.contactPhone }
+                : {}),
+              ...(site.contactEmail !== undefined
+                ? { contactEmail: site.contactEmail }
+                : {}),
+              ...(site.accessInstructions !== undefined
+                ? { accessInstructions: site.accessInstructions }
+                : {}),
               ...(site.additionalInformation !== undefined
                 ? {
                     additionalInformation: site.additionalInformation
@@ -681,14 +806,30 @@ export class ProjectRepository {
         projectUpdateData.schedule = { delete: true };
       } else {
         const scheduleCreateData = {
-          plannedStartDate: schedule.plannedStartDate ? new Date(schedule.plannedStartDate) : new Date(),
-          plannedEndDate: schedule.plannedEndDate ? new Date(schedule.plannedEndDate) : new Date(),
-          actualStartDate: schedule.actualStartDate ? new Date(schedule.actualStartDate) : null,
-          actualEndDate: schedule.actualEndDate ? new Date(schedule.actualEndDate) : null,
-          kickoffDate: schedule.kickoffDate ? new Date(schedule.kickoffDate) : null,
-          siteHandoverDate: schedule.siteHandoverDate ? new Date(schedule.siteHandoverDate) : null,
-          warrantyStartDate: schedule.warrantyStartDate ? new Date(schedule.warrantyStartDate) : null,
-          warrantyEndDate: schedule.warrantyEndDate ? new Date(schedule.warrantyEndDate) : null,
+          plannedStartDate: schedule.plannedStartDate
+            ? new Date(schedule.plannedStartDate)
+            : new Date(),
+          plannedEndDate: schedule.plannedEndDate
+            ? new Date(schedule.plannedEndDate)
+            : new Date(),
+          actualStartDate: schedule.actualStartDate
+            ? new Date(schedule.actualStartDate)
+            : null,
+          actualEndDate: schedule.actualEndDate
+            ? new Date(schedule.actualEndDate)
+            : null,
+          kickoffDate: schedule.kickoffDate
+            ? new Date(schedule.kickoffDate)
+            : null,
+          siteHandoverDate: schedule.siteHandoverDate
+            ? new Date(schedule.siteHandoverDate)
+            : null,
+          warrantyStartDate: schedule.warrantyStartDate
+            ? new Date(schedule.warrantyStartDate)
+            : null,
+          warrantyEndDate: schedule.warrantyEndDate
+            ? new Date(schedule.warrantyEndDate)
+            : null,
           extendedWarrantyEndDate: schedule.extendedWarrantyEndDate
             ? new Date(schedule.extendedWarrantyEndDate)
             : null,
@@ -701,33 +842,50 @@ export class ProjectRepository {
 
         const scheduleUpdateData: Prisma.ProjectScheduleUpdateInput = {};
         if (schedule.plannedStartDate !== undefined)
-          scheduleUpdateData.plannedStartDate = new Date(schedule.plannedStartDate);
+          scheduleUpdateData.plannedStartDate = new Date(
+            schedule.plannedStartDate,
+          );
         if (schedule.plannedEndDate !== undefined)
           scheduleUpdateData.plannedEndDate = new Date(schedule.plannedEndDate);
         if (schedule.actualStartDate !== undefined)
-          scheduleUpdateData.actualStartDate = schedule.actualStartDate ? new Date(schedule.actualStartDate) : null;
-        if (schedule.actualEndDate !== undefined)
-          scheduleUpdateData.actualEndDate = schedule.actualEndDate ? new Date(schedule.actualEndDate) : null;
-        if (schedule.kickoffDate !== undefined)
-          scheduleUpdateData.kickoffDate = schedule.kickoffDate ? new Date(schedule.kickoffDate) : null;
-        if (schedule.siteHandoverDate !== undefined)
-          scheduleUpdateData.siteHandoverDate = schedule.siteHandoverDate ? new Date(schedule.siteHandoverDate) : null;
-        if (schedule.warrantyStartDate !== undefined)
-          scheduleUpdateData.warrantyStartDate = schedule.warrantyStartDate ? new Date(schedule.warrantyStartDate) : null;
-        if (schedule.warrantyEndDate !== undefined)
-          scheduleUpdateData.warrantyEndDate = schedule.warrantyEndDate ? new Date(schedule.warrantyEndDate) : null;
-        if (schedule.extendedWarrantyEndDate !== undefined)
-          scheduleUpdateData.extendedWarrantyEndDate = schedule.extendedWarrantyEndDate
-            ? new Date(schedule.extendedWarrantyEndDate)
+          scheduleUpdateData.actualStartDate = schedule.actualStartDate
+            ? new Date(schedule.actualStartDate)
             : null;
+        if (schedule.actualEndDate !== undefined)
+          scheduleUpdateData.actualEndDate = schedule.actualEndDate
+            ? new Date(schedule.actualEndDate)
+            : null;
+        if (schedule.kickoffDate !== undefined)
+          scheduleUpdateData.kickoffDate = schedule.kickoffDate
+            ? new Date(schedule.kickoffDate)
+            : null;
+        if (schedule.siteHandoverDate !== undefined)
+          scheduleUpdateData.siteHandoverDate = schedule.siteHandoverDate
+            ? new Date(schedule.siteHandoverDate)
+            : null;
+        if (schedule.warrantyStartDate !== undefined)
+          scheduleUpdateData.warrantyStartDate = schedule.warrantyStartDate
+            ? new Date(schedule.warrantyStartDate)
+            : null;
+        if (schedule.warrantyEndDate !== undefined)
+          scheduleUpdateData.warrantyEndDate = schedule.warrantyEndDate
+            ? new Date(schedule.warrantyEndDate)
+            : null;
+        if (schedule.extendedWarrantyEndDate !== undefined)
+          scheduleUpdateData.extendedWarrantyEndDate =
+            schedule.extendedWarrantyEndDate
+              ? new Date(schedule.extendedWarrantyEndDate)
+              : null;
         if (schedule.estimatedDurationDays !== undefined)
-          scheduleUpdateData.estimatedDurationDays = schedule.estimatedDurationDays;
+          scheduleUpdateData.estimatedDurationDays =
+            schedule.estimatedDurationDays;
         if (schedule.actualDurationDays !== undefined)
           scheduleUpdateData.actualDurationDays = schedule.actualDurationDays;
         if (schedule.additionalInformation !== undefined)
-          scheduleUpdateData.additionalInformation = schedule.additionalInformation
-            ? (schedule.additionalInformation as Prisma.InputJsonValue)
-            : Prisma.JsonNull;
+          scheduleUpdateData.additionalInformation =
+            schedule.additionalInformation
+              ? (schedule.additionalInformation as Prisma.InputJsonValue)
+              : Prisma.JsonNull;
 
         projectUpdateData.schedule = {
           upsert: {
@@ -751,22 +909,33 @@ export class ProjectRepository {
           paymentProgress: metric.paymentProgress ?? 0,
           qualityScore: metric.qualityScore ?? null,
           safetyScore: metric.safetyScore ?? null,
-          lastEvaluatedAt: metric.lastEvaluatedAt ? new Date(metric.lastEvaluatedAt) : null,
+          lastEvaluatedAt: metric.lastEvaluatedAt
+            ? new Date(metric.lastEvaluatedAt)
+            : null,
           additionalInformation: metric.additionalInformation
             ? (metric.additionalInformation as Prisma.InputJsonValue)
             : Prisma.JsonNull,
         };
 
         const metricUpdateData: Prisma.ProjectMetricUpdateInput = {};
-        if (metric.progressPercent !== undefined) metricUpdateData.progressPercent = metric.progressPercent;
-        if (metric.designProgress !== undefined) metricUpdateData.designProgress = metric.designProgress;
-        if (metric.executionProgress !== undefined) metricUpdateData.executionProgress = metric.executionProgress;
-        if (metric.procurementProgress !== undefined) metricUpdateData.procurementProgress = metric.procurementProgress;
-        if (metric.paymentProgress !== undefined) metricUpdateData.paymentProgress = metric.paymentProgress;
-        if (metric.qualityScore !== undefined) metricUpdateData.qualityScore = metric.qualityScore;
-        if (metric.safetyScore !== undefined) metricUpdateData.safetyScore = metric.safetyScore;
+        if (metric.progressPercent !== undefined)
+          metricUpdateData.progressPercent = metric.progressPercent;
+        if (metric.designProgress !== undefined)
+          metricUpdateData.designProgress = metric.designProgress;
+        if (metric.executionProgress !== undefined)
+          metricUpdateData.executionProgress = metric.executionProgress;
+        if (metric.procurementProgress !== undefined)
+          metricUpdateData.procurementProgress = metric.procurementProgress;
+        if (metric.paymentProgress !== undefined)
+          metricUpdateData.paymentProgress = metric.paymentProgress;
+        if (metric.qualityScore !== undefined)
+          metricUpdateData.qualityScore = metric.qualityScore;
+        if (metric.safetyScore !== undefined)
+          metricUpdateData.safetyScore = metric.safetyScore;
         if (metric.lastEvaluatedAt !== undefined)
-          metricUpdateData.lastEvaluatedAt = metric.lastEvaluatedAt ? new Date(metric.lastEvaluatedAt) : null;
+          metricUpdateData.lastEvaluatedAt = metric.lastEvaluatedAt
+            ? new Date(metric.lastEvaluatedAt)
+            : null;
         if (metric.additionalInformation !== undefined)
           metricUpdateData.additionalInformation = metric.additionalInformation
             ? (metric.additionalInformation as Prisma.InputJsonValue)
@@ -786,62 +955,99 @@ export class ProjectRepository {
       if (commercial === null) {
         projectUpdateData.commercial = { delete: true };
       } else {
-        const commercialCreateData: Prisma.ProjectCommercialCreateWithoutProjectInput = {
-          currency: commercial.currency || "INR",
-          pricingModel: commercial.pricingModel || "TURNKEY_WITH_MATERIALS",
-          contractAmount: new Prisma.Decimal(commercial.contractAmount ?? 0),
-          initialEstimate: new Prisma.Decimal(commercial.initialEstimate ?? 0),
-          revisedEstimate: new Prisma.Decimal(commercial.revisedEstimate ?? 0),
-          designFee: new Prisma.Decimal(commercial.designFee ?? 0),
-          materialPayment: new Prisma.Decimal(commercial.materialPayment ?? 0),
-          labourPayment: new Prisma.Decimal(commercial.labourPayment ?? 0),
-          supervisionFee: new Prisma.Decimal(commercial.supervisionFee ?? 0),
-          consultingPercentage: commercial.consultingPercentage !== undefined ? commercial.consultingPercentage : null,
-          consultingLumpSum:
-            commercial.consultingLumpSum !== undefined && commercial.consultingLumpSum !== null
-              ? new Prisma.Decimal(commercial.consultingLumpSum)
-              : null,
-          consultingRateSqft:
-            commercial.consultingRateSqft !== undefined && commercial.consultingRateSqft !== null
-              ? new Prisma.Decimal(commercial.consultingRateSqft)
-              : null,
-          billableAreaSqft: commercial.billableAreaSqft !== undefined ? commercial.billableAreaSqft : null,
-          additionalInformation: commercial.additionalInformation
-            ? (commercial.additionalInformation as Prisma.InputJsonValue)
-            : Prisma.JsonNull,
-        };
+        const commercialCreateData: Prisma.ProjectCommercialCreateWithoutProjectInput =
+          {
+            currency: commercial.currency || "INR",
+            pricingModel: commercial.pricingModel || "TURNKEY_WITH_MATERIALS",
+            contractAmount: new Prisma.Decimal(commercial.contractAmount ?? 0),
+            initialEstimate: new Prisma.Decimal(
+              commercial.initialEstimate ?? 0,
+            ),
+            revisedEstimate: new Prisma.Decimal(
+              commercial.revisedEstimate ?? 0,
+            ),
+            designFee: new Prisma.Decimal(commercial.designFee ?? 0),
+            materialPayment: new Prisma.Decimal(
+              commercial.materialPayment ?? 0,
+            ),
+            labourPayment: new Prisma.Decimal(commercial.labourPayment ?? 0),
+            supervisionFee: new Prisma.Decimal(commercial.supervisionFee ?? 0),
+            consultingPercentage:
+              commercial.consultingPercentage !== undefined
+                ? commercial.consultingPercentage
+                : null,
+            consultingLumpSum:
+              commercial.consultingLumpSum !== undefined &&
+              commercial.consultingLumpSum !== null
+                ? new Prisma.Decimal(commercial.consultingLumpSum)
+                : null,
+            consultingRateSqft:
+              commercial.consultingRateSqft !== undefined &&
+              commercial.consultingRateSqft !== null
+                ? new Prisma.Decimal(commercial.consultingRateSqft)
+                : null,
+            billableAreaSqft:
+              commercial.billableAreaSqft !== undefined
+                ? commercial.billableAreaSqft
+                : null,
+            additionalInformation: commercial.additionalInformation
+              ? (commercial.additionalInformation as Prisma.InputJsonValue)
+              : Prisma.JsonNull,
+          };
 
         const commercialUpdateData: Prisma.ProjectCommercialUpdateInput = {};
-        if (commercial.currency !== undefined) commercialUpdateData.currency = commercial.currency;
-        if (commercial.pricingModel !== undefined) commercialUpdateData.pricingModel = commercial.pricingModel;
+        if (commercial.currency !== undefined)
+          commercialUpdateData.currency = commercial.currency;
+        if (commercial.pricingModel !== undefined)
+          commercialUpdateData.pricingModel = commercial.pricingModel;
         if (commercial.contractAmount !== undefined)
-          commercialUpdateData.contractAmount = new Prisma.Decimal(commercial.contractAmount);
+          commercialUpdateData.contractAmount = new Prisma.Decimal(
+            commercial.contractAmount,
+          );
         if (commercial.initialEstimate !== undefined)
-          commercialUpdateData.initialEstimate = new Prisma.Decimal(commercial.initialEstimate);
+          commercialUpdateData.initialEstimate = new Prisma.Decimal(
+            commercial.initialEstimate,
+          );
         if (commercial.revisedEstimate !== undefined)
-          commercialUpdateData.revisedEstimate = new Prisma.Decimal(commercial.revisedEstimate);
+          commercialUpdateData.revisedEstimate = new Prisma.Decimal(
+            commercial.revisedEstimate,
+          );
         if (commercial.designFee !== undefined)
-          commercialUpdateData.designFee = new Prisma.Decimal(commercial.designFee);
+          commercialUpdateData.designFee = new Prisma.Decimal(
+            commercial.designFee,
+          );
         if (commercial.materialPayment !== undefined)
-          commercialUpdateData.materialPayment = new Prisma.Decimal(commercial.materialPayment);
+          commercialUpdateData.materialPayment = new Prisma.Decimal(
+            commercial.materialPayment,
+          );
         if (commercial.labourPayment !== undefined)
-          commercialUpdateData.labourPayment = new Prisma.Decimal(commercial.labourPayment);
+          commercialUpdateData.labourPayment = new Prisma.Decimal(
+            commercial.labourPayment,
+          );
         if (commercial.supervisionFee !== undefined)
-          commercialUpdateData.supervisionFee = new Prisma.Decimal(commercial.supervisionFee);
+          commercialUpdateData.supervisionFee = new Prisma.Decimal(
+            commercial.supervisionFee,
+          );
         if (commercial.consultingPercentage !== undefined)
-          commercialUpdateData.consultingPercentage = commercial.consultingPercentage;
+          commercialUpdateData.consultingPercentage =
+            commercial.consultingPercentage;
         if (commercial.consultingLumpSum !== undefined)
           commercialUpdateData.consultingLumpSum =
-            commercial.consultingLumpSum !== null ? new Prisma.Decimal(commercial.consultingLumpSum) : null;
+            commercial.consultingLumpSum !== null
+              ? new Prisma.Decimal(commercial.consultingLumpSum)
+              : null;
         if (commercial.consultingRateSqft !== undefined)
           commercialUpdateData.consultingRateSqft =
-            commercial.consultingRateSqft !== null ? new Prisma.Decimal(commercial.consultingRateSqft) : null;
+            commercial.consultingRateSqft !== null
+              ? new Prisma.Decimal(commercial.consultingRateSqft)
+              : null;
         if (commercial.billableAreaSqft !== undefined)
           commercialUpdateData.billableAreaSqft = commercial.billableAreaSqft;
         if (commercial.additionalInformation !== undefined)
-          commercialUpdateData.additionalInformation = commercial.additionalInformation
-            ? (commercial.additionalInformation as Prisma.InputJsonValue)
-            : Prisma.JsonNull;
+          commercialUpdateData.additionalInformation =
+            commercial.additionalInformation
+              ? (commercial.additionalInformation as Prisma.InputJsonValue)
+              : Prisma.JsonNull;
 
         projectUpdateData.commercial = {
           upsert: {
@@ -931,7 +1137,11 @@ export class ProjectRepository {
   /**
    * Soft delete a project
    */
-  async softDelete(id: string, organizationId: string, tx?: Prisma.TransactionClient) {
+  async softDelete(
+    id: string,
+    organizationId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
     const db = tx || prisma;
     return db.project.update({
       where: {
