@@ -77,11 +77,7 @@ export const getDesignFolders = asyncHandler(async (req, res) => {
  * @access  Private (Authenticated Tenant User)
  */
 export const getDesignFolderById = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
+  const organizationId = await resolveOrgId(req, req.params.projectId as string);
   const result = await designService.getFolderById(req.params.projectId as string, organizationId, req.params.id as string);
   return SuccessResponse(res, "Design folder retrieved successfully", result, statusCode.OK);
 });
@@ -154,11 +150,7 @@ export const getProjectDesigns = asyncHandler(async (req, res) => {
  * @access  Private (Authenticated Tenant User)
  */
 export const getProjectDesignById = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
+  const organizationId = await resolveOrgId(req, req.params.projectId as string);
   const result = await designService.getDesignById(req.params.projectId as string, organizationId, req.params.id as string);
   return SuccessResponse(res, "Design asset retrieved successfully", result, statusCode.OK);
 });
@@ -238,11 +230,7 @@ export const getDesignVersions = asyncHandler(async (req, res) => {
  * @access  Private (Authenticated Tenant User)
  */
 export const getDesignVersionById = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
+  const organizationId = await resolveOrgId(req, req.params.projectId as string);
   const result = await designService.getVersionById(
     req.params.projectId as string,
     organizationId,
@@ -478,11 +466,7 @@ export const getDesignChangeRequests = asyncHandler(async (req, res) => {
  * @access  Private (Authenticated Tenant User)
  */
 export const getDesignChangeRequestById = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
+  const organizationId = await resolveOrgId(req, req.params.projectId as string);
   const result = await designService.getChangeRequestById(
     req.params.projectId as string,
     organizationId,
