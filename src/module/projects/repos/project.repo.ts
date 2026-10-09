@@ -44,7 +44,7 @@ export class ProjectRepository {
    */
   async create(
     organizationId: string,
-    data: CreateProjectInput & { projectCode: string },
+    data: CreateProjectInput & { projectCode: string; userId: string },
     createdById?: string,
     tx?: Prisma.TransactionClient
   ) {
@@ -72,6 +72,7 @@ export class ProjectRepository {
     return db.project.create({
       data: {
         ...coreFields,
+        userId: data.userId,
         organizationId,
         createdById: createdById || null,
         coverImageUrl: coverImageUrl ? (coverImageUrl as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
@@ -343,6 +344,61 @@ export class ProjectRepository {
           orderBy: { createdAt: "asc" },
         },
       },
+    });
+  }
+
+  /**
+   * Find all projects for a client User across all organizations (Lightweight Catalog Scope)
+   */
+  async findMyProjects(userId: string, tx?: Prisma.TransactionClient) {
+    const db = tx || prisma;
+    return db.project.findMany({
+      where: {
+        userId,
+        isDeleted: false,
+        isClientPortalVisible: true,
+      },
+      select: {
+        id: true,
+        projectCode: true,
+        name: true,
+        description: true,
+        category: true,
+        type: true,
+        status: true,
+        currentStage: true,
+        coverImageUrl: true,
+        createdAt: true,
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            logoUrl: true,
+          },
+        },
+        site: {
+          select: {
+            siteName: true,
+            city: true,
+            address: true,
+          },
+        },
+        schedule: {
+          select: {
+            plannedStartDate: true,
+            plannedEndDate: true,
+            siteHandoverDate: true,
+          },
+        },
+        metric: {
+          select: {
+            progressPercent: true,
+            designProgress: true,
+            executionProgress: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
     });
   }
 

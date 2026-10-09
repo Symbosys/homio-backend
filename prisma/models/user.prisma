@@ -76,6 +76,7 @@ model User {
   assignedTaskAssignees     TaskAssignee[]          @relation("TaskAssigneeAssignedBy")
   uploadedTaskDocuments     TaskDocument[]          @relation("TaskDocumentUploadedBy")
   createdProjects           Project[]               @relation("ProjectCreatedBy")
+  myProjects                Project[]               @relation("UserProjects")
   assignedProjectMembers    ProjectMember[]         @relation("ProjectMemberAssignedBy")
   complaintComments         ComplaintComment[]      @relation("ComplaintCommentUser")
   designApprovals           DesignVersionApproval[] @relation("UserDesignApprovals")
@@ -204,4 +205,29 @@ model RefreshToken {
   @@index([tokenHash])
   @@index([expiresAt, isRevoked])
   @@map("refresh_tokens")
+}
+
+// ==========================================
+// AUTH OTP MODEL (Phone & Email Verification)
+// ==========================================
+
+enum OtpType {
+  PHONE
+  EMAIL
+}
+
+model AuthOtp {
+  id         String   @id @default(uuid()) @db.Uuid
+  identifier String   @map("identifier") // Phone e.g. "+919876543210" or Email e.g. "user@example.com"
+  type       OtpType  @default(PHONE) @map("type")
+  otp        String   @map("otp")
+  purpose    String   @default("LOGIN") @map("purpose")
+  expiresAt  DateTime @map("expires_at")
+  isUsed     Boolean  @default(false) @map("is_used")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([identifier, type, purpose, isUsed])
+  @@index([expiresAt])
+  @@map("auth_otps")
 }

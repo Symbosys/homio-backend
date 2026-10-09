@@ -360,6 +360,9 @@ model Project {
   customerId String   @map("customer_id") @db.Uuid
   customer   Customer @relation("CustomerProjects", fields: [customerId], references: [id], onDelete: Restrict)
 
+  userId String @map("user_id") @db.Uuid
+  user   User   @relation("UserProjects", fields: [userId], references: [id], onDelete: Restrict)
+
   leadId String? @map("lead_id") @db.Uuid
   lead   Lead?   @relation("LeadProjects", fields: [leadId], references: [id], onDelete: SetNull)
 
@@ -445,6 +448,7 @@ model Project {
   @@unique([organizationId, projectCode])
   @@index([organizationId])
   @@index([customerId])
+  @@index([userId])
   @@index([leadId])
   @@index([serviceCategoryId])
   @@index([status])

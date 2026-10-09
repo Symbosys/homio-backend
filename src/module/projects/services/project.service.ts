@@ -2,6 +2,7 @@ import { prisma } from "../../../lib/prisma.js";
 import { ErrorResponse } from "../../../utils/response.util.js";
 import { statusCode, Prisma } from "../../../types/types.js";
 import { projectRepo } from "../repos/project.repo.js";
+import { userProvisioningService } from "../../user/services/user-provisioning.service.js";
 import type {
   CreateProjectInput,
   UpdateProjectInput,
@@ -82,11 +83,18 @@ export class ProjectService {
       }
     }
 
+    // 5. Resolve or auto-provision global Client User (userType: USER) for the project client
+    const clientUser = await userProvisioningService.resolveOrCreateClientUser({
+      phone: customer.phone,
+      email: customer.email,
+      firstName: customer.firstName,
+      lastName: customer.lastName,
+    });
 
-    // 6. Execute atomic creation via repository
-    const project = await projectRepo.create(organizationId, { ...data, projectCode }, userId);
+    // 6. Execute atomic creation via repository (with mandatory userId)
+    const project = await projectRepo.create(organizationId, { ...data, projectCode, userId: clientUser.id }, userId);
 
-    // 7. Promote Customer to CLIENT, update alternate contacts/KYC, and record conversion
+    // 7. Promote Customer to CLIENT, update alternate contacts/KYC, and link to global User
     const clientAlternatePhone = data.client?.alternatePhone !== undefined ? data.client?.alternatePhone : data.clientAlternatePhone;
     const clientAlternateRelation = data.client?.alternateContactRelation !== undefined ? data.client?.alternateContactRelation : data.clientAlternateRelation;
     const clientPan = data.client?.panNumber !== undefined ? data.client?.panNumber : data.clientPan;
@@ -95,6 +103,8 @@ export class ProjectService {
     const customerUpdateData: Prisma.CustomerUpdateInput = {
       customerType: "CLIENT",
       convertedAt: new Date(),
+      user: { connect: { id: clientUser.id } },
+      portalAccessEnabled: true,
       ...(data.leadId ? { initialLeadId: data.leadId } : {}),
     };
 
@@ -216,6 +226,13 @@ export class ProjectService {
    */
   async getProjects(organizationId: string, query: GetProjectsQueryInput) {
     return projectRepo.findAll(organizationId, query);
+  }
+
+  /**
+   * Get all projects belonging to a client user across all organizations
+   */
+  async getMyProjects(userId: string) {
+    return projectRepo.findMyProjects(userId);
   }
 
   /**

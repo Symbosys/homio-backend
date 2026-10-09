@@ -3,6 +3,7 @@ import { authenticate, authorize } from "../../../middlewares/auth.middleware.js
 import {
   createProject,
   getProjects,
+  getMyProjects,
   getProjectById,
   updateProject,
   deleteProject,
@@ -74,6 +75,12 @@ projectRoutes.post("/", createProject);
  * @desc    Fetch paginated list of projects with search and filters
  */
 projectRoutes.get("/", getProjects);
+
+/**
+ * @route   GET /api/v1/projects/my-projects
+ * @desc    Fetch all projects belonging to the authenticated client user across all organizations
+ */
+projectRoutes.get("/my-projects", getMyProjects);
 
 /**
  * @route   GET /api/v1/projects/:id

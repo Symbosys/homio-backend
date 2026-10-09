@@ -42,6 +42,21 @@ export const getProjects = asyncHandler(async (req, res) => {
 });
 
 /**
+ * @route   GET /api/v1/projects/my-projects
+ * @desc    Fetch all projects belonging to the authenticated client user across all organizations
+ * @access  Private (Authenticated User)
+ */
+export const getMyProjects = asyncHandler(async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    throw new ErrorResponse("Authentication required", statusCode.Unauthorized);
+  }
+
+  const result = await projectService.getMyProjects(userId);
+  return SuccessResponse(res, "Client projects retrieved successfully", result, statusCode.OK);
+});
+
+/**
  * @route   GET /api/v1/projects/:id
  * @desc    Fetch comprehensive details of a single project by ID including all 5 segregated sub-entities
  * @access  Private (Authenticated Tenant User)
