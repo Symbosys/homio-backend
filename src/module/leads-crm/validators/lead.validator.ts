@@ -24,7 +24,12 @@ export const customerPayloadSchema = z.object({
   firstName: z.string().min(1, "First name is required").max(100),
   lastName: z.string().max(100).optional().nullable(),
   email: z.string().email("Invalid email address").optional().nullable().or(z.literal("")),
-  phone: z.string().min(5, "Valid phone number is required").max(20),
+  phone: z
+    .string({ message: "Valid 10-digit phone number is required" })
+    .transform((val) => val.replace(/\D/g, "").slice(-10))
+    .refine((val) => /^\d{10}$/.test(val), {
+      message: "Phone number must be exactly 10 digits without country code",
+    }),
   alternatePhone: z.string().max(20).optional().nullable().or(z.literal("")),
   companyName: z.string().max(150).optional().nullable(),
   city: z.string().max(100).optional().nullable(),

@@ -59,7 +59,7 @@ async function runMultiOrgUserIsolationVerification() {
   console.log(`${colors.bold}${colors.magenta}========================================================================${colors.reset}\n`);
 
   const runId = Date.now();
-  const testPhone = `+9199${Math.floor(10000000 + Math.random() * 90000000)}`;
+  const testPhone = `99${Math.floor(10000000 + Math.random() * 90000000)}`;
   const testEmail = `client_${runId}@example.com`;
 
   let createdOrgAId: string | null = null;
@@ -268,7 +268,7 @@ async function runMultiOrgUserIsolationVerification() {
     // ---------------------------------------------------------------------------------
     console.log(`\n${colors.bold}--- [6] Edge Case 1: Same Phone, Different Email (Multi-Org Project Creation) ---${colors.reset}`);
 
-    const caseAPhone = `+9198${Math.floor(10000000 + Math.random() * 90000000)}`;
+    const caseAPhone = `98${Math.floor(10000000 + Math.random() * 90000000)}`;
     const caseAEmail1 = `client_work_${runId}@company.com`;
     const caseAEmail2 = `client_personal_${runId}@gmail.com`;
 
@@ -327,8 +327,8 @@ async function runMultiOrgUserIsolationVerification() {
     console.log(`\n${colors.bold}--- [7] Edge Case 2: Same Email, Different Phone (Multi-Org Project Creation) ---${colors.reset}`);
 
     const caseBEmail = `client_shared_${runId}@domain.com`;
-    const caseBPhone1 = `+9197${Math.floor(10000000 + Math.random() * 90000000)}`;
-    const caseBPhone2 = `+9196${Math.floor(10000000 + Math.random() * 90000000)}`;
+    const caseBPhone1 = `97${Math.floor(10000000 + Math.random() * 90000000)}`;
+    const caseBPhone2 = `96${Math.floor(10000000 + Math.random() * 90000000)}`;
 
     // 1. Org A creates customer & project with Primary Phone and Shared Email
     const customerCaseB1 = await prisma.customer.create({

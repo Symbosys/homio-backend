@@ -20,7 +20,7 @@ export class CustomerService {
     input: CreateCustomerInput,
     avatarFile?: Express.Multer.File
   ) {
-    const normalizedPhone = input.phone.trim();
+    const normalizedPhone = input.phone.replace(/\D/g, "").slice(-10);
     const normalizedEmail = input.email ? input.email.trim().toLowerCase() : null;
 
     // Check if customer already exists for this tenant

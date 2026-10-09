@@ -19,7 +19,8 @@ export class UserProvisioningService {
     firstName: string;
     lastName?: string | null;
   }): Promise<User> {
-    const cleanPhone = input.phone?.trim();
+    const rawPhoneDigits = input.phone ? input.phone.replace(/\D/g, "") : "";
+    const cleanPhone = rawPhoneDigits.length >= 10 ? rawPhoneDigits.slice(-10) : (rawPhoneDigits || null);
     const cleanEmail = input.email?.trim().toLowerCase();
 
     let user: User | null = null;

@@ -21,21 +21,24 @@ describe("Passwordless OTP Authentication & Auto-Provisioning Tests", () => {
   // 1. Phone OTP Dispatch & Verification
   // =========================================================================
   describe("Phone OTP Login & Registration Flow", () => {
-    const testPhone = `+9199${Math.floor(10000000 + Math.random() * 90000000)}`;
+    const rawTenDigits = `99${Math.floor(10000000 + Math.random() * 90000000)}`;
+    const testPhoneWithCountryCode = `+91${rawTenDigits}`;
+    const testPhone = rawTenDigits;
 
-    it("should generate and save a 6-digit numeric OTP for a new phone number", async () => {
+    it("should generate and save a 6-digit numeric OTP for a phone number (normalized to 10 digits)", async () => {
+      // Dispatch with +91 country prefix
       const sendResult = await authService.sendOtp({
-        identifier: testPhone,
+        identifier: testPhoneWithCountryCode,
       });
 
-      expect(sendResult.identifier).toBe(testPhone);
+      expect(sendResult.identifier).toBe(testPhone); // Normalized to 10 digits
       expect(sendResult.type).toBe("PHONE");
       expect(sendResult.userExists).toBe(false);
       expect(sendResult.otp).toBeDefined();
       expect(sendResult.otp?.length).toBe(6);
       expect(/^\d{6}$/.test(sendResult.otp!)).toBe(true);
 
-      // Verify stored in DB
+      // Verify stored in DB with 10 digits
       const dbOtp = await prisma.authOtp.findFirst({
         where: { identifier: testPhone, isUsed: false },
         orderBy: { createdAt: "desc" },
@@ -88,12 +91,13 @@ describe("Passwordless OTP Authentication & Auto-Provisioning Tests", () => {
       expect(usedOtp?.isUsed).toBe(true);
     });
 
-    it("should login existing phone user with new OTP without creating a duplicate user", async () => {
-      // 1. Send OTP for existing user
-      const sendResult = await authService.sendOtp({ identifier: testPhone });
+    it("should login existing phone user with new OTP without creating a duplicate user (even if entered with +91)", async () => {
+      // 1. Send OTP for existing user with +91 prefix
+      const sendResult = await authService.sendOtp({ identifier: testPhoneWithCountryCode });
+      expect(sendResult.identifier).toBe(testPhone);
       expect(sendResult.userExists).toBe(true); // User exists now
 
-      // 2. Verify OTP
+      // 2. Verify OTP with raw 10 digits
       const verifyResult = await authService.verifyOtp(
         {
           identifier: testPhone,
@@ -178,7 +182,7 @@ describe("Passwordless OTP Authentication & Auto-Provisioning Tests", () => {
   // 3. Security & Validation Failure Cases
   // =========================================================================
   describe("Security & OTP Rejection Scenarios", () => {
-    const securityPhone = `+9198${Math.floor(10000000 + Math.random() * 90000000)}`;
+    const securityPhone = `98${Math.floor(10000000 + Math.random() * 90000000)}`;
 
     it("should reject verification with incorrect OTP code", async () => {
       await authService.sendOtp({ identifier: securityPhone });
@@ -226,7 +230,7 @@ describe("Passwordless OTP Authentication & Auto-Provisioning Tests", () => {
     });
 
     it("should reject verification of expired OTP", async () => {
-      const expiredPhone = `+9197${Math.floor(10000000 + Math.random() * 90000000)}`;
+      const expiredPhone = `97${Math.floor(10000000 + Math.random() * 90000000)}`;
       const expiredOtpCode = "889911";
 
       // Insert an expired OTP directly

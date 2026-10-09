@@ -18,8 +18,21 @@ export const createCustomerSchema = z.object({
     lastName: z.string().max(100).optional().nullable(),
     displayName: z.string().max(150).optional().nullable(),
     email: z.string().email("Invalid email address").optional().nullable().or(z.literal("")),
-    phone: z.string().min(5, "Valid phone number is required").max(20),
-    alternatePhone: z.string().max(20).optional().nullable().or(z.literal("")),
+    phone: z
+      .string({ message: "Valid 10-digit phone number is required" })
+      .transform((val) => val.replace(/\D/g, "").slice(-10))
+      .refine((val) => /^\d{10}$/.test(val), {
+        message: "Phone number must be exactly 10 digits without country code",
+      }),
+    alternatePhone: z
+      .string()
+      .transform((val) => (val ? val.replace(/\D/g, "").slice(-10) : val))
+      .refine((val) => !val || /^\d{10}$/.test(val), {
+        message: "Alternate phone number must be exactly 10 digits",
+      })
+      .optional()
+      .nullable()
+      .or(z.literal("")),
     alternateContactRelation: z.string().max(100).optional().nullable(),
     companyName: z.string().max(150).optional().nullable(),
     gstin: z.string().max(30).optional().nullable(),
@@ -58,8 +71,22 @@ export const updateCustomerSchema = z.object({
     lastName: z.string().max(100).optional().nullable(),
     displayName: z.string().max(150).optional().nullable(),
     email: z.string().email("Invalid email address").optional().nullable().or(z.literal("")),
-    phone: z.string().min(5).max(20).optional(),
-    alternatePhone: z.string().max(20).optional().nullable().or(z.literal("")),
+    phone: z
+      .string()
+      .transform((val) => (val ? val.replace(/\D/g, "").slice(-10) : val))
+      .refine((val) => !val || /^\d{10}$/.test(val), {
+        message: "Phone number must be exactly 10 digits without country code",
+      })
+      .optional(),
+    alternatePhone: z
+      .string()
+      .transform((val) => (val ? val.replace(/\D/g, "").slice(-10) : val))
+      .refine((val) => !val || /^\d{10}$/.test(val), {
+        message: "Alternate phone number must be exactly 10 digits",
+      })
+      .optional()
+      .nullable()
+      .or(z.literal("")),
     alternateContactRelation: z.string().max(100).optional().nullable(),
     companyName: z.string().max(150).optional().nullable(),
     gstin: z.string().max(30).optional().nullable(),

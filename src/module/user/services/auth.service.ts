@@ -25,7 +25,11 @@ export class AuthService {
    * Helper: Clean and normalize identifier
    */
   private normalizeIdentifier(identifier: string, type: OtpType): string {
-    return type === "EMAIL" ? identifier.trim().toLowerCase() : identifier.trim();
+    if (type === "EMAIL") {
+      return identifier.trim().toLowerCase();
+    }
+    const digits = identifier.replace(/\D/g, "");
+    return digits.length >= 10 ? digits.slice(-10) : digits;
   }
 
   /**
@@ -37,6 +41,10 @@ export class AuthService {
   async sendOtp(input: SendOtpInput) {
     const type = this.detectIdentifierType(input.identifier, input.type);
     const cleanIdentifier = this.normalizeIdentifier(input.identifier, type);
+
+    if (type === "PHONE" && !/^\d{10}$/.test(cleanIdentifier)) {
+      throw new ErrorResponse("Phone number must be exactly 10 digits", statusCode.Bad_Request);
+    }
 
     // 1. Check if user already exists in platform
     let existingUser = null;
@@ -102,6 +110,10 @@ export class AuthService {
     const type = this.detectIdentifierType(input.identifier, input.type);
     const cleanIdentifier = this.normalizeIdentifier(input.identifier, type);
     const enteredOtp = input.otp.trim();
+
+    if (type === "PHONE" && !/^\d{10}$/.test(cleanIdentifier)) {
+      throw new ErrorResponse("Phone number must be exactly 10 digits", statusCode.Bad_Request);
+    }
 
     // 1. Locate latest active non-expired OTP record
     const otpRecord = await prisma.authOtp.findFirst({
