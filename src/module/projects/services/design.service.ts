@@ -1,6 +1,7 @@
 import { prisma } from "../../../lib/prisma.js";
 import { ErrorResponse } from "../../../utils/response.util.js";
-import { statusCode } from "../../../types/types.js";
+import { statusCode, type ImageType } from "../../../types/types.js";
+import { storageService } from "../../../lib/storage/storage.service.js";
 import { DesignRepository } from "../repos/design.repo.js";
 import type { z } from "zod";
 import type {
@@ -144,17 +145,49 @@ export class DesignService {
   // 2. MASTER DESIGNS
   // ==========================================================================
 
-  async createDesign(projectId: string, organizationId: string, data: CreateDesignInput) {
+  async createDesign(
+    projectId: string,
+    organizationId: string,
+    data: CreateDesignInput,
+    coverFile?: Express.Multer.File
+  ) {
     await this.verifyProject(projectId, organizationId);
 
-    // Verify folder belongs to project if supplied
-    if (data.folderId) {
-      const folder = await prisma.projectDesignFolder.findFirst({
-        where: { id: data.folderId, projectId, organizationId, isDeleted: false },
-      });
-      if (!folder) {
-        throw new ErrorResponse("Target design folder not found in this project", statusCode.Bad_Request);
-      }
+    // If cover image file was uploaded via multipart, upload to cloud storage
+    if (coverFile) {
+      const uploadResult = await storageService.upload(
+        {
+          buffer: coverFile.buffer,
+          originalname: coverFile.originalname,
+          mimetype: coverFile.mimetype,
+          size: coverFile.size,
+        },
+        {
+          folder: `homio/organizations/${organizationId}/projects/${projectId}/designs/covers`,
+          resourceType: "image",
+        }
+      );
+
+      const coverImageData: ImageType = {
+        id: uploadResult.publicId,
+        url: uploadResult.secureUrl || uploadResult.url,
+        bytes: uploadResult.bytes,
+        format: uploadResult.format,
+        provider: uploadResult.provider,
+      };
+
+      data.coverImageUrl = coverImageData;
+    }
+
+    // Verify mandatory folder belongs to project
+    if (!data.folderId) {
+      throw new ErrorResponse("Project folder is mandatory when creating a design asset", statusCode.Bad_Request);
+    }
+    const folder = await prisma.projectDesignFolder.findFirst({
+      where: { id: data.folderId, projectId, organizationId, isDeleted: false },
+    });
+    if (!folder) {
+      throw new ErrorResponse("Target design folder not found in this project", statusCode.Bad_Request);
     }
 
     // Verify milestone belongs to project if supplied
@@ -218,11 +251,48 @@ export class DesignService {
     return design;
   }
 
-  async updateDesign(projectId: string, organizationId: string, id: string, data: UpdateDesignInput) {
+  async updateDesign(
+    projectId: string,
+    organizationId: string,
+    id: string,
+    data: UpdateDesignInput,
+    coverFile?: Express.Multer.File
+  ) {
     await this.verifyProject(projectId, organizationId);
     const existing = await designRepo.findDesignById(organizationId, projectId, id);
     if (!existing) {
       throw new ErrorResponse("Design asset not found", statusCode.Not_Found);
+    }
+
+    // If new cover image file uploaded, delete old cloud asset and upload new
+    if (coverFile) {
+      const existingCover = existing.coverImageUrl as any;
+      if (existingCover?.id) {
+        await storageService.delete(existingCover.id).catch(() => {});
+      }
+
+      const uploadResult = await storageService.upload(
+        {
+          buffer: coverFile.buffer,
+          originalname: coverFile.originalname,
+          mimetype: coverFile.mimetype,
+          size: coverFile.size,
+        },
+        {
+          folder: `homio/organizations/${organizationId}/projects/${projectId}/designs/covers`,
+          resourceType: "image",
+        }
+      );
+
+      const coverImageData: ImageType = {
+        id: uploadResult.publicId,
+        url: uploadResult.secureUrl || uploadResult.url,
+        bytes: uploadResult.bytes,
+        format: uploadResult.format,
+        provider: uploadResult.provider,
+      };
+
+      data.coverImageUrl = coverImageData;
     }
 
     if (data.folderId) {
@@ -252,6 +322,13 @@ export class DesignService {
     if (!existing) {
       throw new ErrorResponse("Design asset not found", statusCode.Not_Found);
     }
+
+    // Cleanup cover image from cloud storage if present
+    const existingCover = existing.coverImageUrl as any;
+    if (existingCover?.id) {
+      await storageService.delete(existingCover.id).catch(() => {});
+    }
+
     return designRepo.deleteDesign(id);
   }
 

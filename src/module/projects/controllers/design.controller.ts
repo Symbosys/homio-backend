@@ -133,7 +133,7 @@ export const createProjectDesign = asyncHandler(async (req, res) => {
   }
 
   const parsed = createProjectDesignSchema.parse({ params: req.params, body: req.body });
-  const result = await designService.createDesign(parsed.params.projectId, organizationId, parsed.body);
+  const result = await designService.createDesign(parsed.params.projectId, organizationId, parsed.body, req.file);
   return SuccessResponse(res, "Design asset created successfully", result, statusCode.Created);
 });
 
@@ -175,7 +175,7 @@ export const updateProjectDesign = asyncHandler(async (req, res) => {
   }
 
   const parsed = updateProjectDesignSchema.parse({ params: req.params, body: req.body });
-  const result = await designService.updateDesign(parsed.params.projectId, organizationId, parsed.params.id, parsed.body);
+  const result = await designService.updateDesign(parsed.params.projectId, organizationId, parsed.params.id, parsed.body, req.file);
   return SuccessResponse(res, "Design asset updated successfully", result, statusCode.OK);
 });
 

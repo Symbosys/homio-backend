@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { authenticate, authorize } from "../../../middlewares/auth.middleware.js";
+import { upload } from "../../../middlewares/upload.middleware.js";
 import {
   createProjectDesign,
   getProjectDesigns,
@@ -36,7 +37,7 @@ designRoutes.use(authenticate, authorize("PLATFORM_ADMIN", "ADMIN", "USER"));
  * @route   POST /api/v1/projects/:projectId/designs
  * @desc    Create a master design asset with initial v1 version and optional attachments
  */
-designRoutes.post("/", createProjectDesign);
+designRoutes.post("/", upload.single("coverImage"), createProjectDesign);
 
 /**
  * @route   GET /api/v1/projects/:projectId/designs
@@ -54,7 +55,7 @@ designRoutes.get("/:id", getProjectDesignById);
  * @route   PATCH /api/v1/projects/:projectId/designs/:id
  * @desc    Partial dirty update of master design specifications and metadata
  */
-designRoutes.patch("/:id", updateProjectDesign);
+designRoutes.patch("/:id", upload.single("coverImage"), updateProjectDesign);
 
 /**
  * @route   DELETE /api/v1/projects/:projectId/designs/:id
