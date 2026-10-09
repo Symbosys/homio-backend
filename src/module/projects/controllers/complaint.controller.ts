@@ -1,6 +1,7 @@
 import { asyncHandler } from "../../../middlewares/error.middleware.js";
 import { SuccessResponse, ErrorResponse } from "../../../utils/response.util.js";
 import { statusCode } from "../../../types/types.js";
+import { prisma } from "../../../lib/prisma.js";
 import { complaintService } from "../services/complaint.service.js";
 import {
   createComplaintSchema,
@@ -15,17 +16,31 @@ import {
 } from "../validators/complaint.validator.js";
 
 /**
+ * Helper: Resolve organization ID from authenticated user or active project record
+ */
+async function resolveOrgId(req: any, projectId: string): Promise<string> {
+  if (req.user?.organizationId) {
+    return req.user.organizationId;
+  }
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, isDeleted: false },
+    select: { organizationId: true },
+  });
+  if (!project) {
+    throw new ErrorResponse("Project not found", statusCode.Not_Found);
+  }
+  return project.organizationId;
+}
+
+/**
  * @route   POST /api/v1/projects/:projectId/complaints
  * @desc    File a new project complaint / snag ticket
- * @access  Private (Authenticated Tenant User)
+ * @access  Private (Authenticated Tenant / Client User)
  */
 export const createComplaint = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const parsed = createComplaintSchema.parse({ params: req.params, body: req.body });
+  const organizationId = await resolveOrgId(req, parsed.params.projectId);
+
   const result = await complaintService.createComplaint(
     parsed.params.projectId,
     organizationId,
@@ -37,7 +52,7 @@ export const createComplaint = asyncHandler(async (req, res) => {
 /**
  * @route   GET /api/v1/projects/:projectId/complaints
  * @desc    Fetch paginated list of complaints with search, severity & status filters
- * @access  Private (Authenticated Tenant User)
+ * @access  Private (Authenticated Tenant / Client User)
  */
 export const getComplaints = asyncHandler(async (req, res) => {
   const parsedParams = complaintProjectIdParamSchema.parse({ params: req.params });
@@ -53,15 +68,12 @@ export const getComplaints = asyncHandler(async (req, res) => {
 /**
  * @route   GET /api/v1/projects/:projectId/complaints/:id
  * @desc    Fetch comprehensive details of a single complaint with comments
- * @access  Private (Authenticated Tenant User)
+ * @access  Private (Authenticated Tenant / Client User)
  */
 export const getComplaintById = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const parsed = complaintIdParamSchema.parse({ params: req.params });
+  const organizationId = await resolveOrgId(req, parsed.params.projectId);
+
   const result = await complaintService.getComplaintById(
     parsed.params.id,
     parsed.params.projectId,
@@ -73,15 +85,12 @@ export const getComplaintById = asyncHandler(async (req, res) => {
 /**
  * @route   PATCH /api/v1/projects/:projectId/complaints/:id
  * @desc    Update complaint details, room, and target resolution date
- * @access  Private (Authenticated Tenant User)
+ * @access  Private (Authenticated Tenant / Client User)
  */
 export const updateComplaint = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const parsed = updateComplaintSchema.parse({ params: req.params, body: req.body });
+  const organizationId = await resolveOrgId(req, parsed.params.projectId);
+
   const result = await complaintService.updateComplaint(
     parsed.params.id,
     parsed.params.projectId,
@@ -94,15 +103,12 @@ export const updateComplaint = asyncHandler(async (req, res) => {
 /**
  * @route   PATCH /api/v1/projects/:projectId/complaints/:id/status
  * @desc    Update complaint status (RESOLVED, CLOSED, etc.) with resolution notes
- * @access  Private (Authenticated Tenant User)
+ * @access  Private (Authenticated Tenant / Client User)
  */
 export const updateComplaintStatus = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const parsed = updateComplaintStatusSchema.parse({ params: req.params, body: req.body });
+  const organizationId = await resolveOrgId(req, parsed.params.projectId);
+
   const result = await complaintService.updateComplaintStatus(
     parsed.params.id,
     parsed.params.projectId,
@@ -118,12 +124,9 @@ export const updateComplaintStatus = asyncHandler(async (req, res) => {
  * @access  Private (Authenticated Tenant User)
  */
 export const deleteComplaint = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const parsed = complaintIdParamSchema.parse({ params: req.params });
+  const organizationId = await resolveOrgId(req, parsed.params.projectId);
+
   const result = await complaintService.deleteComplaint(
     parsed.params.id,
     parsed.params.projectId,
@@ -139,15 +142,12 @@ export const deleteComplaint = asyncHandler(async (req, res) => {
 /**
  * @route   POST /api/v1/projects/:projectId/complaints/:complaintId/comments
  * @desc    Add a comment / activity update to a complaint
- * @access  Private (Authenticated Tenant User)
+ * @access  Private (Authenticated Tenant / Client User)
  */
 export const addComplaintComment = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const parsed = addComplaintCommentSchema.parse({ params: req.params, body: req.body });
+  const organizationId = await resolveOrgId(req, parsed.params.projectId);
+
   const result = await complaintService.addComment(
     parsed.params.projectId,
     parsed.params.complaintId,
@@ -160,15 +160,12 @@ export const addComplaintComment = asyncHandler(async (req, res) => {
 /**
  * @route   GET /api/v1/projects/:projectId/complaints/:complaintId/comments
  * @desc    Get all comments for a complaint
- * @access  Private (Authenticated Tenant User)
+ * @access  Private (Authenticated Tenant / Client User)
  */
 export const getComplaintComments = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const parsed = complaintCommentsParamSchema.parse({ params: req.params });
+  const organizationId = await resolveOrgId(req, parsed.params.projectId);
+
   const result = await complaintService.getComments(
     parsed.params.projectId,
     parsed.params.complaintId,

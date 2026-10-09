@@ -4,6 +4,7 @@ import {
   ErrorResponse,
 } from "../../../utils/response.util.js";
 import { statusCode } from "../../../types/types.js";
+import { prisma } from "../../../lib/prisma.js";
 import { complaintMediaService } from "../services/complaint-media.service.js";
 import {
   getPresignedComplaintMediaUrlSchema,
@@ -15,20 +16,33 @@ import {
 } from "../validators/complaint-media.validator.js";
 
 /**
+ * Helper: Resolve organization ID from authenticated user or active project record
+ */
+async function resolveOrgId(req: any, projectId: string): Promise<string> {
+  if (req.user?.organizationId) {
+    return req.user.organizationId;
+  }
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, isDeleted: false },
+    select: { organizationId: true },
+  });
+  if (!project) {
+    throw new ErrorResponse("Project not found", statusCode.Not_Found);
+  }
+  return project.organizationId;
+}
+
+/**
  * @route   POST /api/v1/projects/:projectId/complaints/:complaintId/media/presigned-url
  * @desc    Generate AWS S3 Presigned PUT URL for direct client-to-cloud complaint video/image streaming
- * @access  Private (Authenticated Tenant User)
+ * @access  Private (Authenticated Tenant / Client User)
  */
 export const getPresignedComplaintMediaUrl = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const parsed = getPresignedComplaintMediaUrlSchema.parse({
     params: req.params,
     body: req.body,
   });
+  const organizationId = await resolveOrgId(req, parsed.params.projectId);
 
   const result = await complaintMediaService.getPresignedUploadUrl(
     parsed.params.projectId,
@@ -49,14 +63,9 @@ export const getPresignedComplaintMediaUrl = asyncHandler(async (req, res) => {
 /**
  * @route   POST /api/v1/projects/:projectId/complaints/:complaintId/media/confirm
  * @desc    Confirm direct S3 upload completion and activate complaint media record
- * @access  Private (Authenticated Tenant User)
+ * @access  Private (Authenticated Tenant / Client User)
  */
 export const confirmComplaintMediaUpload = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const mediaId = (req.body?.mediaId || req.params?.mediaId) as string;
   if (!mediaId) {
     throw new ErrorResponse("mediaId is required", statusCode.Bad_Request);
@@ -66,6 +75,7 @@ export const confirmComplaintMediaUpload = asyncHandler(async (req, res) => {
     params: { ...req.params, mediaId },
     body: req.body,
   });
+  const organizationId = await resolveOrgId(req, parsed.params.projectId);
 
   const result = await complaintMediaService.confirmMediaUpload(
     parsed.params.projectId,
@@ -86,14 +96,10 @@ export const confirmComplaintMediaUpload = asyncHandler(async (req, res) => {
 /**
  * @route   POST /api/v1/projects/:projectId/complaints/:complaintId/media
  * @desc    Direct multipart file upload for Before defect / After rectification media
- * @access  Private (Authenticated Tenant User)
+ * @access  Private (Authenticated Tenant / Client User)
  */
 export const createDirectComplaintMedia = asyncHandler(async (req, res) => {
   req.setTimeout?.(0);
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
 
   if (!req.file) {
     throw new ErrorResponse("Please attach a media file (image, video, document)", statusCode.Bad_Request);
@@ -103,6 +109,7 @@ export const createDirectComplaintMedia = asyncHandler(async (req, res) => {
     params: req.params,
     body: req.body,
   });
+  const organizationId = await resolveOrgId(req, parsed.params.projectId);
 
   const result = await complaintMediaService.uploadDirectMedia(
     parsed.params.projectId,
@@ -124,18 +131,14 @@ export const createDirectComplaintMedia = asyncHandler(async (req, res) => {
 /**
  * @route   GET /api/v1/projects/:projectId/complaints/:complaintId/media or GET /api/v1/projects/:projectId/complaints-media
  * @desc    Fetch paginated list of media assets for a complaint or project
- * @access  Private (Authenticated Tenant User)
+ * @access  Private (Authenticated Tenant / Client User)
  */
 export const getComplaintMediaList = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const projectId = req.params?.projectId as string;
   if (!projectId) {
     throw new ErrorResponse("Project ID parameter is required", statusCode.Bad_Request);
   }
+  const organizationId = await resolveOrgId(req, projectId);
 
   const complaintId = (req.params?.complaintId || req.query?.complaintId) as string | undefined;
 
@@ -161,17 +164,13 @@ export const getComplaintMediaList = asyncHandler(async (req, res) => {
 /**
  * @route   GET /api/v1/projects/:projectId/complaints/media/:id
  * @desc    Fetch single complaint media record by ID
- * @access  Private (Authenticated Tenant User)
+ * @access  Private (Authenticated Tenant / Client User)
  */
 export const getComplaintMediaById = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const parsed = singleComplaintMediaParamsSchema.parse({
     params: req.params,
   });
+  const organizationId = await resolveOrgId(req, parsed.params.projectId);
 
   const result = await complaintMediaService.getMediaById(
     parsed.params.id,
@@ -190,18 +189,14 @@ export const getComplaintMediaById = asyncHandler(async (req, res) => {
 /**
  * @route   PATCH /api/v1/projects/:projectId/complaints/media/:id
  * @desc    Update complaint media metadata (Rule 5: Partial / Dirty update)
- * @access  Private (Authenticated Tenant User)
+ * @access  Private (Authenticated Tenant / Client User)
  */
 export const updateComplaintMedia = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const parsed = updateComplaintMediaSchema.parse({
     params: req.params,
     body: req.body,
   });
+  const organizationId = await resolveOrgId(req, parsed.params.projectId);
 
   const result = await complaintMediaService.updateMedia(
     parsed.params.id,
@@ -224,14 +219,10 @@ export const updateComplaintMedia = asyncHandler(async (req, res) => {
  * @access  Private (Authenticated Tenant User)
  */
 export const deleteComplaintMedia = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const parsed = singleComplaintMediaParamsSchema.parse({
     params: req.params,
   });
+  const organizationId = await resolveOrgId(req, parsed.params.projectId);
 
   await complaintMediaService.deleteMedia(
     parsed.params.id,

@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { asyncHandler } from "../../../middlewares/error.middleware.js";
 import { SuccessResponse, ErrorResponse } from "../../../utils/response.util.js";
 import { statusCode } from "../../../types/types.js";
+import { prisma } from "../../../lib/prisma.js";
 import { handoverService } from "../services/handover.service.js";
 import {
   createHandoverSchema,
@@ -194,12 +195,18 @@ export const updateCommercialClearance = asyncHandler(async (req: Request, res: 
  * @returns SuccessResponse with completed ProjectHandover
  */
 export const clientSignoff = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const { id } = handoverIdParamSchema.parse(req.params);
+  let organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    const handover = await prisma.projectHandover.findUnique({
+      where: { id },
+      select: { organizationId: true },
+    });
+    if (!handover) {
+      throw new ErrorResponse("Handover docket not found", statusCode.Not_Found);
+    }
+    organizationId = handover.organizationId;
+  }
   const validatedBody = handoverSignoffSchema.parse(req.body);
   const files = req.files as
     | {
