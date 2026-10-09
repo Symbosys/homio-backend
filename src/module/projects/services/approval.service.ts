@@ -65,7 +65,9 @@ export class ApprovalService {
         data: {
           projectId,
           title: `Client Approval Requested: ${approval.title}`,
-          description: approval.description || `Approval submission for '${approval.title}' (${approval.type}).`,
+          description:
+            approval.description ||
+            `Approval submission for '${approval.title}' (${approval.type}).`,
           eventType: "WORK_APPROVAL",
           category: approval.type || "APPROVAL",
           status: "IN_PROGRESS",
@@ -84,11 +86,10 @@ export class ApprovalService {
    */
   async getApprovals(
     projectId: string,
-    organizationId: string,
     query: GetApprovalsQueryInput,
   ) {
     const project = await prisma.project.findFirst({
-      where: { id: projectId, organizationId, isDeleted: false },
+      where: { id: projectId, isDeleted: false },
     });
     if (!project) {
       throw new ErrorResponse(
@@ -206,7 +207,10 @@ export class ApprovalService {
         data: {
           projectId,
           title: `Client Work Approval: ${statusText} (${existing.title})`,
-          description: data.clientFeedback || data.rejectionReason || `Work approval '${existing.title}' was marked ${statusText} by client.`,
+          description:
+            data.clientFeedback ||
+            data.rejectionReason ||
+            `Work approval '${existing.title}' was marked ${statusText} by client.`,
           eventType: "WORK_APPROVAL",
           category: existing.type || "APPROVAL",
           status: data.action === "APPROVE" ? "COMPLETED" : "CANCELLED",
@@ -285,7 +289,10 @@ export class ApprovalService {
       }
     }
 
-    const changeRequest = await approvalRepo.createChangeRequest(approvalId, data);
+    const changeRequest = await approvalRepo.createChangeRequest(
+      approvalId,
+      data,
+    );
 
     // Auto-create timeline event for change request
     await prisma.projectTimeline
@@ -293,7 +300,10 @@ export class ApprovalService {
         data: {
           projectId,
           title: `Change Request: ${data.title || "Requested Changes"}`,
-          description: data.requestedChanges || data.reason || `Change request submitted for approval '${approval.title}'.`,
+          description:
+            data.requestedChanges ||
+            data.reason ||
+            `Change request submitted for approval '${approval.title}'.`,
           eventType: "WORK_APPROVAL",
           category: "CHANGE_REQUEST",
           status: "IN_PROGRESS",

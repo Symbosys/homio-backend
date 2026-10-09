@@ -72,13 +72,16 @@ export class ProgressService {
     const progress = await progressRepo.create(projectId, data);
 
     // Auto-create timeline event for progress entry
-    const progressPercentText = data.progressPercent !== undefined ? ` (${data.progressPercent}%)` : "";
+    const progressPercentText =
+      data.progressPercent !== undefined ? ` (${data.progressPercent}%)` : "";
     await prisma.projectTimeline
       .create({
         data: {
           projectId,
           title: `Site Progress Logged${progressPercentText}`,
-          description: data.description || `Daily work progress recorded for date ${new Date(data.progressDate).toLocaleDateString()}.`,
+          description:
+            data.description ||
+            `Daily work progress recorded for date ${new Date(data.progressDate).toLocaleDateString()}.`,
           eventType: "PROGRESS_UPDATE",
           category: "PROGRESS",
           status: "COMPLETED",
@@ -99,13 +102,11 @@ export class ProgressService {
    */
   async getProgressList(
     projectId: string,
-    organizationId: string,
     query: GetProgressQueryInput,
   ) {
     const project = await prisma.project.findFirst({
       where: {
         id: projectId,
-        organizationId,
         isDeleted: false,
       },
     });
@@ -264,10 +265,13 @@ export class ProgressService {
         data: {
           projectId,
           title: `Progress Log ${data.approvalStatus}`,
-          description: data.rejectionReason || `Site progress log was reviewed and marked ${data.approvalStatus}.`,
+          description:
+            data.rejectionReason ||
+            `Site progress log was reviewed and marked ${data.approvalStatus}.`,
           eventType: "PROGRESS_UPDATE",
           category: "PROGRESS",
-          status: data.approvalStatus === "APPROVED" ? "COMPLETED" : "CANCELLED",
+          status:
+            data.approvalStatus === "APPROVED" ? "COMPLETED" : "CANCELLED",
           performedById: approvedEmployeeId || null,
           isCustom: false,
           isSystemGenerated: true,
@@ -308,7 +312,7 @@ export class ProgressService {
           if (m.storageKey) {
             await storageService.delete(m.storageKey).catch(() => {});
           }
-        })
+        }),
       );
     }
 

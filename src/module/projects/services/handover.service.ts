@@ -233,14 +233,22 @@ export class HandoverService {
   /**
    * Fetch paginated list of handovers
    */
-  async getHandovers(organizationId: string, filter: GetHandoversQueryInput) {
-    return this.repo.findHandovers(organizationId, filter);
+  async getHandovers(filter: GetHandoversQueryInput) {
+    if (filter.projectId) {
+      const project = await prisma.project.findFirst({
+        where: { id: filter.projectId, isDeleted: false },
+      });
+      if (!project) {
+        throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
+      }
+    }
+    return this.repo.findHandovers(filter);
   }
 
   /**
    * Fetch single Handover details by ID
    */
-  async getHandoverById(id: string, organizationId: string) {
+  async getHandoverById(id: string, organizationId?: string) {
     const handover = await this.repo.findHandoverById(id, organizationId);
     if (!handover) {
       throw new ErrorResponse("Project handover record not found", statusCode.Not_Found);
@@ -327,7 +335,7 @@ export class HandoverService {
   /**
    * Compute comprehensive pre-handover readiness audit and metrics
    */
-  async getHandoverReadiness(id: string, organizationId: string) {
+  async getHandoverReadiness(id: string, organizationId?: string) {
     await this.getHandoverById(id, organizationId);
     const summary = await this.repo.getHandoverSummary(id, organizationId);
     if (!summary) {
@@ -544,7 +552,7 @@ export class HandoverService {
   /**
    * Get Handover Summary & Readiness Analytics
    */
-  async getHandoverSummary(id: string, organizationId: string) {
+  async getHandoverSummary(id: string, organizationId?: string) {
     const summary = await this.repo.getHandoverSummary(id, organizationId);
     if (!summary) {
       throw new ErrorResponse("Handover not found", statusCode.Not_Found);
@@ -556,7 +564,7 @@ export class HandoverService {
   // DELIVERABLES / ITEMS SERVICE METHODS
   // ==========================================
 
-  async getItems(handoverId: string, organizationId: string, filter?: GetHandoverItemsQueryInput) {
+  async getItems(handoverId: string, organizationId?: string, filter?: GetHandoverItemsQueryInput) {
     await this.getHandoverById(handoverId, organizationId);
     return this.repo.findItems(handoverId, filter);
   }
@@ -693,7 +701,7 @@ export class HandoverService {
   // PRE-HANDOVER SNAG SERVICE METHODS
   // ==========================================
 
-  async getSnags(handoverId: string, organizationId: string, filter?: GetHandoverSnagsQueryInput) {
+  async getSnags(handoverId: string, organizationId?: string, filter?: GetHandoverSnagsQueryInput) {
     await this.getHandoverById(handoverId, organizationId);
     return this.repo.findSnags(handoverId, filter);
   }

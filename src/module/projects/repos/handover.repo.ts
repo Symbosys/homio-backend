@@ -106,11 +106,11 @@ export class HandoverRepository {
   /**
    * Find single Handover by ID scoped to organization
    */
-  async findHandoverById(id: string, organizationId: string) {
+  async findHandoverById(id: string, organizationId?: string) {
     return prisma.projectHandover.findFirst({
       where: {
         id,
-        organizationId,
+        ...(organizationId ? { organizationId } : {}),
         isDeleted: false,
       },
       include: {
@@ -190,7 +190,7 @@ export class HandoverRepository {
   /**
    * Find paginated list of handovers scoped to tenant
    */
-  async findHandovers(organizationId: string, filter: GetHandoversQueryInput) {
+  async findHandovers(filter: GetHandoversQueryInput) {
     const {
       page = 1,
       limit = 10,
@@ -209,8 +209,10 @@ export class HandoverRepository {
     const skip = (page - 1) * limit;
 
     const where: Prisma.ProjectHandoverWhereInput = {
-      organizationId,
       isDeleted: false,
+      project: {
+        isDeleted: false,
+      },
       ...(projectId && { projectId }),
       ...(customerId && { customerId }),
       ...(status && { status }),
@@ -506,7 +508,7 @@ export class HandoverRepository {
   // AGGREGATED SUMMARY & READINESS METRICS
   // ==========================================
 
-  async getHandoverSummary(id: string, organizationId: string) {
+  async getHandoverSummary(id: string, organizationId?: string) {
     const handover = await this.findHandoverById(id, organizationId);
     if (!handover) return null;
 

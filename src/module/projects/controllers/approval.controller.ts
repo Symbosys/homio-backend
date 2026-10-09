@@ -54,14 +54,6 @@ export const createApproval = asyncHandler(async (req, res) => {
  * @access  Private (Authenticated Tenant User)
  */
 export const getApprovals = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse(
-      "Organization context required",
-      statusCode.Bad_Request,
-    );
-  }
-
   const parsedParams = approvalProjectIdParamSchema.parse({
     params: req.params,
   });
@@ -69,7 +61,6 @@ export const getApprovals = asyncHandler(async (req, res) => {
 
   const result = await approvalService.getApprovals(
     parsedParams.params.projectId,
-    organizationId,
     parsedQuery.query,
   );
   return SuccessResponse(

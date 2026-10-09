@@ -13,13 +13,20 @@ export class SiteVisitService {
   /**
    * Create a Site Visit under a project with strict tenant boundary enforcement
    */
-  async createSiteVisit(projectId: string, organizationId: string, data: CreateSiteVisitInput) {
+  async createSiteVisit(
+    projectId: string,
+    organizationId: string,
+    data: CreateSiteVisitInput,
+  ) {
     // 1. Verify Project belongs to Organization
     const project = await prisma.project.findFirst({
       where: { id: projectId, organizationId, isDeleted: false },
     });
     if (!project) {
-      throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
+      throw new ErrorResponse(
+        "Project not found in this organization",
+        statusCode.Not_Found,
+      );
     }
 
     // 2. Verify Milestone belongs to Project if supplied
@@ -28,7 +35,10 @@ export class SiteVisitService {
         where: { id: data.milestoneId, projectId, isDeleted: false },
       });
       if (!milestone) {
-        throw new ErrorResponse("Milestone not found in this project", statusCode.Bad_Request);
+        throw new ErrorResponse(
+          "Milestone not found in this project",
+          statusCode.Bad_Request,
+        );
       }
     }
 
@@ -38,7 +48,10 @@ export class SiteVisitService {
         where: { id: data.visitorEmployeeId, organizationId, isDeleted: false },
       });
       if (!employee) {
-        throw new ErrorResponse("Visitor employee not found in this organization", statusCode.Bad_Request);
+        throw new ErrorResponse(
+          "Visitor employee not found in this organization",
+          statusCode.Bad_Request,
+        );
       }
     }
 
@@ -50,7 +63,9 @@ export class SiteVisitService {
         data: {
           projectId,
           title: `Site Visit Scheduled: ${visit.title}`,
-          description: visit.purpose || `Site visit planned for ${new Date(visit.plannedDate).toLocaleDateString()}.`,
+          description:
+            visit.purpose ||
+            `Site visit planned for ${new Date(visit.plannedDate).toLocaleDateString()}.`,
           eventType: "SITE_VISIT",
           category: visit.visitType || "SITE_VISIT",
           status: "PLANNED",
@@ -67,17 +82,20 @@ export class SiteVisitService {
   /**
    * Get paginated list of site visits scoped to organization
    */
-  async getSiteVisits(organizationId: string, query: GetSiteVisitsQuery) {
+  async getSiteVisits(query: GetSiteVisitsQuery) {
     if (query.projectId) {
       const project = await prisma.project.findFirst({
-        where: { id: query.projectId, organizationId, isDeleted: false },
+        where: { id: query.projectId, isDeleted: false },
       });
       if (!project) {
-        throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
+        throw new ErrorResponse(
+          "Project not found in this organization",
+          statusCode.Not_Found,
+        );
       }
     }
 
-    return siteVisitRepo.findAll(organizationId, query);
+    return siteVisitRepo.findAll(query);
   }
 
   /**
@@ -94,7 +112,11 @@ export class SiteVisitService {
   /**
    * Update site visit parameters
    */
-  async updateSiteVisit(id: string, organizationId: string, data: UpdateSiteVisitInput) {
+  async updateSiteVisit(
+    id: string,
+    organizationId: string,
+    data: UpdateSiteVisitInput,
+  ) {
     const existing = await siteVisitRepo.findById(id, organizationId);
     if (!existing) {
       throw new ErrorResponse("Site visit not found", statusCode.Not_Found);
@@ -102,10 +124,17 @@ export class SiteVisitService {
 
     if (data.milestoneId) {
       const milestone = await prisma.projectMilestone.findFirst({
-        where: { id: data.milestoneId, projectId: existing.projectId, isDeleted: false },
+        where: {
+          id: data.milestoneId,
+          projectId: existing.projectId,
+          isDeleted: false,
+        },
       });
       if (!milestone) {
-        throw new ErrorResponse("Milestone not found in this project", statusCode.Bad_Request);
+        throw new ErrorResponse(
+          "Milestone not found in this project",
+          statusCode.Bad_Request,
+        );
       }
     }
 
@@ -114,7 +143,10 @@ export class SiteVisitService {
         where: { id: data.visitorEmployeeId, organizationId, isDeleted: false },
       });
       if (!employee) {
-        throw new ErrorResponse("Visitor employee not found in this organization", statusCode.Bad_Request);
+        throw new ErrorResponse(
+          "Visitor employee not found in this organization",
+          statusCode.Bad_Request,
+        );
       }
     }
 
@@ -124,7 +156,11 @@ export class SiteVisitService {
   /**
    * Complete site visit with inspection findings & snags
    */
-  async completeSiteVisit(id: string, organizationId: string, data: CompleteSiteVisitInput) {
+  async completeSiteVisit(
+    id: string,
+    organizationId: string,
+    data: CompleteSiteVisitInput,
+  ) {
     const existing = await siteVisitRepo.findById(id, organizationId);
     if (!existing) {
       throw new ErrorResponse("Site visit not found", statusCode.Not_Found);
@@ -138,7 +174,9 @@ export class SiteVisitService {
         data: {
           projectId: existing.projectId,
           title: `Site Visit Completed: ${completed.title}`,
-          description: completed.summary || "Field inspection and site walkthrough completed.",
+          description:
+            completed.summary ||
+            "Field inspection and site walkthrough completed.",
           eventType: "SITE_VISIT",
           category: completed.visitType || "SITE_VISIT",
           status: "COMPLETED",

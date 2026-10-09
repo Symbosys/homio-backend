@@ -1,5 +1,8 @@
 import { Router } from "express";
-import { authenticate, authorize } from "../../../middlewares/auth.middleware.js";
+import {
+  authenticate,
+  authorize,
+} from "../../../middlewares/auth.middleware.js";
 import {
   createProject,
   getProjects,
@@ -57,7 +60,10 @@ projectRoutes.use("/:projectId/payments", paymentRoutes);
 projectRoutes.use("/:projectId/bills", projectBillRouter);
 projectRoutes.use("/:projectId/payment-records", projectPaymentRecordRouter);
 projectRoutes.use("/:projectId/commercials", projectCommercialSummaryRouter);
-projectRoutes.use("/:projectId/commercial-summary", projectCommercialSummaryRouter);
+projectRoutes.use(
+  "/:projectId/commercial-summary",
+  projectCommercialSummaryRouter,
+);
 projectRoutes.use("/commercial-summary", projectCommercialSummaryRouter);
 projectRoutes.use("/:projectId/design-folders", designFolderRoutes);
 projectRoutes.use("/:projectId/designs", designRoutes);

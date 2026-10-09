@@ -66,12 +66,11 @@ export class DesignRepository {
     });
   }
 
-  async findFolders(organizationId: string, projectId: string, query: GetFoldersQueryInput, tx?: Prisma.TransactionClient) {
+  async findFolders(projectId: string, query: GetFoldersQueryInput, tx?: Prisma.TransactionClient) {
     const db = tx || prisma;
     const { parentId, roomType, stage, search, tree } = query;
 
     const where: Prisma.ProjectDesignFolderWhereInput = {
-      organizationId,
       projectId,
       isDeleted: false,
       ...(parentId !== undefined ? { parentId: parentId || null } : {}),
@@ -243,7 +242,7 @@ export class DesignRepository {
     });
   }
 
-  async findDesigns(organizationId: string, projectId: string, query: GetDesignsQueryInput, tx?: Prisma.TransactionClient) {
+  async findDesigns(projectId: string, query: GetDesignsQueryInput, tx?: Prisma.TransactionClient) {
     const db = tx || prisma;
     const {
       folderId,
@@ -265,7 +264,6 @@ export class DesignRepository {
     const skip = (pageNum - 1) * limitNum;
 
     const where: Prisma.ProjectDesignWhereInput = {
-      organizationId,
       projectId,
       isDeleted: false,
       ...(folderId ? { folderId } : {}),

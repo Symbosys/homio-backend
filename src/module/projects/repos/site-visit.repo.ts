@@ -11,7 +11,11 @@ export class SiteVisitRepository {
   /**
    * Create a new ProjectSiteVisit entry
    */
-  async create(projectId: string, data: CreateSiteVisitInput, tx?: Prisma.TransactionClient) {
+  async create(
+    projectId: string,
+    data: CreateSiteVisitInput,
+    tx?: Prisma.TransactionClient,
+  ) {
     const db = tx || prisma;
     const { plannedDate, actualDate, attachments, ...directFields } = data;
 
@@ -21,7 +25,9 @@ export class SiteVisitRepository {
         projectId,
         plannedDate: new Date(plannedDate),
         actualDate: actualDate ? new Date(actualDate) : null,
-        attachments: attachments ? (attachments as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
+        attachments: attachments
+          ? (attachments as unknown as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
       },
       include: {
         project: {
@@ -58,7 +64,10 @@ export class SiteVisitRepository {
   /**
    * Find paginated list of site visits scoped to organization
    */
-  async findAll(organizationId: string, query: GetSiteVisitsQuery, tx?: Prisma.TransactionClient) {
+  async findAll(
+    query: GetSiteVisitsQuery,
+    tx?: Prisma.TransactionClient,
+  ) {
     const db = tx || prisma;
     const {
       page = 1,
@@ -79,7 +88,6 @@ export class SiteVisitRepository {
     const where: Prisma.ProjectSiteVisitWhereInput = {
       isDeleted: false,
       project: {
-        organizationId,
         isDeleted: false,
       },
       ...(projectId && { projectId }),
@@ -116,7 +124,9 @@ export class SiteVisitRepository {
           { actionItems: { contains: search, mode: "insensitive" } },
           { clientRepresentative: { contains: search, mode: "insensitive" } },
           { project: { name: { contains: search, mode: "insensitive" } } },
-          { project: { projectCode: { contains: search, mode: "insensitive" } } },
+          {
+            project: { projectCode: { contains: search, mode: "insensitive" } },
+          },
         ],
       }),
     };
@@ -174,7 +184,11 @@ export class SiteVisitRepository {
   /**
    * Find single site visit by ID with tenant verification
    */
-  async findById(id: string, organizationId: string, tx?: Prisma.TransactionClient) {
+  async findById(
+    id: string,
+    organizationId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
     const db = tx || prisma;
     return db.projectSiteVisit.findFirst({
       where: {
@@ -224,16 +238,24 @@ export class SiteVisitRepository {
   /**
    * Update site visit parameters
    */
-  async update(id: string, data: UpdateSiteVisitInput, tx?: Prisma.TransactionClient) {
+  async update(
+    id: string,
+    data: UpdateSiteVisitInput,
+    tx?: Prisma.TransactionClient,
+  ) {
     const db = tx || prisma;
     const { plannedDate, actualDate, attachments, ...directFields } = data;
 
     const updatePayload: Prisma.ProjectSiteVisitUpdateInput = {
       ...directFields,
       ...(plannedDate && { plannedDate: new Date(plannedDate) }),
-      ...(actualDate !== undefined && { actualDate: actualDate ? new Date(actualDate) : null }),
+      ...(actualDate !== undefined && {
+        actualDate: actualDate ? new Date(actualDate) : null,
+      }),
       ...(attachments !== undefined && {
-        attachments: attachments ? (attachments as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
+        attachments: attachments
+          ? (attachments as unknown as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
       }),
     };
 
@@ -275,7 +297,11 @@ export class SiteVisitRepository {
   /**
    * Complete site visit with inspection summary and defect snags
    */
-  async complete(id: string, data: CompleteSiteVisitInput, tx?: Prisma.TransactionClient) {
+  async complete(
+    id: string,
+    data: CompleteSiteVisitInput,
+    tx?: Prisma.TransactionClient,
+  ) {
     const db = tx || prisma;
     const { actualDate, attachments, ...directFields } = data;
 
@@ -286,7 +312,9 @@ export class SiteVisitRepository {
         status: "COMPLETED",
         actualDate: actualDate ? new Date(actualDate) : new Date(),
         ...(attachments !== undefined && {
-          attachments: attachments ? (attachments as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
+          attachments: attachments
+            ? (attachments as unknown as Prisma.InputJsonValue)
+            : Prisma.JsonNull,
         }),
       },
       include: {

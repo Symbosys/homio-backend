@@ -40,17 +40,11 @@ export const createComplaint = asyncHandler(async (req, res) => {
  * @access  Private (Authenticated Tenant User)
  */
 export const getComplaints = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const parsedParams = complaintProjectIdParamSchema.parse({ params: req.params });
   const parsedQuery = getComplaintsQuerySchema.parse({ query: req.query });
 
   const result = await complaintService.getComplaints(
     parsedParams.params.projectId,
-    organizationId,
     parsedQuery.query
   );
   return SuccessResponse(res, "Complaints retrieved successfully", result, statusCode.OK);

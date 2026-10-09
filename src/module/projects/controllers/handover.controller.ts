@@ -71,18 +71,13 @@ export const createHandover = asyncHandler(async (req: Request, res: Response) =
  * @returns SuccessResponse with paginated handovers and meta
  */
 export const getHandovers = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const queryPayload = { ...req.query };
   if (!queryPayload.projectId && req.params.projectId) {
     queryPayload.projectId = req.params.projectId;
   }
 
   const validatedQuery = getHandoversQuerySchema.parse(queryPayload);
-  const result = await handoverService.getHandovers(organizationId, validatedQuery);
+  const result = await handoverService.getHandovers(validatedQuery);
 
   return SuccessResponse(res, "Project handovers retrieved successfully", result, statusCode.OK);
 });
@@ -96,11 +91,7 @@ export const getHandovers = asyncHandler(async (req: Request, res: Response) => 
  * @returns SuccessResponse with complete ProjectHandover details
  */
 export const getHandoverById = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
+  const organizationId = req.user?.organizationId ?? undefined;
   const { id } = handoverIdParamSchema.parse(req.params);
   const handover = await handoverService.getHandoverById(id, organizationId);
 
@@ -116,11 +107,7 @@ export const getHandoverById = asyncHandler(async (req: Request, res: Response) 
  * @returns SuccessResponse with readiness summary and pass/fail audit score
  */
 export const getHandoverReadiness = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
+  const organizationId = req.user?.organizationId ?? undefined;
   const { id } = handoverIdParamSchema.parse(req.params);
   const readiness = await handoverService.getHandoverReadiness(id, organizationId);
 
@@ -281,11 +268,7 @@ export const addItem = asyncHandler(async (req: Request, res: Response) => {
  * @returns SuccessResponse with array of ProjectHandoverItem
  */
 export const getItems = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
+  const organizationId = req.user?.organizationId ?? undefined;
   const { id } = handoverIdParamSchema.parse(req.params);
   const validatedQuery = getHandoverItemsQuerySchema.parse(req.query);
 
@@ -432,11 +415,7 @@ export const addSnag = asyncHandler(async (req: Request, res: Response) => {
  * @returns SuccessResponse with array of ProjectHandoverSnag
  */
 export const getSnags = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
+  const organizationId = req.user?.organizationId ?? undefined;
   const { id } = handoverIdParamSchema.parse(req.params);
   const validatedQuery = getHandoverSnagsQuerySchema.parse(req.query);
 

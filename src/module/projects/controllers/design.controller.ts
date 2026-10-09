@@ -48,13 +48,8 @@ export const createDesignFolder = asyncHandler(async (req, res) => {
  * @access  Private (Authenticated Tenant User)
  */
 export const getDesignFolders = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const parsed = getDesignFoldersQuerySchema.parse({ params: req.params, query: req.query });
-  const result = await designService.getFolders(parsed.params.projectId, organizationId, parsed.query);
+  const result = await designService.getFolders(parsed.params.projectId, parsed.query);
   return SuccessResponse(res, "Design folders retrieved successfully", result, statusCode.OK);
 });
 
@@ -130,13 +125,8 @@ export const createProjectDesign = asyncHandler(async (req, res) => {
  * @access  Private (Authenticated Tenant User)
  */
 export const getProjectDesigns = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const parsed = getProjectDesignsQuerySchema.parse({ params: req.params, query: req.query });
-  const result = await designService.getDesigns(parsed.params.projectId, organizationId, parsed.query);
+  const result = await designService.getDesigns(parsed.params.projectId, parsed.query);
   return SuccessResponse(res, "Design assets retrieved successfully", result, statusCode.OK);
 });
 
@@ -217,14 +207,8 @@ export const createDesignVersion = asyncHandler(async (req, res) => {
  * @access  Private (Authenticated Tenant User)
  */
 export const getDesignVersions = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const result = await designService.getVersions(
     req.params.projectId as string,
-    organizationId,
     req.params.designId as string
   );
   return SuccessResponse(res, "Design versions retrieved successfully", result, statusCode.OK);
@@ -327,14 +311,8 @@ export const createDesignAttachment = asyncHandler(async (req, res) => {
  * @access  Private (Authenticated Tenant User)
  */
 export const getDesignAttachments = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const result = await designService.getAttachments(
     req.params.projectId as string,
-    organizationId,
     req.params.designId as string,
     req.params.versionId as string
   );
@@ -431,14 +409,8 @@ export const createDesignApproval = asyncHandler(async (req, res) => {
  * @access  Private (Authenticated Tenant User)
  */
 export const getDesignApprovals = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const result = await designService.getApprovals(
     req.params.projectId as string,
-    organizationId,
     req.params.designId as string,
     req.params.versionId as string
   );
@@ -479,15 +451,9 @@ export const createDesignChangeRequest = asyncHandler(async (req, res) => {
  * @access  Private (Authenticated Tenant User)
  */
 export const getDesignChangeRequests = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const parsed = getDesignChangeRequestsQuerySchema.parse({ params: req.params, query: req.query });
   const result = await designService.getChangeRequests(
     parsed.params.projectId,
-    organizationId,
     parsed.params.designId,
     parsed.params.versionId,
     parsed.query

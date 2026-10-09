@@ -1,5 +1,8 @@
 import { Router } from "express";
-import { authenticate, authorize } from "../../../middlewares/auth.middleware.js";
+import {
+  authenticate,
+  authorize,
+} from "../../../middlewares/auth.middleware.js";
 import {
   createProgress,
   getProgressList,

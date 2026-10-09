@@ -1,5 +1,8 @@
 import { Router } from "express";
-import { authenticate, authorize } from "../../../middlewares/auth.middleware.js";
+import {
+  authenticate,
+  authorize,
+} from "../../../middlewares/auth.middleware.js";
 import {
   createApproval,
   getApprovals,
@@ -73,6 +76,9 @@ approvalRoutes.get("/:approvalId/change-requests", getChangeRequests);
  * @route   PATCH /api/v1/projects/:projectId/approvals/:approvalId/change-requests/:id/respond
  * @desc    Organization responds to a change request (Accept / Reject / Implement)
  */
-approvalRoutes.patch("/:approvalId/change-requests/:id/respond", respondChangeRequest);
+approvalRoutes.patch(
+  "/:approvalId/change-requests/:id/respond",
+  respondChangeRequest,
+);
 
 export default approvalRoutes;

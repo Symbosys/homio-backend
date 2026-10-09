@@ -1,14 +1,16 @@
 import { asyncHandler } from "../../../middlewares/error.middleware.js";
-import { SuccessResponse, ErrorResponse } from "../../../utils/response.util.js";
 import { statusCode } from "../../../types/types.js";
+import {
+  ErrorResponse,
+  SuccessResponse,
+} from "../../../utils/response.util.js";
 import { siteVisitService } from "../services/site-visit.service.js";
 import {
-  createSiteVisitSchema,
-  updateSiteVisitSchema,
   completeSiteVisitSchema,
+  createSiteVisitSchema,
   getSiteVisitsQuerySchema,
   siteVisitIdParamSchema,
-  siteVisitProjectIdParamSchema,
+  updateSiteVisitSchema
 } from "../validators/site-visit.validator.js";
 
 /**
@@ -19,18 +21,40 @@ import {
 export const createSiteVisit = asyncHandler(async (req, res) => {
   const organizationId = req.user?.organizationId;
   if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+    throw new ErrorResponse(
+      "Organization context required",
+      statusCode.Bad_Request,
+    );
   }
 
-  const parsed = createSiteVisitSchema.parse({ params: req.params, body: req.body });
-  const paramProjectId = typeof req.params?.projectId === "string" ? req.params.projectId : undefined;
-  const projectId = paramProjectId || parsed.params?.projectId || parsed.body.projectId;
+  const parsed = createSiteVisitSchema.parse({
+    params: req.params,
+    body: req.body,
+  });
+  const paramProjectId =
+    typeof req.params?.projectId === "string"
+      ? req.params.projectId
+      : undefined;
+  const projectId =
+    paramProjectId || parsed.params?.projectId || parsed.body.projectId;
   if (!projectId) {
-    throw new ErrorResponse("Project ID is required to schedule a site visit", statusCode.Bad_Request);
+    throw new ErrorResponse(
+      "Project ID is required to schedule a site visit",
+      statusCode.Bad_Request,
+    );
   }
 
-  const result = await siteVisitService.createSiteVisit(projectId, organizationId, parsed.body);
-  return SuccessResponse(res, "Site visit scheduled successfully", result, statusCode.Created);
+  const result = await siteVisitService.createSiteVisit(
+    projectId,
+    organizationId,
+    parsed.body,
+  );
+  return SuccessResponse(
+    res,
+    "Site visit scheduled successfully",
+    result,
+    statusCode.Created,
+  );
 });
 
 /**
@@ -39,20 +63,24 @@ export const createSiteVisit = asyncHandler(async (req, res) => {
  * @access  Private (Authenticated Tenant User)
  */
 export const getSiteVisits = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
 
   const parsedQuery = getSiteVisitsQuerySchema.parse({ query: req.query });
-  const paramProjectId = typeof req.params?.projectId === "string" ? req.params.projectId : undefined;
+  const paramProjectId =
+    typeof req.params?.projectId === "string"
+      ? req.params.projectId
+      : undefined;
   const query = {
     ...parsedQuery.query,
     ...(paramProjectId && { projectId: paramProjectId }),
   };
 
-  const result = await siteVisitService.getSiteVisits(organizationId, query);
-  return SuccessResponse(res, "Site visits retrieved successfully", result, statusCode.OK);
+  const result = await siteVisitService.getSiteVisits(query);
+  return SuccessResponse(
+    res,
+    "Site visits retrieved successfully",
+    result,
+    statusCode.OK,
+  );
 });
 
 /**
@@ -63,12 +91,23 @@ export const getSiteVisits = asyncHandler(async (req, res) => {
 export const getSiteVisitById = asyncHandler(async (req, res) => {
   const organizationId = req.user?.organizationId;
   if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+    throw new ErrorResponse(
+      "Organization context required",
+      statusCode.Bad_Request,
+    );
   }
 
   const parsedParams = siteVisitIdParamSchema.parse({ params: req.params });
-  const result = await siteVisitService.getSiteVisitById(parsedParams.params.id, organizationId);
-  return SuccessResponse(res, "Site visit details retrieved successfully", result, statusCode.OK);
+  const result = await siteVisitService.getSiteVisitById(
+    parsedParams.params.id,
+    organizationId,
+  );
+  return SuccessResponse(
+    res,
+    "Site visit details retrieved successfully",
+    result,
+    statusCode.OK,
+  );
 });
 
 /**
@@ -79,12 +118,27 @@ export const getSiteVisitById = asyncHandler(async (req, res) => {
 export const updateSiteVisit = asyncHandler(async (req, res) => {
   const organizationId = req.user?.organizationId;
   if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+    throw new ErrorResponse(
+      "Organization context required",
+      statusCode.Bad_Request,
+    );
   }
 
-  const parsed = updateSiteVisitSchema.parse({ params: req.params, body: req.body });
-  const result = await siteVisitService.updateSiteVisit(parsed.params.id, organizationId, parsed.body);
-  return SuccessResponse(res, "Site visit updated successfully", result, statusCode.OK);
+  const parsed = updateSiteVisitSchema.parse({
+    params: req.params,
+    body: req.body,
+  });
+  const result = await siteVisitService.updateSiteVisit(
+    parsed.params.id,
+    organizationId,
+    parsed.body,
+  );
+  return SuccessResponse(
+    res,
+    "Site visit updated successfully",
+    result,
+    statusCode.OK,
+  );
 });
 
 /**
@@ -95,12 +149,27 @@ export const updateSiteVisit = asyncHandler(async (req, res) => {
 export const completeSiteVisit = asyncHandler(async (req, res) => {
   const organizationId = req.user?.organizationId;
   if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+    throw new ErrorResponse(
+      "Organization context required",
+      statusCode.Bad_Request,
+    );
   }
 
-  const parsed = completeSiteVisitSchema.parse({ params: req.params, body: req.body });
-  const result = await siteVisitService.completeSiteVisit(parsed.params.id, organizationId, parsed.body);
-  return SuccessResponse(res, "Site visit marked as completed", result, statusCode.OK);
+  const parsed = completeSiteVisitSchema.parse({
+    params: req.params,
+    body: req.body,
+  });
+  const result = await siteVisitService.completeSiteVisit(
+    parsed.params.id,
+    organizationId,
+    parsed.body,
+  );
+  return SuccessResponse(
+    res,
+    "Site visit marked as completed",
+    result,
+    statusCode.OK,
+  );
 });
 
 /**
@@ -111,10 +180,21 @@ export const completeSiteVisit = asyncHandler(async (req, res) => {
 export const deleteSiteVisit = asyncHandler(async (req, res) => {
   const organizationId = req.user?.organizationId;
   if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+    throw new ErrorResponse(
+      "Organization context required",
+      statusCode.Bad_Request,
+    );
   }
 
   const parsedParams = siteVisitIdParamSchema.parse({ params: req.params });
-  await siteVisitService.deleteSiteVisit(parsedParams.params.id, organizationId);
-  return SuccessResponse(res, "Site visit deleted successfully", null, statusCode.OK);
+  await siteVisitService.deleteSiteVisit(
+    parsedParams.params.id,
+    organizationId,
+  );
+  return SuccessResponse(
+    res,
+    "Site visit deleted successfully",
+    null,
+    statusCode.OK,
+  );
 });

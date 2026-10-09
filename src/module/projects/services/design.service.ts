@@ -89,9 +89,14 @@ export class DesignService {
     return designRepo.createFolder(organizationId, projectId, data);
   }
 
-  async getFolders(projectId: string, organizationId: string, query: GetFoldersQueryInput) {
-    await this.verifyProject(projectId, organizationId);
-    return designRepo.findFolders(organizationId, projectId, query);
+  async getFolders(projectId: string, query: GetFoldersQueryInput) {
+    const project = await prisma.project.findFirst({
+      where: { id: projectId, isDeleted: false },
+    });
+    if (!project) {
+      throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
+    }
+    return designRepo.findFolders(projectId, query);
   }
 
   async getFolderById(projectId: string, organizationId: string, id: string) {
@@ -194,9 +199,14 @@ export class DesignService {
     return design;
   }
 
-  async getDesigns(projectId: string, organizationId: string, query: GetDesignsQueryInput) {
-    await this.verifyProject(projectId, organizationId);
-    return designRepo.findDesigns(organizationId, projectId, query);
+  async getDesigns(projectId: string, query: GetDesignsQueryInput) {
+    const project = await prisma.project.findFirst({
+      where: { id: projectId, isDeleted: false },
+    });
+    if (!project) {
+      throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
+    }
+    return designRepo.findDesigns(projectId, query);
   }
 
   async getDesignById(projectId: string, organizationId: string, id: string) {
@@ -275,11 +285,12 @@ export class DesignService {
     return designRepo.createVersion(designId, data, nextVersionNumber);
   }
 
-  async getVersions(projectId: string, organizationId: string, designId: string) {
-    await this.verifyProject(projectId, organizationId);
-    const design = await designRepo.findDesignById(organizationId, projectId, designId);
-    if (!design) {
-      throw new ErrorResponse("Design asset not found", statusCode.Not_Found);
+  async getVersions(projectId: string, designId: string) {
+    const project = await prisma.project.findFirst({
+      where: { id: projectId, isDeleted: false },
+    });
+    if (!project) {
+      throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
     }
     return designRepo.findVersions(designId);
   }
@@ -367,11 +378,12 @@ export class DesignService {
     return designRepo.createAttachment(versionId, data);
   }
 
-  async getAttachments(projectId: string, organizationId: string, designId: string, versionId: string) {
-    await this.verifyProject(projectId, organizationId);
-    const version = await designRepo.findVersionById(designId, versionId);
-    if (!version) {
-      throw new ErrorResponse("Design version not found", statusCode.Not_Found);
+  async getAttachments(projectId: string, designId: string, versionId: string) {
+    const project = await prisma.project.findFirst({
+      where: { id: projectId, isDeleted: false },
+    });
+    if (!project) {
+      throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
     }
     return designRepo.findAttachments(versionId);
   }
@@ -482,11 +494,12 @@ export class DesignService {
     return approval;
   }
 
-  async getApprovals(projectId: string, organizationId: string, designId: string, versionId: string) {
-    await this.verifyProject(projectId, organizationId);
-    const version = await designRepo.findVersionById(designId, versionId);
-    if (!version) {
-      throw new ErrorResponse("Design version not found", statusCode.Not_Found);
+  async getApprovals(projectId: string, designId: string, versionId: string) {
+    const project = await prisma.project.findFirst({
+      where: { id: projectId, isDeleted: false },
+    });
+    if (!project) {
+      throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
     }
     return designRepo.findApprovals(versionId);
   }
@@ -521,15 +534,15 @@ export class DesignService {
 
   async getChangeRequests(
     projectId: string,
-    organizationId: string,
     designId: string,
     versionId: string,
     query: GetChangeRequestsQueryInput
   ) {
-    await this.verifyProject(projectId, organizationId);
-    const version = await designRepo.findVersionById(designId, versionId);
-    if (!version) {
-      throw new ErrorResponse("Design version not found", statusCode.Not_Found);
+    const project = await prisma.project.findFirst({
+      where: { id: projectId, isDeleted: false },
+    });
+    if (!project) {
+      throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
     }
     return designRepo.findChangeRequests(versionId, query);
   }

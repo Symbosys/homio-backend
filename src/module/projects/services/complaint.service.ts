@@ -89,9 +89,9 @@ export class ComplaintService {
   /**
    * Get paginated list of complaints for a project
    */
-  async getComplaints(projectId: string, organizationId: string, query: GetComplaintsQueryInput) {
+  async getComplaints(projectId: string, query: GetComplaintsQueryInput) {
     const project = await prisma.project.findFirst({
-      where: { id: projectId, organizationId, isDeleted: false },
+      where: { id: projectId, isDeleted: false },
     });
     if (!project) {
       throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);

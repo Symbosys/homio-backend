@@ -52,14 +52,6 @@ export const createProgress = asyncHandler(async (req, res) => {
  * @access  Private (Authenticated Tenant User)
  */
 export const getProgressList = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse(
-      "Organization context required",
-      statusCode.Bad_Request,
-    );
-  }
-
   const parsedParams = progressProjectIdParamSchema.parse({
     params: req.params,
   });
@@ -67,7 +59,6 @@ export const getProgressList = asyncHandler(async (req, res) => {
 
   const result = await progressService.getProgressList(
     parsedParams.params.projectId,
-    organizationId,
     parsedQuery.query,
   );
   return SuccessResponse(
