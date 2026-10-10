@@ -16,7 +16,7 @@ export class DesignReportRepository {
     filters: GetDesignReportsQueryInput,
     dateRange: DateRange
   ) {
-    const { projectId, employeeId, folderId, stage, designType, status, groupBy = "day" } = filters;
+    const { projectId, employeeId, folderId, stage, designType, status } = filters;
 
     // Base attachment where condition
     const attachmentWhere: Prisma.DesignVersionAttachmentWhereInput = {
@@ -228,7 +228,6 @@ export class DesignReportRepository {
       allChangeRequests,
       allProjects,
       employees,
-      groupBy,
     };
   }
 }

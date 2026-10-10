@@ -2,7 +2,6 @@ import { describe, it, expect } from "bun:test";
 import {
   getDesignReportsQuerySchema,
   DatePresetEnum,
-  GroupByEnum,
 } from "../../src/module/reports/validators/design-report.validator";
 
 const MOCK_PROJECT_ID = "11111111-1111-4111-8111-111111111111";
@@ -14,12 +13,11 @@ describe("Design & DAM Reports Module Tests", () => {
   // 1. Design Reports Query Validator Validation
   // =========================================================================
   describe("Design Reports Query Validator", () => {
-    it("should parse an empty query with default this_month preset and day grouping", () => {
+    it("should parse an empty query with default this_month preset", () => {
       const result = getDesignReportsQuerySchema.safeParse({ query: {} });
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.query.datePreset).toBe("this_month");
-        expect(result.data.query.groupBy).toBe("day");
       }
     });
 
@@ -30,7 +28,6 @@ describe("Design & DAM Reports Module Tests", () => {
           employeeId: MOCK_EMPLOYEE_ID,
           folderId: MOCK_FOLDER_ID,
           datePreset: "last_3_months" as const,
-          groupBy: "week" as const,
           stage: "GOOD_FOR_CONSTRUCTION_GFC" as const,
           status: "APPROVED" as const,
         },
@@ -43,7 +40,6 @@ describe("Design & DAM Reports Module Tests", () => {
         expect(result.data.query.employeeId).toBe(MOCK_EMPLOYEE_ID);
         expect(result.data.query.folderId).toBe(MOCK_FOLDER_ID);
         expect(result.data.query.datePreset).toBe("last_3_months");
-        expect(result.data.query.groupBy).toBe("week");
       }
     });
 

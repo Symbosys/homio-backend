@@ -104,7 +104,6 @@ export class DesignReportService {
       allChangeRequests,
       allProjects,
       employees,
-      groupBy,
     } = rawData;
 
     // ------------------------------------------------------------------------
@@ -373,9 +372,6 @@ export class DesignReportService {
     >();
 
     const getBucketKey = (d: Date): string => {
-      if (groupBy === "month") {
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      }
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     };
 

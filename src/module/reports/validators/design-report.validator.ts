@@ -34,8 +34,6 @@ export const DatePresetEnum = z.enum([
   "custom",
 ]);
 
-export const GroupByEnum = z.enum(["day", "week", "month"]);
-
 /**
  * Validator schema for master design reports query
  */
@@ -50,7 +48,6 @@ export const getDesignReportsQuerySchema = z.object({
     stage: DesignStageEnum.optional().nullable(),
     designType: DesignTypeEnum.optional().nullable(),
     status: DesignStatusEnum.optional().nullable(),
-    groupBy: GroupByEnum.default("day").optional(),
   }),
 });
 
