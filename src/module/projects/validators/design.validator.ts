@@ -258,7 +258,7 @@ export const createProjectDesignSchema = z.object({
       .preprocess((val) => {
         if (typeof val === "string") return val === "true" || val === "1";
         return val;
-      }, z.boolean().default(true).optional()),
+      }, z.boolean().default(true)),
     coverImageUrl: z
       .preprocess((val) => {
         if (typeof val === "string") {
@@ -303,6 +303,7 @@ export const createProjectDesignSchema = z.object({
           attachments: z
             .array(
               z.object({
+                createdById: z.string().uuid("Invalid employee ID format").optional().nullable(),
                 attachmentType: DesignAttachmentTypeEnum,
                 title: z.string().min(1).max(200),
                 caption: z.string().max(300).optional(),
@@ -464,6 +465,7 @@ export const createDesignVersionSchema = z.object({
     attachments: z
       .array(
         z.object({
+          createdById: z.string().uuid("Invalid employee ID format").optional().nullable(),
           attachmentType: DesignAttachmentTypeEnum,
           title: z.string().min(1).max(200),
           caption: z.string().max(300).optional(),
@@ -529,6 +531,11 @@ export const createDesignAttachmentSchema = z.object({
     versionId: z.string().uuid("Invalid version ID format"),
   }),
   body: z.object({
+    createdById: z
+      .string()
+      .uuid("Invalid employee ID format")
+      .optional()
+      .nullable(),
     attachmentType: DesignAttachmentTypeEnum,
     title: z.string().min(1, "Attachment title is required").max(200),
     caption: z.string().max(300).optional().nullable(),
@@ -561,6 +568,11 @@ export const updateDesignAttachmentSchema = z.object({
     attachmentId: z.string().uuid("Invalid attachment ID format"),
   }),
   body: z.object({
+    createdById: z
+      .string()
+      .uuid("Invalid employee ID format")
+      .optional()
+      .nullable(),
     title: z.string().min(1).max(200).optional(),
     caption: z.string().max(300).optional().nullable(),
     description: z.string().max(2000).optional().nullable(),

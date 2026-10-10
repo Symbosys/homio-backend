@@ -337,6 +337,11 @@ export class DesignRepository {
           include: {
             attachments: {
               orderBy: [{ isPrimary: "desc" }, { orderIndex: "asc" }],
+              include: {
+                createdBy: {
+                  select: { id: true, employeeCode: true, firstName: true, lastName: true, displayName: true, avatarUrl: true },
+                },
+              },
             },
             approvals: {
               orderBy: { decidedAt: "desc" },
@@ -463,6 +468,11 @@ export class DesignRepository {
       include: {
         attachments: {
           orderBy: [{ isPrimary: "desc" }, { orderIndex: "asc" }],
+          include: {
+            createdBy: {
+              select: { id: true, employeeCode: true, firstName: true, lastName: true, displayName: true, avatarUrl: true },
+            },
+          },
         },
         approvals: {
           orderBy: { decidedAt: "desc" },
@@ -484,6 +494,11 @@ export class DesignRepository {
       include: {
         attachments: {
           orderBy: [{ isPrimary: "desc" }, { orderIndex: "asc" }],
+          include: {
+            createdBy: {
+              select: { id: true, employeeCode: true, firstName: true, lastName: true, displayName: true, avatarUrl: true },
+            },
+          },
         },
         approvals: {
           orderBy: { decidedAt: "desc" },
@@ -556,6 +571,11 @@ export class DesignRepository {
         metadata: metadata ? (metadata as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
         fileSizeBytes: fileSizeBytes ? BigInt(fileSizeBytes) : null,
       },
+      include: {
+        createdBy: {
+          select: { id: true, employeeCode: true, firstName: true, lastName: true, displayName: true, avatarUrl: true },
+        },
+      },
     });
   }
 
@@ -564,6 +584,11 @@ export class DesignRepository {
     return db.designVersionAttachment.findMany({
       where: { designVersionId },
       orderBy: [{ isPrimary: "desc" }, { orderIndex: "asc" }, { createdAt: "asc" }],
+      include: {
+        createdBy: {
+          select: { id: true, employeeCode: true, firstName: true, lastName: true, displayName: true, avatarUrl: true },
+        },
+      },
     });
   }
 
@@ -571,6 +596,11 @@ export class DesignRepository {
     const db = tx || prisma;
     return db.designVersionAttachment.findFirst({
       where: { id: attachmentId, designVersionId },
+      include: {
+        createdBy: {
+          select: { id: true, employeeCode: true, firstName: true, lastName: true, displayName: true, avatarUrl: true },
+        },
+      },
     });
   }
 
@@ -588,6 +618,11 @@ export class DesignRepository {
         ...(metadata !== undefined
           ? { metadata: metadata ? (metadata as unknown as Prisma.InputJsonValue) : Prisma.JsonNull }
           : {}),
+      },
+      include: {
+        createdBy: {
+          select: { id: true, employeeCode: true, firstName: true, lastName: true, displayName: true, avatarUrl: true },
+        },
       },
     });
   }
@@ -806,3 +841,6 @@ export class DesignRepository {
     });
   }
 }
+
+export const designRepo = new DesignRepository();
+

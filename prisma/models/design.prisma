@@ -267,6 +267,10 @@ model DesignVersionAttachment {
   designVersionId String        @map("design_version_id") @db.Uuid
   designVersion   DesignVersion @relation("VersionAttachments", fields: [designVersionId], references: [id], onDelete: Cascade)
 
+  // Creator Employee Linkage
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdBy   Employee? @relation("DesignAttachmentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
   // File Classification
   attachmentType DesignAttachmentType @map("attachment_type")
   title          String               @map("title") // e.g. "Front Angle 4K Render", "Ceiling DWG Layout", "Matterport 3D Tour"
@@ -298,6 +302,7 @@ model DesignVersionAttachment {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([designVersionId])
+  @@index([createdById])
   @@index([attachmentType])
   @@index([isPrimary])
   @@index([orderIndex])

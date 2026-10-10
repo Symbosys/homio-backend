@@ -1,6 +1,7 @@
 import { Router } from "express";
 import leadReportRoutes from "./lead-report.routes.js";
 import hrmsReportRoutes from "./hrms-report.routes.js";
+import designReportRoutes from "./design-report.routes.js";
 
 const reportsRouter = Router();
 
@@ -16,4 +17,11 @@ reportsRouter.use("/leads", leadReportRoutes);
  */
 reportsRouter.use("/hrms", hrmsReportRoutes);
 
+/**
+ * Design & DAM Reports Sub-Router
+ * Mounted at: /api/v1/reports/designs
+ */
+reportsRouter.use("/designs", designReportRoutes);
+
 export default reportsRouter;
+

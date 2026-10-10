@@ -363,6 +363,7 @@ model Employee {
   createdDesigns                ProjectDesign[]             @relation("DesignCreatedBy")
   submittedDesignVersions       DesignVersion[]             @relation("DesignVersionSubmittedBy")
   respondedDesignChanges        DesignChangeRequest[]       @relation("DesignChangeRespondedBy")
+  createdDesignAttachments      DesignVersionAttachment[]   @relation("DesignAttachmentCreatedBy")
   handedOverProjects            ProjectHandover[]           @relation("EmployeeHandedOverProjects")
   assignedHandoverSnags         ProjectHandoverSnag[]       @relation("EmployeeAssignedHandoverSnags")
   reviewedWarrantyClaims        WarrantyClaim[]             @relation("EmployeeReviewedWarrantyClaims")

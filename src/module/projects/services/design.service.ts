@@ -452,6 +452,15 @@ export class DesignService {
       throw new ErrorResponse("Cannot add attachments to an approved, locked version. Create a new version revision.", statusCode.Conflict);
     }
 
+    if (data.createdById) {
+      const creator = await prisma.employee.findFirst({
+        where: { id: data.createdById, organizationId, isDeleted: false },
+      });
+      if (!creator) {
+        throw new ErrorResponse("Creator employee not found in this organization", statusCode.Bad_Request);
+      }
+    }
+
     return designRepo.createAttachment(versionId, data);
   }
 
@@ -486,6 +495,15 @@ export class DesignService {
     const attachment = await designRepo.findAttachmentById(versionId, attachmentId);
     if (!attachment) {
       throw new ErrorResponse("Attachment not found in this version", statusCode.Not_Found);
+    }
+
+    if (data.createdById) {
+      const creator = await prisma.employee.findFirst({
+        where: { id: data.createdById, organizationId, isDeleted: false },
+      });
+      if (!creator) {
+        throw new ErrorResponse("Creator employee not found in this organization", statusCode.Bad_Request);
+      }
     }
 
     return designRepo.updateAttachment(versionId, attachmentId, data);
@@ -686,3 +704,6 @@ export class DesignService {
     return designRepo.respondChangeRequest(changeRequestId, data);
   }
 }
+
+export const designService = new DesignService();
+

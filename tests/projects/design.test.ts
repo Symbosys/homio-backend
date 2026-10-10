@@ -29,6 +29,7 @@ describe("Design Module Validation & Business Rules Tests", () => {
   const MOCK_ATTACHMENT_ID = "44444444-5555-4666-8777-888888888888";
   const MOCK_CHANGE_REQUEST_ID = "55555555-6666-4777-8888-999999999999";
   const MOCK_MILESTONE_ID = "66666666-7777-4888-8999-000000000000";
+  const MOCK_EMPLOYEE_ID_2 = "77777777-8888-4999-8000-111111111111";
 
   // =========================================================================
   // 1. DESIGN FOLDERS VALIDATION
@@ -194,14 +195,15 @@ describe("Design Module Validation & Business Rules Tests", () => {
       expect(parsed.body.initialVersion?.attachments?.length).toBe(1);
     });
 
-    it("should allow minimal design creation with only title", () => {
+    it("should allow minimal design creation with only title and folderId", () => {
       const payload = {
         params: { projectId: MOCK_PROJECT_ID },
-        body: { title: "Modular Kitchen Layout" },
+        body: { folderId: MOCK_FOLDER_ID, title: "Modular Kitchen Layout" },
       };
 
       const parsed = createProjectDesignSchema.parse(payload);
       expect(parsed.body.title).toBe("Modular Kitchen Layout");
+      expect(parsed.body.folderId).toBe(MOCK_FOLDER_ID);
       expect(parsed.body.designType).toBe("RENDER_3D");
       expect(parsed.body.priority).toBe("MEDIUM");
       expect(parsed.body.isClientPortalVisible).toBe(true);
@@ -432,7 +434,29 @@ describe("Design Module Validation & Business Rules Tests", () => {
       expect(parsed.body.mimeType).toBe("model/gltf-binary");
     });
 
-    it("should validate partial attachment update schema", () => {
+    it("should validate attachment creation with creator employee linkage", () => {
+      const payload = {
+        params: { projectId: MOCK_PROJECT_ID, designId: MOCK_DESIGN_ID, versionId: MOCK_VERSION_ID },
+        body: {
+          createdById: MOCK_EMPLOYEE_ID_1,
+          attachmentType: "RENDER_IMAGE" as const,
+          title: "Master Bedroom 3D Visualization",
+          file: {
+            id: "att-mbr-01",
+            url: "https://storage.homio.in/designs/mbr-01.webp",
+            bytes: 1048576,
+            format: "webp",
+            provider: "AWS_S3" as const,
+          },
+        },
+      };
+
+      const parsed = createDesignAttachmentSchema.parse(payload);
+      expect(parsed.body.createdById).toBe(MOCK_EMPLOYEE_ID_1);
+      expect(parsed.body.attachmentType).toBe("RENDER_IMAGE");
+    });
+
+    it("should validate partial attachment update schema with createdById re-assignment", () => {
       const payload = {
         params: {
           projectId: MOCK_PROJECT_ID,
@@ -441,6 +465,7 @@ describe("Design Module Validation & Business Rules Tests", () => {
           attachmentId: MOCK_ATTACHMENT_ID,
         },
         body: {
+          createdById: MOCK_EMPLOYEE_ID_2,
           title: "Updated 4K Render Title",
           isPrimary: true,
           orderIndex: 0,
@@ -448,6 +473,7 @@ describe("Design Module Validation & Business Rules Tests", () => {
       };
 
       const parsed = updateDesignAttachmentSchema.parse(payload);
+      expect(parsed.body.createdById).toBe(MOCK_EMPLOYEE_ID_2);
       expect(parsed.body.title).toBe("Updated 4K Render Title");
       expect(parsed.body.isPrimary).toBe(true);
     });
