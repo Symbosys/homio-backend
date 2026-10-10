@@ -7,6 +7,7 @@ import { handoverService } from "../services/handover.service.js";
 import {
   createHandoverSchema,
   updateHandoverSchema,
+  issueWarrantyForHandoverSchema,
   updateHandoverStatusSchema,
   commercialClearanceSchema,
   handoverSignoffSchema,
@@ -97,6 +98,28 @@ export const getHandoverById = asyncHandler(async (req: Request, res: Response) 
   const handover = await handoverService.getHandoverById(id, organizationId);
 
   return SuccessResponse(res, "Project handover details retrieved successfully", handover, statusCode.OK);
+});
+
+/**
+ * @route   POST /api/v1/projects/handovers/:id/issue-warranty
+ * @desc    Issue an official warranty certificate/docket for an existing handover
+ * @access  Private (Tenant Scoped: PLATFORM_ADMIN, ADMIN, USER)
+ * @param   req Express request containing validated body and uploaded policy document
+ * @param   res Express response
+ * @returns SuccessResponse with created ProjectWarranty
+ */
+export const issueWarrantyForHandover = asyncHandler(async (req: Request, res: Response) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+  }
+
+  const { id } = handoverIdParamSchema.parse(req.params);
+  const validatedBody = issueWarrantyForHandoverSchema.parse(req.body);
+  const file = (req.files as { warrantyDoc?: Express.Multer.File[] } | undefined)?.warrantyDoc?.[0];
+
+  const warranty = await handoverService.issueWarrantyForHandover(id, organizationId, validatedBody, file);
+  return SuccessResponse(res, "Warranty docket issued successfully for handover", warranty, statusCode.Created);
 });
 
 /**

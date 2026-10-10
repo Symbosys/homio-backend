@@ -1,8 +1,9 @@
 import type { Request, Response } from "express";
 import { asyncHandler } from "../../../middlewares/error.middleware.js";
-import { SuccessResponse, ErrorResponse } from "../../../utils/response.util.js";
+import { SuccessResponse } from "../../../utils/response.util.js";
 import { statusCode } from "../../../types/types.js";
 import { warrantyService } from "../services/warranty.service.js";
+import { resolveAfterSalesOrgId } from "../utils/resolve-org.util.js";
 import {
   createProjectWarrantySchema,
   updateProjectWarrantySchema,
@@ -17,16 +18,12 @@ import {
  * @access  Private (Admin)
  */
 export const createWarranty = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   // Fallback if mounted under /projects/:projectId/after-sales/warranties
   if (!req.body.projectId && req.params.projectId) {
     req.body.projectId = req.params.projectId;
   }
 
+  const organizationId = await resolveAfterSalesOrgId(req);
   const validatedBody = createProjectWarrantySchema.parse(req.body);
 
   const files = req.files as { policyDoc?: Express.Multer.File[] } | undefined;
@@ -47,15 +44,11 @@ export const createWarranty = asyncHandler(async (req: Request, res: Response) =
  * @access  Private
  */
 export const getWarranties = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   if (!req.query.projectId && req.params.projectId) {
     req.query.projectId = req.params.projectId;
   }
 
+  const organizationId = await resolveAfterSalesOrgId(req);
   const query = getProjectWarrantiesQuerySchema.parse(req.query);
   const result = await warrantyService.getWarranties(organizationId, query);
 
@@ -68,12 +61,8 @@ export const getWarranties = asyncHandler(async (req: Request, res: Response) =>
  * @access  Private
  */
 export const getWarrantyById = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const { id } = warrantyIdParamSchema.parse(req.params);
+  const organizationId = await resolveAfterSalesOrgId(req, { warrantyId: id });
   const warranty = await warrantyService.getWarrantyById(organizationId, id);
 
   return SuccessResponse(res, "Project warranty fetched successfully", warranty, statusCode.OK);
@@ -85,12 +74,8 @@ export const getWarrantyById = asyncHandler(async (req: Request, res: Response) 
  * @access  Private (Admin)
  */
 export const updateWarranty = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const { id } = warrantyIdParamSchema.parse(req.params);
+  const organizationId = await resolveAfterSalesOrgId(req, { warrantyId: id });
   const validatedBody = updateProjectWarrantySchema.parse(req.body);
 
   const files = req.files as { policyDoc?: Express.Multer.File[] } | undefined;
@@ -112,12 +97,8 @@ export const updateWarranty = asyncHandler(async (req: Request, res: Response) =
  * @access  Private (Admin)
  */
 export const updateWarrantyStatus = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const { id } = warrantyIdParamSchema.parse(req.params);
+  const organizationId = await resolveAfterSalesOrgId(req, { warrantyId: id });
   const { status } = updateWarrantyStatusSchema.parse(req.body);
 
   const updated = await warrantyService.updateWarrantyStatus(organizationId, id, status);
@@ -131,12 +112,8 @@ export const updateWarrantyStatus = asyncHandler(async (req: Request, res: Respo
  * @access  Private (Admin)
  */
 export const deleteWarranty = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const { id } = warrantyIdParamSchema.parse(req.params);
+  const organizationId = await resolveAfterSalesOrgId(req, { warrantyId: id });
   await warrantyService.deleteWarranty(organizationId, id);
 
   return SuccessResponse(res, "Project warranty deleted successfully", null, statusCode.OK);

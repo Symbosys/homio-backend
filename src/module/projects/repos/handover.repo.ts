@@ -177,10 +177,19 @@ export class HandoverRepository {
           },
           orderBy: { createdAt: "asc" },
         },
+        warranties: {
+          where: { isDeleted: false },
+          include: {
+            _count: {
+              select: { claims: true, serviceRequests: true },
+            },
+          },
+        },
         _count: {
           select: {
             items: true,
             snags: true,
+            warranties: true,
           },
         },
       },
@@ -275,6 +284,7 @@ export class HandoverRepository {
             select: {
               items: true,
               snags: true,
+              warranties: true,
             },
           },
         },

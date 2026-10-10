@@ -5,6 +5,7 @@ import {
   createHandover,
   getHandovers,
   getHandoverById,
+  issueWarrantyForHandover,
   getHandoverReadiness,
   updateHandover,
   updateHandoverStatus,
@@ -91,6 +92,13 @@ handoverRoutes.get("/", getHandovers);
  * @access  Private (Authenticated Tenant User)
  */
 handoverRoutes.get("/:id", getHandoverById);
+
+/**
+ * @route   POST /api/v1/projects/handovers/:id/issue-warranty
+ * @desc    Issue an official warranty certificate/docket for an existing handover
+ * @access  Private (Authenticated Tenant User)
+ */
+handoverRoutes.post("/:id/issue-warranty", handoverUpload, issueWarrantyForHandover);
 
 /**
  * @route   GET /api/v1/projects/handovers/:id/readiness

@@ -161,7 +161,14 @@ export const createHandoverSchema = z.object({
   pendingAmount: stringToNullableNumber,
   commercialRemarks: z.string().optional().nullable(),
   // Warranty & Defect Liability Period (DLP)
-  warrantyPeriodMonths: stringToNumber(12),
+  issueWarranty: stringToBoolean(false),
+  warrantyCategory: z.string().max(100).optional().default("Comprehensive Workmanship"),
+  warrantyTitle: z.string().max(255).optional(),
+  warrantyDescription: z.string().optional().nullable(),
+  coveredItemWork: z.string().optional().nullable(),
+  inclusions: z.string().optional().nullable(),
+  exclusions: z.string().optional().nullable(),
+  warrantyPeriodMonths: stringToNumber(0),
   warrantyStartDate: z.string().optional().nullable(),
   warrantyEndDate: z.string().optional().nullable(),
   warrantyTerms: z.string().optional().nullable(),
@@ -171,6 +178,20 @@ export const createHandoverSchema = z.object({
   items: z.array(createHandoverItemSchema).optional().default([]),
   snags: z.array(createHandoverSnagSchema).optional().default([]),
   // Universal Custom Fields & Metadata
+  additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
+});
+
+export const issueWarrantyForHandoverSchema = z.object({
+  category: z.string().min(1, "Category is required").max(100).default("Comprehensive Workmanship"),
+  title: z.string().min(1, "Title is required").max(255),
+  description: z.string().optional().nullable(),
+  coveredItemWork: z.string().optional().nullable(),
+  startDate: z.string().refine((val) => !isNaN(Date.parse(val)), "Invalid startDate format"),
+  endDate: z.string().refine((val) => !isNaN(Date.parse(val)), "Invalid endDate format"),
+  status: z.enum(["ACTIVE", "EXPIRED", "CLAIMED", "VOIDED"]).optional().default("ACTIVE"),
+  termsSummary: z.string().optional().nullable(),
+  inclusions: z.string().optional().nullable(),
+  exclusions: z.string().optional().nullable(),
   additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
 });
 
@@ -262,6 +283,7 @@ export const handoverSnagParamSchema = z.object({
 
 export type CreateHandoverInput = z.infer<typeof createHandoverSchema>;
 export type UpdateHandoverInput = z.infer<typeof updateHandoverSchema>;
+export type IssueWarrantyForHandoverInput = z.infer<typeof issueWarrantyForHandoverSchema>;
 export type UpdateHandoverStatusInput = z.infer<typeof updateHandoverStatusSchema>;
 export type CommercialClearanceInput = z.infer<typeof commercialClearanceSchema>;
 export type HandoverSignoffInput = z.infer<typeof handoverSignoffSchema>;

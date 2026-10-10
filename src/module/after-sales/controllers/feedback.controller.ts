@@ -1,8 +1,9 @@
 import type { Request, Response } from "express";
 import { asyncHandler } from "../../../middlewares/error.middleware.js";
-import { SuccessResponse, ErrorResponse } from "../../../utils/response.util.js";
+import { SuccessResponse } from "../../../utils/response.util.js";
 import { statusCode } from "../../../types/types.js";
 import { feedbackService } from "../services/feedback.service.js";
+import { resolveAfterSalesOrgId } from "../utils/resolve-org.util.js";
 import {
   createCustomerFeedbackSchema,
   updateCustomerFeedbackSchema,
@@ -18,15 +19,11 @@ import {
  * @access  Private
  */
 export const createFeedback = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   if (!req.body.projectId && req.params.projectId) {
     req.body.projectId = req.params.projectId;
   }
 
+  const organizationId = await resolveAfterSalesOrgId(req);
   const validatedBody = createCustomerFeedbackSchema.parse(req.body);
   const feedback = await feedbackService.createFeedback(organizationId, validatedBody);
 
@@ -39,15 +36,11 @@ export const createFeedback = asyncHandler(async (req: Request, res: Response) =
  * @access  Private
  */
 export const getFeedbacks = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   if (!req.query.projectId && req.params.projectId) {
     req.query.projectId = req.params.projectId;
   }
 
+  const organizationId = await resolveAfterSalesOrgId(req);
   const query = getCustomerFeedbacksQuerySchema.parse(req.query);
   const result = await feedbackService.getFeedbacks(organizationId, query);
 
@@ -60,12 +53,8 @@ export const getFeedbacks = asyncHandler(async (req: Request, res: Response) => 
  * @access  Private
  */
 export const getFeedbackById = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const { id } = feedbackIdParamSchema.parse(req.params);
+  const organizationId = await resolveAfterSalesOrgId(req, { feedbackId: id });
   const feedback = await feedbackService.getFeedbackById(organizationId, id);
 
   return SuccessResponse(res, "Customer feedback fetched successfully", feedback, statusCode.OK);
@@ -77,12 +66,8 @@ export const getFeedbackById = asyncHandler(async (req: Request, res: Response) 
  * @access  Private
  */
 export const updateFeedback = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const { id } = feedbackIdParamSchema.parse(req.params);
+  const organizationId = await resolveAfterSalesOrgId(req, { feedbackId: id });
   const validatedBody = updateCustomerFeedbackSchema.parse(req.body);
 
   const updated = await feedbackService.updateFeedback(organizationId, id, validatedBody);
@@ -96,12 +81,8 @@ export const updateFeedback = asyncHandler(async (req: Request, res: Response) =
  * @access  Private (Admin)
  */
 export const escalateFeedback = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const { id } = feedbackIdParamSchema.parse(req.params);
+  const organizationId = await resolveAfterSalesOrgId(req, { feedbackId: id });
   const validatedBody = escalateFeedbackSchema.parse(req.body);
 
   const updated = await feedbackService.escalateFeedback(organizationId, id, validatedBody);
@@ -115,12 +96,8 @@ export const escalateFeedback = asyncHandler(async (req: Request, res: Response)
  * @access  Private (Admin)
  */
 export const resolveEscalation = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const { id } = feedbackIdParamSchema.parse(req.params);
+  const organizationId = await resolveAfterSalesOrgId(req, { feedbackId: id });
   const validatedBody = resolveEscalationSchema.parse(req.body);
 
   const updated = await feedbackService.resolveEscalation(organizationId, id, validatedBody);
@@ -134,12 +111,8 @@ export const resolveEscalation = asyncHandler(async (req: Request, res: Response
  * @access  Private (Admin)
  */
 export const deleteFeedback = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const { id } = feedbackIdParamSchema.parse(req.params);
+  const organizationId = await resolveAfterSalesOrgId(req, { feedbackId: id });
   await feedbackService.deleteFeedback(organizationId, id);
 
   return SuccessResponse(res, "Customer feedback deleted successfully", null, statusCode.OK);

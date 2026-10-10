@@ -3,6 +3,7 @@ import { asyncHandler } from "../../../middlewares/error.middleware.js";
 import { SuccessResponse, ErrorResponse } from "../../../utils/response.util.js";
 import { statusCode } from "../../../types/types.js";
 import { claimService } from "../services/claim.service.js";
+import { resolveAfterSalesOrgId } from "../utils/resolve-org.util.js";
 import {
   createWarrantyClaimSchema,
   updateWarrantyClaimSchema,
@@ -17,11 +18,6 @@ import {
  * @access  Private
  */
 export const createClaim = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   let bodyData = req.body;
   if (typeof bodyData?.additionalInformation === "string") {
     try {
@@ -30,6 +26,11 @@ export const createClaim = asyncHandler(async (req: Request, res: Response) => {
       // ignore JSON parse error and keep as is
     }
   }
+
+  const organizationId = await resolveAfterSalesOrgId(req, {
+    warrantyId: bodyData?.warrantyId,
+    projectId: bodyData?.projectId,
+  });
 
   const validatedBody = createWarrantyClaimSchema.parse(bodyData);
 
@@ -47,10 +48,10 @@ export const createClaim = asyncHandler(async (req: Request, res: Response) => {
  * @access  Private
  */
 export const getClaims = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
+  const organizationId = await resolveAfterSalesOrgId(req, {
+    projectId: (req.query.projectId as string) || (req.params.projectId as string),
+    warrantyId: (req.query.warrantyId as string) || (req.params.warrantyId as string),
+  });
 
   const query = getWarrantyClaimsQuerySchema.parse(req.query);
   const result = await claimService.getClaims(organizationId, query);
@@ -64,12 +65,8 @@ export const getClaims = asyncHandler(async (req: Request, res: Response) => {
  * @access  Private
  */
 export const getClaimById = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const { id } = claimIdParamSchema.parse(req.params);
+  const organizationId = await resolveAfterSalesOrgId(req, { claimId: id });
   const claim = await claimService.getClaimById(organizationId, id);
 
   return SuccessResponse(res, "Warranty claim fetched successfully", claim, statusCode.OK);
@@ -81,12 +78,8 @@ export const getClaimById = asyncHandler(async (req: Request, res: Response) => 
  * @access  Private
  */
 export const updateClaim = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const { id } = claimIdParamSchema.parse(req.params);
+  const organizationId = await resolveAfterSalesOrgId(req, { claimId: id });
 
   let bodyData = req.body;
   if (typeof bodyData?.additionalInformation === "string") {
@@ -118,13 +111,13 @@ export const updateClaim = asyncHandler(async (req: Request, res: Response) => {
  * @access  Private (Admin / Reviewer)
  */
 export const reviewClaim = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
+  const { id } = claimIdParamSchema.parse(req.params);
+  const organizationId = await resolveAfterSalesOrgId(req, { claimId: id });
   const userId = req.user?.id;
-  if (!organizationId || !userId) {
-    throw new ErrorResponse("User & Organization context required", statusCode.Bad_Request);
+  if (!userId) {
+    throw new ErrorResponse("User context required", statusCode.Bad_Request);
   }
 
-  const { id } = claimIdParamSchema.parse(req.params);
   const validatedBody = reviewWarrantyClaimSchema.parse(req.body);
 
   const updated = await claimService.reviewClaim(
@@ -143,12 +136,9 @@ export const reviewClaim = asyncHandler(async (req: Request, res: Response) => {
  * @access  Private (Admin)
  */
 export const spawnServiceRequest = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const { id } = claimIdParamSchema.parse(req.params);
+  const organizationId = await resolveAfterSalesOrgId(req, { claimId: id });
+
   const serviceRequest = await claimService.spawnServiceRequestFromClaim(organizationId, id);
 
   return SuccessResponse(res, "Service request ticket generated from warranty claim", serviceRequest, statusCode.Created);
@@ -160,12 +150,8 @@ export const spawnServiceRequest = asyncHandler(async (req: Request, res: Respon
  * @access  Private (Admin)
  */
 export const deleteClaim = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const { id } = claimIdParamSchema.parse(req.params);
+  const organizationId = await resolveAfterSalesOrgId(req, { claimId: id });
   await claimService.deleteClaim(organizationId, id);
 
   return SuccessResponse(res, "Warranty claim deleted successfully", null, statusCode.OK);

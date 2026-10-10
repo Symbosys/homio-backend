@@ -1,8 +1,9 @@
 import type { Request, Response } from "express";
 import { asyncHandler } from "../../../middlewares/error.middleware.js";
-import { SuccessResponse, ErrorResponse } from "../../../utils/response.util.js";
+import { SuccessResponse } from "../../../utils/response.util.js";
 import { statusCode } from "../../../types/types.js";
 import { serviceRequestService } from "../services/service-request.service.js";
+import { resolveAfterSalesOrgId } from "../utils/resolve-org.util.js";
 import {
   createServiceRequestSchema,
   updateServiceRequestSchema,
@@ -20,15 +21,11 @@ import {
  * @access  Private
  */
 export const createServiceRequest = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   if (!req.body.projectId && req.params.projectId) {
     req.body.projectId = req.params.projectId;
   }
 
+  const organizationId = await resolveAfterSalesOrgId(req);
   const validatedBody = createServiceRequestSchema.parse(req.body);
 
   const files = req.files as { attachments?: Express.Multer.File[] } | Express.Multer.File[] | undefined;
@@ -49,15 +46,11 @@ export const createServiceRequest = asyncHandler(async (req: Request, res: Respo
  * @access  Private
  */
 export const getServiceRequests = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   if (!req.query.projectId && req.params.projectId) {
     req.query.projectId = req.params.projectId;
   }
 
+  const organizationId = await resolveAfterSalesOrgId(req);
   const query = getServiceRequestsQuerySchema.parse(req.query);
   const result = await serviceRequestService.getServiceRequests(organizationId, query);
 
@@ -70,12 +63,8 @@ export const getServiceRequests = asyncHandler(async (req: Request, res: Respons
  * @access  Private
  */
 export const getServiceRequestById = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const { id } = serviceRequestIdParamSchema.parse(req.params);
+  const organizationId = await resolveAfterSalesOrgId(req, { requestId: id });
   const request = await serviceRequestService.getServiceRequestById(organizationId, id);
 
   return SuccessResponse(res, "Service request fetched successfully", request, statusCode.OK);
@@ -87,12 +76,8 @@ export const getServiceRequestById = asyncHandler(async (req: Request, res: Resp
  * @access  Private
  */
 export const updateServiceRequest = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const { id } = serviceRequestIdParamSchema.parse(req.params);
+  const organizationId = await resolveAfterSalesOrgId(req, { requestId: id });
   const validatedBody = updateServiceRequestSchema.parse(req.body);
 
   const files = req.files as { attachments?: Express.Multer.File[] } | Express.Multer.File[] | undefined;
@@ -114,12 +99,8 @@ export const updateServiceRequest = asyncHandler(async (req: Request, res: Respo
  * @access  Private (Admin)
  */
 export const assignServiceRequest = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const { id } = serviceRequestIdParamSchema.parse(req.params);
+  const organizationId = await resolveAfterSalesOrgId(req, { requestId: id });
   const validatedBody = assignServiceRequestSchema.parse(req.body);
 
   const updated = await serviceRequestService.assignServiceRequest(
@@ -137,12 +118,8 @@ export const assignServiceRequest = asyncHandler(async (req: Request, res: Respo
  * @access  Private
  */
 export const updateServiceRequestStatus = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const { id } = serviceRequestIdParamSchema.parse(req.params);
+  const organizationId = await resolveAfterSalesOrgId(req, { requestId: id });
   const { status } = updateServiceRequestStatusSchema.parse(req.body);
 
   const updated = await serviceRequestService.updateStatus(organizationId, id, status);
@@ -156,12 +133,8 @@ export const updateServiceRequestStatus = asyncHandler(async (req: Request, res:
  * @access  Private
  */
 export const resolveServiceRequest = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const { id } = serviceRequestIdParamSchema.parse(req.params);
+  const organizationId = await resolveAfterSalesOrgId(req, { requestId: id });
   const validatedBody = resolveServiceRequestSchema.parse(req.body);
 
   const updated = await serviceRequestService.resolveServiceRequest(
@@ -179,12 +152,8 @@ export const resolveServiceRequest = asyncHandler(async (req: Request, res: Resp
  * @access  Private (Admin)
  */
 export const closeServiceRequest = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const { id } = serviceRequestIdParamSchema.parse(req.params);
+  const organizationId = await resolveAfterSalesOrgId(req, { requestId: id });
   const updated = await serviceRequestService.closeServiceRequest(organizationId, id);
 
   return SuccessResponse(res, "Service request closed successfully", updated, statusCode.OK);
@@ -196,12 +165,8 @@ export const closeServiceRequest = asyncHandler(async (req: Request, res: Respon
  * @access  Private (Admin)
  */
 export const reopenServiceRequest = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const { id } = serviceRequestIdParamSchema.parse(req.params);
+  const organizationId = await resolveAfterSalesOrgId(req, { requestId: id });
   const validatedBody = reopenServiceRequestSchema.parse(req.body);
 
   const updated = await serviceRequestService.reopenServiceRequest(
@@ -219,12 +184,8 @@ export const reopenServiceRequest = asyncHandler(async (req: Request, res: Respo
  * @access  Private (Admin)
  */
 export const deleteServiceRequest = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const { id } = serviceRequestIdParamSchema.parse(req.params);
+  const organizationId = await resolveAfterSalesOrgId(req, { requestId: id });
   await serviceRequestService.deleteServiceRequest(organizationId, id);
 
   return SuccessResponse(res, "Service request deleted successfully", null, statusCode.OK);

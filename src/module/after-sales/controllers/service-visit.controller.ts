@@ -1,8 +1,9 @@
 import type { Request, Response } from "express";
 import { asyncHandler } from "../../../middlewares/error.middleware.js";
-import { SuccessResponse, ErrorResponse } from "../../../utils/response.util.js";
+import { SuccessResponse } from "../../../utils/response.util.js";
 import { statusCode } from "../../../types/types.js";
 import { serviceVisitService } from "../services/service-visit.service.js";
+import { resolveAfterSalesOrgId } from "../utils/resolve-org.util.js";
 import {
   createServiceVisitSchema,
   updateServiceVisitSchema,
@@ -20,15 +21,11 @@ import {
  * @access  Private (Admin)
  */
 export const createVisit = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   if (!req.body.projectId && req.params.projectId) {
     req.body.projectId = req.params.projectId;
   }
 
+  const organizationId = await resolveAfterSalesOrgId(req);
   const validatedBody = createServiceVisitSchema.parse(req.body);
   const visit = await serviceVisitService.createVisit(organizationId, validatedBody);
 
@@ -41,15 +38,11 @@ export const createVisit = asyncHandler(async (req: Request, res: Response) => {
  * @access  Private
  */
 export const getVisits = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   if (!req.query.projectId && req.params.projectId) {
     req.query.projectId = req.params.projectId;
   }
 
+  const organizationId = await resolveAfterSalesOrgId(req);
   const query = getServiceVisitsQuerySchema.parse(req.query);
   const result = await serviceVisitService.getVisits(organizationId, query);
 
@@ -62,12 +55,8 @@ export const getVisits = asyncHandler(async (req: Request, res: Response) => {
  * @access  Private
  */
 export const getVisitById = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const { id } = serviceVisitIdParamSchema.parse(req.params);
+  const organizationId = await resolveAfterSalesOrgId(req, { visitId: id });
   const visit = await serviceVisitService.getVisitById(organizationId, id);
 
   return SuccessResponse(res, "Service visit fetched successfully", visit, statusCode.OK);
@@ -79,12 +68,8 @@ export const getVisitById = asyncHandler(async (req: Request, res: Response) => 
  * @access  Private
  */
 export const updateVisit = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const { id } = serviceVisitIdParamSchema.parse(req.params);
+  const organizationId = await resolveAfterSalesOrgId(req, { visitId: id });
   const validatedBody = updateServiceVisitSchema.parse(req.body);
 
   const updated = await serviceVisitService.updateVisit(organizationId, id, validatedBody);
@@ -98,12 +83,8 @@ export const updateVisit = asyncHandler(async (req: Request, res: Response) => {
  * @access  Private
  */
 export const checkInVisit = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const { id } = serviceVisitIdParamSchema.parse(req.params);
+  const organizationId = await resolveAfterSalesOrgId(req, { visitId: id });
   const validatedBody = checkInServiceVisitSchema.parse(req.body);
 
   const files = req.files as { checkInPhoto?: Express.Multer.File[] } | undefined;
@@ -125,12 +106,8 @@ export const checkInVisit = asyncHandler(async (req: Request, res: Response) => 
  * @access  Private
  */
 export const submitWorkReport = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const { id } = serviceVisitIdParamSchema.parse(req.params);
+  const organizationId = await resolveAfterSalesOrgId(req, { visitId: id });
   const validatedBody = submitWorkReportSchema.parse(req.body);
 
   const files = req.files as
@@ -157,12 +134,8 @@ export const submitWorkReport = asyncHandler(async (req: Request, res: Response)
  * @access  Private
  */
 export const signOffVisit = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const { id } = serviceVisitIdParamSchema.parse(req.params);
+  const organizationId = await resolveAfterSalesOrgId(req, { visitId: id });
   const validatedBody = signOffServiceVisitSchema.parse(req.body);
 
   const files = req.files as { signature?: Express.Multer.File[] } | undefined;
@@ -184,12 +157,8 @@ export const signOffVisit = asyncHandler(async (req: Request, res: Response) => 
  * @access  Private
  */
 export const updateVisitStatus = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const { id } = serviceVisitIdParamSchema.parse(req.params);
+  const organizationId = await resolveAfterSalesOrgId(req, { visitId: id });
   const { status } = updateServiceVisitStatusSchema.parse(req.body);
 
   const updated = await serviceVisitService.updateStatus(organizationId, id, status);
@@ -203,12 +172,8 @@ export const updateVisitStatus = asyncHandler(async (req: Request, res: Response
  * @access  Private (Admin)
  */
 export const deleteVisit = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const { id } = serviceVisitIdParamSchema.parse(req.params);
+  const organizationId = await resolveAfterSalesOrgId(req, { visitId: id });
   await serviceVisitService.deleteVisit(organizationId, id);
 
   return SuccessResponse(res, "Service visit deleted successfully", null, statusCode.OK);

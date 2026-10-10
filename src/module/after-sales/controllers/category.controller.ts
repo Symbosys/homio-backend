@@ -9,6 +9,7 @@ import {
   getServiceCategoriesQuerySchema,
   categoryIdParamSchema,
 } from "../validators/category.validator.js";
+import { resolveAfterSalesOrgId } from "../utils/resolve-org.util.js";
 
 /**
  * @route   POST /api/v1/after-sales/categories
@@ -33,11 +34,7 @@ export const createCategory = asyncHandler(async (req: Request, res: Response) =
  * @access  Private
  */
 export const getCategories = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
+  const organizationId = await resolveAfterSalesOrgId(req);
   const query = getServiceCategoriesQuerySchema.parse(req.query);
   const result = await categoryService.getCategories(organizationId, query);
 
@@ -50,12 +47,8 @@ export const getCategories = asyncHandler(async (req: Request, res: Response) =>
  * @access  Private
  */
 export const getCategoryById = asyncHandler(async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const { id } = categoryIdParamSchema.parse(req.params);
+  const organizationId = await resolveAfterSalesOrgId(req);
   const category = await categoryService.getCategoryById(organizationId, id);
 
   return SuccessResponse(res, "Service category fetched successfully", category, statusCode.OK);

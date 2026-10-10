@@ -3,9 +3,11 @@ import { ErrorResponse } from "../../../utils/response.util.js";
 import { statusCode, type ImageType, Prisma } from "../../../types/types.js";
 import { storageService } from "../../../lib/storage/storage.service.js";
 import { handoverRepository, HandoverRepository } from "../repos/handover.repo.js";
+import { warrantyRepository } from "../../after-sales/repos/warranty.repo.js";
 import type {
   CreateHandoverInput,
   UpdateHandoverInput,
+  IssueWarrantyForHandoverInput,
   UpdateHandoverStatusInput,
   CommercialClearanceInput,
   HandoverSignoffInput,
@@ -101,7 +103,7 @@ export class HandoverService {
       warrantyDocumentUrl = await this.uploadToCloud(
         files.warrantyDoc[0],
         "homio/projects/handovers/warranties",
-        "raw"
+        "auto"
       );
     }
 
@@ -109,7 +111,7 @@ export class HandoverService {
       handoverCertificateUrl = await this.uploadToCloud(
         files.certificate[0],
         "homio/projects/handovers/certificates",
-        "raw"
+        "auto"
       );
     }
 
@@ -133,6 +135,7 @@ export class HandoverService {
     }
 
     // 5. Construct UncheckedCreateInput
+    const isIssuingWarranty = Boolean(input.issueWarranty);
     const createData: Prisma.ProjectHandoverUncheckedCreateInput = {
       organizationId,
       projectId: input.projectId,
@@ -152,11 +155,11 @@ export class HandoverService {
         ? new Prisma.Decimal(input.pendingAmount)
         : new Prisma.Decimal(0),
       commercialRemarks: input.commercialRemarks ?? null,
-      warrantyPeriodMonths: input.warrantyPeriodMonths,
-      warrantyStartDate: input.warrantyStartDate ? new Date(input.warrantyStartDate) : null,
-      warrantyEndDate: input.warrantyEndDate ? new Date(input.warrantyEndDate) : null,
-      warrantyTerms: input.warrantyTerms ?? null,
-      warrantyDocumentUrl: warrantyDocumentUrl
+      warrantyPeriodMonths: isIssuingWarranty ? input.warrantyPeriodMonths : null,
+      warrantyStartDate: isIssuingWarranty && input.warrantyStartDate ? new Date(input.warrantyStartDate) : null,
+      warrantyEndDate: isIssuingWarranty && input.warrantyEndDate ? new Date(input.warrantyEndDate) : null,
+      warrantyTerms: isIssuingWarranty ? (input.warrantyTerms ?? null) : null,
+      warrantyDocumentUrl: (isIssuingWarranty && warrantyDocumentUrl)
         ? (warrantyDocumentUrl as unknown as Prisma.InputJsonValue)
         : Prisma.JsonNull,
       handedOverById: input.handedOverById ?? null,
@@ -210,6 +213,56 @@ export class HandoverService {
 
     const createdHandover = await this.repo.createHandover(createData, initialItems, initialSnags);
 
+    // Auto-create ProjectWarranty docket ONLY if warranty is explicitly selected/issued
+    const shouldIssueWarranty = isIssuingWarranty;
+
+    if (shouldIssueWarranty) {
+      try {
+        const startDateObj = input.warrantyStartDate
+          ? new Date(input.warrantyStartDate)
+          : input.handoverDate
+          ? new Date(input.handoverDate)
+          : new Date();
+
+        let endDateObj: Date;
+        if (input.warrantyEndDate) {
+          endDateObj = new Date(input.warrantyEndDate);
+        } else {
+          endDateObj = new Date(startDateObj);
+          const monthsToAdd = input.warrantyPeriodMonths || 12;
+          endDateObj.setMonth(endDateObj.getMonth() + monthsToAdd);
+        }
+
+        const warrantyTitle =
+          input.warrantyTitle ||
+          `${project.name} - ${input.warrantyCategory || "Comprehensive"} Warranty Certificate`;
+
+        await warrantyRepository.create(
+          organizationId,
+          {
+            projectId: input.projectId,
+            handoverId: createdHandover.id,
+            category: input.warrantyCategory || "Comprehensive Workmanship",
+            title: warrantyTitle,
+            description: input.warrantyDescription || input.description || null,
+            coveredItemWork:
+              input.coveredItemWork ||
+              "Comprehensive coverage on interior joinery, finishes, structural fittings, and defect liability rectification.",
+            startDate: startDateObj.toISOString(),
+            endDate: endDateObj.toISOString(),
+            status: "ACTIVE",
+            termsSummary: input.warrantyTerms || null,
+            inclusions: input.inclusions || null,
+            exclusions: input.exclusions || null,
+            additionalInformation: input.additionalInformation || null,
+          },
+          warrantyDocumentUrl
+        );
+      } catch (err) {
+        console.error("Failed to auto-create ProjectWarranty during handover creation:", err);
+      }
+    }
+
     // Auto-create timeline event for handover scheduling
     await prisma.projectTimeline
       .create({
@@ -228,6 +281,80 @@ export class HandoverService {
       .catch(() => {});
 
     return createdHandover;
+  }
+
+  /**
+   * Issue an official warranty docket for an existing handover
+   */
+  async issueWarrantyForHandover(
+    id: string,
+    organizationId: string,
+    input: IssueWarrantyForHandoverInput,
+    file?: Express.Multer.File
+  ) {
+    const handover = await this.repo.findHandoverById(id, organizationId);
+    if (!handover) {
+      throw new ErrorResponse("Project handover docket not found", statusCode.Not_Found);
+    }
+
+    let policyDocumentUrl: ImageType | undefined = undefined;
+    if (file) {
+      policyDocumentUrl = await this.uploadToCloud(
+        file,
+        "homio/projects/handovers/warranties",
+        "auto"
+      );
+    }
+
+    const createdWarranty = await warrantyRepository.create(
+      organizationId,
+      {
+        projectId: handover.projectId,
+        handoverId: handover.id,
+        category: input.category,
+        title: input.title,
+        description: input.description,
+        coveredItemWork: input.coveredItemWork,
+        startDate: input.startDate,
+        endDate: input.endDate,
+        status: input.status,
+        termsSummary: input.termsSummary,
+        inclusions: input.inclusions,
+        exclusions: input.exclusions,
+        additionalInformation: input.additionalInformation,
+      },
+      policyDocumentUrl
+    );
+
+    // Sync handover record with warranty timeline
+    await prisma.projectHandover.update({
+      where: { id: handover.id },
+      data: {
+        warrantyStartDate: new Date(input.startDate),
+        warrantyEndDate: new Date(input.endDate),
+        warrantyTerms: input.termsSummary ?? handover.warrantyTerms,
+        ...(policyDocumentUrl ? { warrantyDocumentUrl: policyDocumentUrl as unknown as Prisma.InputJsonValue } : {}),
+      },
+    });
+
+    // Auto-create timeline milestone event
+    await prisma.projectTimeline
+      .create({
+        data: {
+          projectId: handover.projectId,
+          title: `Warranty Issued: ${createdWarranty.warrantyNumber}`,
+          description: `Official warranty docket (${createdWarranty.title}) issued for project handover ${handover.handoverNumber}.`,
+          eventType: "HANDOVER_SNAG",
+          category: "HANDOVER",
+          status: "COMPLETED",
+          performedById: handover.handedOverById || null,
+          isCustom: false,
+          isSystemGenerated: true,
+        },
+      })
+      .catch(() => {});
+
+    return createdWarranty;
   }
 
   /**
@@ -315,7 +442,7 @@ export class HandoverService {
       const uploaded = await this.uploadToCloud(
         files.warrantyDoc[0],
         "homio/projects/handovers/warranties",
-        "raw"
+        "auto"
       );
       updateData.warrantyDocumentUrl = uploaded as unknown as Prisma.InputJsonValue;
     }
@@ -324,7 +451,7 @@ export class HandoverService {
       const uploaded = await this.uploadToCloud(
         files.certificate[0],
         "homio/projects/handovers/certificates",
-        "raw"
+        "auto"
       );
       updateData.handoverCertificateUrl = uploaded as unknown as Prisma.InputJsonValue;
     }
