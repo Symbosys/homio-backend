@@ -195,8 +195,6 @@ model AfterSalesServiceRequest {
   id                        String                 @id @default(uuid()) @db.Uuid
   projectId                 String                 @map("project_id") @db.Uuid
   project                   Project                @relation("ProjectAfterSalesServiceRequests", fields: [projectId], references: [id], onDelete: Cascade)
-  categoryId                String                 @map("category_id") @db.Uuid
-  category                  ServiceCategory        @relation("CategoryServiceRequests", fields: [categoryId], references: [id], onDelete: Restrict)
   warrantyId                String?                @map("warranty_id") @db.Uuid
   warranty                  ProjectWarranty?       @relation("WarrantyServiceRequests", fields: [warrantyId], references: [id], onDelete: SetNull)
   requestNumber             String                 @map("request_number") @db.VarChar(50) // e.g. "SR-2026-0001"
@@ -239,7 +237,6 @@ model AfterSalesServiceRequest {
 
   @@unique([projectId, requestNumber])
   @@index([projectId])
-  @@index([categoryId])
   @@index([warrantyId])
   @@index([assignedToId])
   @@index([status])

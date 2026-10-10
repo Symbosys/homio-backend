@@ -113,7 +113,6 @@ model ServiceCategory {
   updatedAt DateTime  @updatedAt @map("updated_at")
 
   // Relations Across Modules
-  serviceRequests AfterSalesServiceRequest[] @relation("CategoryServiceRequests")
   projects        Project[]                  @relation("ProjectServiceCategory")
 
   @@unique([organizationId, name])

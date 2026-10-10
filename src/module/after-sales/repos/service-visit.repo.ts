@@ -90,11 +90,7 @@ export class ServiceVisitRepository {
         project: {
           select: { id: true, name: true, projectCode: true, customerId: true },
         },
-        serviceRequest: {
-          include: {
-            category: true,
-          },
-        },
+        serviceRequest: true,
         assignedEmployee: {
           select: { id: true, firstName: true, lastName: true, employeeCode: true, workPhone: true, workEmail: true },
         },

@@ -20,7 +20,6 @@ describe("After-Sales: Service Request Tests", () => {
     it("should validate full service request ticket payload", () => {
       const payload = {
         projectId: MOCK_PROJECT_ID,
-        categoryId: MOCK_CATEGORY_ID,
         priority: "HIGH" as const,
         subject: "Master Bedroom Wardrobe Hydraulic Lift Defective",
         description: "Hydraulic pump on the overhead loft has lost pressure and cabinet door is not staying open.",
@@ -39,7 +38,6 @@ describe("After-Sales: Service Request Tests", () => {
 
       const parsed = createServiceRequestSchema.parse(payload);
       expect(parsed.projectId).toBe(MOCK_PROJECT_ID);
-      expect(parsed.categoryId).toBe(MOCK_CATEGORY_ID);
       expect(parsed.priority).toBe("HIGH");
       expect(parsed.subject).toContain("Hydraulic");
       expect(parsed.isWarrantyCovered).toBe(true);
@@ -49,7 +47,6 @@ describe("After-Sales: Service Request Tests", () => {
     it("should allow minimal creation payload with sensible defaults", () => {
       const payload = {
         projectId: MOCK_PROJECT_ID,
-        categoryId: MOCK_CATEGORY_ID,
         subject: "Loose electrical socket in living room",
         description: "The 16A switch plate is loose and sparks occasionally.",
       };

@@ -196,23 +196,10 @@ export class ClaimService {
       );
     }
 
-    // Resolve or find a default ServiceCategory for warranty rectifications
-    const defaultCategory = await prisma.serviceCategory.findFirst({
-      where: { organizationId, isDeleted: false },
-      orderBy: { sortOrder: "asc" },
-    });
-    if (!defaultCategory) {
-      throw new ErrorResponse(
-        "Please configure at least one service category before creating service requests",
-        statusCode.Bad_Request
-      );
-    }
-
     const serviceRequest = await serviceRequestRepository.create(
       organizationId,
       {
         projectId: claim.warranty.projectId,
-        categoryId: defaultCategory.id,
         warrantyId: claim.warrantyId,
         priority: "HIGH",
         subject: `Warranty Rectification: ${claim.title}`,

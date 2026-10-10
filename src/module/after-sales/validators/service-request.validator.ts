@@ -25,7 +25,7 @@ export const serviceBillingStatusEnum = z.enum([
  */
 export const createServiceRequestSchema = z.object({
   projectId: z.string().uuid("Invalid project ID format"),
-  categoryId: z.string().uuid("Invalid category ID format"),
+  claimId: z.string().uuid("Invalid claim ID format").optional().nullable(),
   warrantyId: z.string().uuid("Invalid warranty ID format").optional().nullable(),
   priority: serviceRequestPriorityEnum.optional().default("MEDIUM"),
   subject: z.string().min(2, "Subject must be at least 2 characters").max(255),
@@ -109,7 +109,6 @@ export const stringToOptionalBoolean = z.preprocess((val) => {
  */
 export const getServiceRequestsQuerySchema = z.object({
   projectId: z.string().uuid().optional(),
-  categoryId: z.string().uuid().optional(),
   warrantyId: z.string().uuid().optional(),
   assignedToId: z.string().uuid().optional(),
   priority: serviceRequestPriorityEnum.optional(),

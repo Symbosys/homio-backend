@@ -53,7 +53,6 @@ export class ServiceRequestRepository {
     return prisma.afterSalesServiceRequest.create({
       data: {
         projectId: data.projectId,
-        categoryId: data.categoryId,
         warrantyId: data.warrantyId,
         requestNumber,
         priority: data.priority || "MEDIUM",
@@ -80,9 +79,6 @@ export class ServiceRequestRepository {
         project: {
           select: { id: true, name: true, projectCode: true, customerId: true },
         },
-        category: {
-          select: { id: true, name: true, icon: true, color: true },
-        },
         assignedTo: {
           select: { id: true, firstName: true, lastName: true, employeeCode: true },
         },
@@ -104,7 +100,6 @@ export class ServiceRequestRepository {
         project: {
           select: { id: true, name: true, projectCode: true, customerId: true },
         },
-        category: true,
         warranty: true,
         assignedTo: {
           select: { id: true, firstName: true, lastName: true, employeeCode: true, workPhone: true, workEmail: true },
@@ -143,7 +138,6 @@ export class ServiceRequestRepository {
   async list(organizationId: string, query: GetServiceRequestsQueryInput) {
     const {
       projectId,
-      categoryId,
       warrantyId,
       assignedToId,
       priority,
@@ -163,7 +157,6 @@ export class ServiceRequestRepository {
       project: { organizationId },
       isDeleted: false,
       ...(projectId && { projectId }),
-      ...(categoryId && { categoryId }),
       ...(warrantyId && { warrantyId }),
       ...(assignedToId && { assignedToId }),
       ...(priority && { priority }),
@@ -194,9 +187,6 @@ export class ServiceRequestRepository {
         include: {
           project: {
             select: { id: true, name: true, projectCode: true },
-          },
-          category: {
-            select: { id: true, name: true, icon: true, color: true },
           },
           assignedTo: {
             select: { id: true, firstName: true, lastName: true, employeeCode: true },
@@ -230,7 +220,6 @@ export class ServiceRequestRepository {
     return prisma.afterSalesServiceRequest.update({
       where: { id },
       data: {
-        ...(data.categoryId !== undefined && { categoryId: data.categoryId }),
         ...(data.warrantyId !== undefined && { warrantyId: data.warrantyId }),
         ...(data.priority !== undefined && { priority: data.priority }),
         ...(data.status !== undefined && { status: data.status }),

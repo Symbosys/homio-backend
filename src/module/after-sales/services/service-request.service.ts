@@ -63,12 +63,13 @@ export class ServiceRequestService {
       throw new ErrorResponse("Project not found within organization", statusCode.Not_Found);
     }
 
-    // Verify category belongs to organization
-    const category = await prisma.serviceCategory.findFirst({
-      where: { id: input.categoryId, organizationId, isDeleted: false },
-    });
-    if (!category) {
-      throw new ErrorResponse("Service category not found within organization", statusCode.Not_Found);
+    if (input.claimId) {
+      const claim = await prisma.warrantyClaim.findFirst({
+        where: { id: input.claimId, warranty: { project: { organizationId } }, isDeleted: false },
+      });
+      if (!claim) {
+        throw new ErrorResponse("Warranty claim not found within organization", statusCode.Not_Found);
+      }
     }
 
     if (input.warrantyId) {
@@ -89,10 +90,10 @@ export class ServiceRequestService {
       }
     }
 
-    // Auto calculate dueDate if not explicitly provided using category SLA
-    if (!input.dueDate && category.defaultSlaHours) {
+    // Auto calculate dueDate if not explicitly provided (default 48 hours SLA)
+    if (!input.dueDate) {
       const calculatedDue = new Date();
-      calculatedDue.setHours(calculatedDue.getHours() + category.defaultSlaHours);
+      calculatedDue.setHours(calculatedDue.getHours() + 48);
       input.dueDate = calculatedDue.toISOString();
     }
 
@@ -104,7 +105,20 @@ export class ServiceRequestService {
       );
     }
 
-    return this.repo.create(organizationId, input, attachments);
+    const created = await this.repo.create(organizationId, input, attachments);
+
+    // If spawned/created from a claim, link it and advance claim status to WORK_IN_PROGRESS
+    if (input.claimId) {
+      await prisma.warrantyClaim.update({
+        where: { id: input.claimId },
+        data: {
+          serviceRequestId: created.id,
+          status: "WORK_IN_PROGRESS",
+        },
+      });
+    }
+
+    return created;
   }
 
   /**
