@@ -255,7 +255,6 @@ export class ServiceRequestRepository {
         }),
       },
       include: {
-        category: true,
         assignedTo: {
           select: { id: true, firstName: true, lastName: true, employeeCode: true },
         },
