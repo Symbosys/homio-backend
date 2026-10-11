@@ -152,12 +152,33 @@ export class ServiceRequestRepository {
     } = query;
     const skip = (page - 1) * limit;
 
+    const andConditions: Prisma.AfterSalesServiceRequestWhereInput[] = [];
+
+    if (warrantyId) {
+      andConditions.push({
+        OR: [
+          { warrantyId },
+          { warrantyClaim: { warrantyId } },
+        ],
+      });
+    }
+
+    if (search) {
+      andConditions.push({
+        OR: [
+          { requestNumber: { contains: search, mode: "insensitive" } },
+          { subject: { contains: search, mode: "insensitive" } },
+          { description: { contains: search, mode: "insensitive" } },
+          { areaRoom: { contains: search, mode: "insensitive" } },
+        ],
+      });
+    }
+
     const now = new Date();
     const where: Prisma.AfterSalesServiceRequestWhereInput = {
       project: { organizationId },
       isDeleted: false,
       ...(projectId && { projectId }),
-      ...(warrantyId && { warrantyId }),
       ...(assignedToId && { assignedToId }),
       ...(priority && { priority }),
       ...(status && { status }),
@@ -168,14 +189,7 @@ export class ServiceRequestRepository {
       }),
       ...(startDate && { createdAt: { gte: new Date(startDate) } }),
       ...(endDate && { createdAt: { lte: new Date(endDate) } }),
-      ...(search && {
-        OR: [
-          { requestNumber: { contains: search, mode: "insensitive" } },
-          { subject: { contains: search, mode: "insensitive" } },
-          { description: { contains: search, mode: "insensitive" } },
-          { areaRoom: { contains: search, mode: "insensitive" } },
-        ],
-      }),
+      ...(andConditions.length > 0 && { AND: andConditions }),
     };
 
     const [items, total] = await Promise.all([

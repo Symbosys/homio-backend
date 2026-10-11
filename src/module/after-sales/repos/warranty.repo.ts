@@ -1,5 +1,9 @@
 import { prisma } from "../../../lib/prisma.js";
-import { Prisma, type ImageType, WarrantyStatus } from "../../../types/types.js";
+import {
+  Prisma,
+  type ImageType,
+  WarrantyStatus,
+} from "../../../types/types.js";
 import type {
   CreateProjectWarrantyInput,
   UpdateProjectWarrantyInput,
@@ -43,9 +47,10 @@ export class WarrantyRepository {
   async create(
     organizationId: string,
     data: CreateProjectWarrantyInput,
-    policyDocumentUrl?: ImageType | null
+    policyDocumentUrl?: ImageType | null,
   ) {
-    const warrantyNumber = await this.generateNextWarrantyNumber(organizationId);
+    const warrantyNumber =
+      await this.generateNextWarrantyNumber(organizationId);
 
     return prisma.projectWarranty.create({
       data: {
@@ -62,8 +67,13 @@ export class WarrantyRepository {
         termsSummary: data.termsSummary,
         inclusions: data.inclusions,
         exclusions: data.exclusions,
-        policyDocumentUrl: policyDocumentUrl ? (policyDocumentUrl as unknown as Prisma.InputJsonValue) : Prisma.DbNull,
-        additionalInformation: data.additionalInformation !== undefined ? (data.additionalInformation as Prisma.InputJsonValue) : undefined,
+        policyDocumentUrl: policyDocumentUrl
+          ? (policyDocumentUrl as unknown as Prisma.InputJsonValue)
+          : Prisma.DbNull,
+        additionalInformation:
+          data.additionalInformation !== undefined
+            ? (data.additionalInformation as Prisma.InputJsonValue)
+            : undefined,
       },
       include: {
         project: {
@@ -94,7 +104,12 @@ export class WarrantyRepository {
           select: { id: true, name: true, projectCode: true, customerId: true },
         },
         handover: {
-          select: { id: true, handoverNumber: true, status: true, handoverDate: true },
+          select: {
+            id: true,
+            handoverNumber: true,
+            status: true,
+            handoverDate: true,
+          },
         },
         claims: {
           where: { isDeleted: false },
@@ -136,7 +151,9 @@ export class WarrantyRepository {
       ...(projectId && { projectId }),
       ...(handoverId && { handoverId }),
       ...(status && { status }),
-      ...(category && { category: { contains: category, mode: "insensitive" } }),
+      ...(category && {
+        category: { contains: category, mode: "insensitive" },
+      }),
       ...(startDate && { startDate: { gte: new Date(startDate) } }),
       ...(endDate && { endDate: { lte: new Date(endDate) } }),
       ...(search && {
@@ -183,7 +200,7 @@ export class WarrantyRepository {
     organizationId: string,
     id: string,
     data: UpdateProjectWarrantyInput,
-    policyDocumentUrl?: ImageType | null
+    policyDocumentUrl?: ImageType | null,
   ) {
     return prisma.projectWarranty.update({
       where: { id },
@@ -191,19 +208,30 @@ export class WarrantyRepository {
         ...(data.handoverId !== undefined && { handoverId: data.handoverId }),
         ...(data.category !== undefined && { category: data.category }),
         ...(data.title !== undefined && { title: data.title }),
-        ...(data.description !== undefined && { description: data.description }),
-        ...(data.coveredItemWork !== undefined && { coveredItemWork: data.coveredItemWork }),
-        ...(data.startDate !== undefined && { startDate: new Date(data.startDate) }),
+        ...(data.description !== undefined && {
+          description: data.description,
+        }),
+        ...(data.coveredItemWork !== undefined && {
+          coveredItemWork: data.coveredItemWork,
+        }),
+        ...(data.startDate !== undefined && {
+          startDate: new Date(data.startDate),
+        }),
         ...(data.endDate !== undefined && { endDate: new Date(data.endDate) }),
         ...(data.status !== undefined && { status: data.status }),
-        ...(data.termsSummary !== undefined && { termsSummary: data.termsSummary }),
+        ...(data.termsSummary !== undefined && {
+          termsSummary: data.termsSummary,
+        }),
         ...(data.inclusions !== undefined && { inclusions: data.inclusions }),
         ...(data.exclusions !== undefined && { exclusions: data.exclusions }),
         ...(policyDocumentUrl !== undefined && {
-          policyDocumentUrl: policyDocumentUrl ? (policyDocumentUrl as unknown as Prisma.InputJsonValue) : Prisma.DbNull,
+          policyDocumentUrl: policyDocumentUrl
+            ? (policyDocumentUrl as unknown as Prisma.InputJsonValue)
+            : Prisma.DbNull,
         }),
         ...(data.additionalInformation !== undefined && {
-          additionalInformation: data.additionalInformation as Prisma.InputJsonValue,
+          additionalInformation:
+            data.additionalInformation as Prisma.InputJsonValue,
         }),
       },
       include: {
@@ -217,7 +245,11 @@ export class WarrantyRepository {
   /**
    * Update warranty status
    */
-  async updateStatus(organizationId: string, id: string, status: WarrantyStatus) {
+  async updateStatus(
+    organizationId: string,
+    id: string,
+    status: WarrantyStatus,
+  ) {
     return prisma.projectWarranty.update({
       where: { id },
       data: { status },
