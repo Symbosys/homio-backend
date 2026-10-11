@@ -117,12 +117,14 @@ export class ServiceVisitRepository {
     } = query;
     const skip = (page - 1) * limit;
 
+    const targetEmployeeId = assignedEmployeeId || (query as any).employeeId;
+
     const where: Prisma.AfterSalesServiceVisitWhereInput = {
       project: { organizationId },
       isDeleted: false,
       ...(projectId && { projectId }),
       ...(serviceRequestId && { serviceRequestId }),
-      ...(assignedEmployeeId && { assignedEmployeeId }),
+      ...(targetEmployeeId && { assignedEmployeeId: targetEmployeeId }),
       ...(visitType && { visitType }),
       ...(status && { status }),
       ...(scheduledDate && { scheduledDate: new Date(scheduledDate) }),

@@ -148,19 +148,25 @@ export const updateServiceVisitStatusSchema = z.object({
 /**
  * Validator schema for listing service visits
  */
-export const getServiceVisitsQuerySchema = z.object({
-  projectId: z.string().uuid().optional(),
-  serviceRequestId: z.string().uuid().optional(),
-  assignedEmployeeId: z.string().uuid().optional(),
-  visitType: serviceVisitTypeEnum.optional(),
-  status: serviceVisitStatusEnum.optional(),
-  scheduledDate: z.string().optional(),
-  search: z.string().optional(),
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
-  page: z.coerce.number().int().positive().optional().default(1),
-  limit: z.coerce.number().int().positive().max(100).optional().default(20),
-});
+export const getServiceVisitsQuerySchema = z
+  .object({
+    projectId: z.string().uuid().optional(),
+    serviceRequestId: z.string().uuid().optional(),
+    assignedEmployeeId: z.string().uuid().optional(),
+    employeeId: z.string().uuid().optional(),
+    visitType: serviceVisitTypeEnum.optional(),
+    status: serviceVisitStatusEnum.optional(),
+    scheduledDate: z.string().optional(),
+    search: z.string().optional(),
+    startDate: z.string().optional(),
+    endDate: z.string().optional(),
+    page: z.coerce.number().int().positive().optional().default(1),
+    limit: z.coerce.number().int().positive().max(100).optional().default(20),
+  })
+  .transform((data) => ({
+    ...data,
+    assignedEmployeeId: data.assignedEmployeeId || data.employeeId,
+  }));
 
 /**
  * Validator schema for service visit ID param
