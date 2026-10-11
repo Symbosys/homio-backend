@@ -212,13 +212,15 @@ export const commercialClearanceSchema = z.object({
 });
 
 export const handoverSignoffSchema = z.object({
-  clientSignoffName: z.string().min(1, "Client signoff name is required").max(255),
+  clientSignoffName: z.string().min(1, "Client signoff name is required").max(255).optional(),
   clientSignedAt: z.string().datetime().optional(),
   clientFeedback: z.string().optional().nullable(),
-  clientRating: stringToNullableNumber.refine(
-    (val) => val === null || val === undefined || (val >= 1 && val <= 5),
-    "Client rating must be between 1.0 and 5.0"
-  ),
+  clientRating: stringToNullableNumber
+    .refine(
+      (val) => val === null || val === undefined || (val >= 1 && val <= 5),
+      "Client rating must be between 1.0 and 5.0"
+    )
+    .optional(),
   additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
 });
 

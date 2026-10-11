@@ -549,6 +549,9 @@ export class HandoverService {
     const sitePhotos: ImageType[] = [];
 
     if (files?.signature?.[0]) {
+      if (handover.clientSignatureUrl && (handover.clientSignatureUrl as any)?.id) {
+        await storageService.delete((handover.clientSignatureUrl as any).id).catch(() => {});
+      }
       clientSignatureUrl = await this.uploadToCloud(
         files.signature[0],
         "homio/projects/handovers/signatures",
@@ -557,6 +560,9 @@ export class HandoverService {
     }
 
     if (files?.certificate?.[0]) {
+      if (handover.handoverCertificateUrl && (handover.handoverCertificateUrl as any)?.id) {
+        await storageService.delete((handover.handoverCertificateUrl as any).id).catch(() => {});
+      }
       handoverCertificateUrl = await this.uploadToCloud(
         files.certificate[0],
         "homio/projects/handovers/certificates",
@@ -579,25 +585,25 @@ export class HandoverService {
       ? (handover.sitePhotos as unknown as ImageType[])
       : [];
 
-    const mergedPhotos = [...existingPhotos, ...sitePhotos];
-
     const updateData: Prisma.ProjectHandoverUncheckedUpdateInput = {
-      clientSignoffName: input.clientSignoffName,
-      clientSignedAt: input.clientSignedAt ? new Date(input.clientSignedAt) : new Date(),
-      clientFeedback: input.clientFeedback ?? null,
-      clientRating: input.clientRating ?? null,
+      ...(input.clientSignoffName !== undefined && { clientSignoffName: input.clientSignoffName }),
+      clientSignedAt: input.clientSignedAt
+        ? new Date(input.clientSignedAt)
+        : (handover.clientSignedAt || new Date()),
+      ...(input.clientFeedback !== undefined && { clientFeedback: input.clientFeedback }),
+      ...(input.clientRating !== undefined && { clientRating: input.clientRating }),
       status: "ACCEPTED",
-      handoverDate: new Date(),
+      handoverDate: handover.handoverDate || new Date(),
       ...(clientSignatureUrl && {
         clientSignatureUrl: clientSignatureUrl as unknown as Prisma.InputJsonValue,
       }),
       ...(handoverCertificateUrl && {
         handoverCertificateUrl: handoverCertificateUrl as unknown as Prisma.InputJsonValue,
       }),
-      ...(mergedPhotos.length > 0 && {
-        sitePhotos: mergedPhotos as unknown as Prisma.InputJsonValue,
+      ...(sitePhotos.length > 0 && {
+        sitePhotos: [...existingPhotos, ...sitePhotos] as unknown as Prisma.InputJsonValue,
       }),
-      ...(input.additionalInformation && {
+      ...(input.additionalInformation !== undefined && {
         additionalInformation: input.additionalInformation as unknown as Prisma.InputJsonValue,
       }),
     };
@@ -608,8 +614,8 @@ export class HandoverService {
       data: {
         status: "HANDOVER",
         currentStage: "HANDOVER",
-        clientRating: input.clientRating ?? undefined,
-        clientFeedback: input.clientFeedback ?? undefined,
+        ...(input.clientRating !== undefined && { clientRating: input.clientRating }),
+        ...(input.clientFeedback !== undefined && { clientFeedback: input.clientFeedback }),
       },
     });
 
