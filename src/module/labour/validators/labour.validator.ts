@@ -91,6 +91,7 @@ export const createLabourSchema = z.object({
 
     // Address & KYC
     address: z.string().optional().nullable(),
+    state: z.string().optional().nullable(),
     city: z.string().optional().nullable(),
     aadhaarNo: z.string().optional().nullable(),
     aadhaarDoc: imageTypeSchema.optional().nullable(),
@@ -165,6 +166,7 @@ export const updateLabourSchema = z.object({
     }, z.number().positive().optional().nullable()),
 
     address: z.string().optional().nullable(),
+    state: z.string().optional().nullable(),
     city: z.string().optional().nullable(),
     aadhaarNo: z.string().optional().nullable(),
     aadhaarDoc: imageTypeSchema.optional().nullable(),
@@ -219,6 +221,7 @@ export const getLaboursQuerySchema = z.object({
   query: z.object({
     search: z.string().optional(),
     trade: z.string().optional(),
+    state: z.string().optional(),
     city: z.string().optional(),
     status: z.string().optional(),
     page: z.coerce.number().int().positive().default(1),

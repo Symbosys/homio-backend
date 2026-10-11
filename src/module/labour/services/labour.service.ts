@@ -19,22 +19,25 @@ export class LabourService {
    * @param createdById - UUID of admin/manager creating the labour
    */
   async createLabour(
-    organizationId: string,
+    organizationId: string | undefined | null,
     payload: CreateLabourInput,
     file?: Express.Multer.File,
     createdById?: string
   ) {
     if (file) {
+      const folder = organizationId ? `organizations/${organizationId}/labour/photos` : `platform/labour/photos`;
       const uploadResult = await storageService.upload(file, {
-        folder: `organizations/${organizationId}/labour/photos`,
+        folder,
       });
       payload.photoUrl = uploadResult;
     }
 
     // 1. Validate Labour Profile Phone, Email & AltPhone Uniqueness (Independent of SaaS User)
+    const orgScope = organizationId ? { organizationId } : { organizationId: null };
+
     if (payload.phone && payload.phone.trim()) {
       const existingPhone = await prisma.labour.findFirst({
-        where: { organizationId, phone: payload.phone.trim(), isDeleted: false },
+        where: { ...orgScope, phone: payload.phone.trim(), isDeleted: false },
       });
       if (existingPhone) {
         throw new ErrorResponse(
@@ -46,7 +49,7 @@ export class LabourService {
 
     if (payload.email && payload.email.trim()) {
       const existingEmail = await prisma.labour.findFirst({
-        where: { organizationId, email: payload.email.trim().toLowerCase(), isDeleted: false },
+        where: { ...orgScope, email: payload.email.trim().toLowerCase(), isDeleted: false },
       });
       if (existingEmail) {
         throw new ErrorResponse(
@@ -58,7 +61,7 @@ export class LabourService {
 
     if (payload.altPhone && payload.altPhone.trim()) {
       const existingAltPhone = await prisma.labour.findFirst({
-        where: { organizationId, altPhone: payload.altPhone.trim(), isDeleted: false },
+        where: { ...orgScope, altPhone: payload.altPhone.trim(), isDeleted: false },
       });
       if (existingAltPhone) {
         throw new ErrorResponse(
@@ -123,7 +126,7 @@ export class LabourService {
       // Validate roles if provided
       if (payload.userRoleIds && payload.userRoleIds.length > 0) {
         const rolesInOrg = await prisma.role.findMany({
-          where: { id: { in: payload.userRoleIds }, organizationId },
+          where: { id: { in: payload.userRoleIds }, ...(organizationId ? { organizationId } : {}) },
           select: { id: true },
         });
         if (rolesInOrg.length !== payload.userRoleIds.length) {

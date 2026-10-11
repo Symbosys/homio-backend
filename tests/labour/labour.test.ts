@@ -9,7 +9,7 @@ import { MOCK_IMAGE_OBJECT, MOCK_LABOUR_ID_1 } from "./fixtures/labour.fixtures.
 
 describe("Labour Module - Core Profile Tests", () => {
   describe("1. Labour Creation Validation", () => {
-    it("should validate full valid labour profile payload with rates and custom fields", () => {
+    it("should validate full valid labour profile payload with rates, state, city and custom fields", () => {
       const payload = {
         body: {
           name: "Ramesh Kumar Carpenter",
@@ -22,7 +22,8 @@ describe("Labour Module - Core Profile Tests", () => {
           dailyRate: 1200.0,
           hourlyRate: 160.0,
           address: "No 45, 3rd Cross, Wilson Garden",
-          city: "Bangalore",
+          state: "Karnataka",
+          city: "Bengaluru",
           aadhaarNo: "XXXX-XXXX-8921",
           notes: "Expert in teakwood joinery and modular cabinets.",
           additionalInformation: {
@@ -36,6 +37,8 @@ describe("Labour Module - Core Profile Tests", () => {
       const parsed = createLabourSchema.parse(payload);
       expect(parsed.body.name).toBe("Ramesh Kumar Carpenter");
       expect(parsed.body.trade).toBe("Carpentry");
+      expect(parsed.body.state).toBe("Karnataka");
+      expect(parsed.body.city).toBe("Bengaluru");
       expect(parsed.body.dailyRate).toBe(1200.0);
       expect(parsed.body.additionalInformation?.experienceYears).toBe(12);
     });
@@ -65,12 +68,14 @@ describe("Labour Module - Core Profile Tests", () => {
   });
 
   describe("2. Symmetric Full Editability Validation (Rule 19)", () => {
-    it("should allow partial dirty updates across all creation fields", () => {
+    it("should allow partial dirty updates across all creation fields including state and city", () => {
       const partialUpdate = {
         params: { id: MOCK_LABOUR_ID_1 },
         body: {
           dailyRate: 1400.0,
           skillLevel: "Specialist",
+          state: "Maharashtra",
+          city: "Mumbai",
           notes: "Promoted to lead carpenter.",
           additionalInformation: {
             promotedAt: "2026-09-24",
@@ -81,6 +86,8 @@ describe("Labour Module - Core Profile Tests", () => {
       const parsed = updateLabourSchema.parse(partialUpdate);
       expect(parsed.body.dailyRate).toBe(1400.0);
       expect(parsed.body.skillLevel).toBe("Specialist");
+      expect(parsed.body.state).toBe("Maharashtra");
+      expect(parsed.body.city).toBe("Mumbai");
     });
 
     it("should validate ID param format", () => {
@@ -94,12 +101,14 @@ describe("Labour Module - Core Profile Tests", () => {
   });
 
   describe("3. Query & Pagination Filters Validation", () => {
-    it("should parse valid pagination and trade/status query parameters", () => {
+    it("should parse valid pagination, state, city and trade/status query parameters", () => {
       const query = {
         query: {
           page: "2",
           limit: "25",
           trade: "Carpentry",
+          state: "Karnataka",
+          city: "Bengaluru",
           status: "AVAILABLE",
           search: "Ramesh",
         },
@@ -109,6 +118,8 @@ describe("Labour Module - Core Profile Tests", () => {
       expect(parsed.query.page).toBe(2);
       expect(parsed.query.limit).toBe(25);
       expect(parsed.query.trade).toBe("Carpentry");
+      expect(parsed.query.state).toBe("Karnataka");
+      expect(parsed.query.city).toBe("Bengaluru");
       expect(parsed.query.search).toBe("Ramesh");
     });
   });

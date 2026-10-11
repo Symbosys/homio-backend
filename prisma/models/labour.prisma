@@ -11,8 +11,8 @@
 
 model Labour {
   id             String       @id @default(uuid()) @db.Uuid
-  organizationId String       @map("organization_id") @db.Uuid
-  organization   Organization @relation("OrganizationLabours", fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String?       @map("organization_id") @db.Uuid
+  organization   Organization? @relation("OrganizationLabours", fields: [organizationId], references: [id], onDelete: SetNull)
 
   // Optional 1-to-1 linkage to SaaS User (for login / RBAC)
   userId String? @unique @map("user_id") @db.Uuid
@@ -33,6 +33,7 @@ model Labour {
 
   // Address & Identity
   address    String? @map("address")
+  state      String? @map("state")
   city       String? @map("city")
   aadhaarNo  String? @map("aadhaar_no")
   aadhaarDoc Json?   @map("aadhaar_doc") // ImageType JSON
@@ -71,6 +72,8 @@ model Labour {
   @@index([phone])
   @@index([trade])
   @@index([status])
+  @@index([state])
+  @@index([city])
   @@map("labours")
 }
 

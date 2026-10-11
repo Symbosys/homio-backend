@@ -1,6 +1,10 @@
 import { prisma } from "../../../lib/prisma.js";
 import { Prisma } from "../../../types/types.js";
-import type { CreateLabourInput, UpdateLabourInput, GetLaboursQuery } from "../validators/labour.validator.js";
+import type {
+  CreateLabourInput,
+  UpdateLabourInput,
+  GetLaboursQuery,
+} from "../validators/labour.validator.js";
 
 /**
  * Repository layer for Labour entity operations
@@ -10,7 +14,9 @@ export class LabourRepo {
   /**
    * Helper to safely format JSON values for Prisma
    */
-  private formatJsonValue(val: unknown): Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput | undefined {
+  private formatJsonValue(
+    val: unknown,
+  ): Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput | undefined {
     if (val === undefined) return undefined;
     if (val === null) return Prisma.JsonNull;
     return val as unknown as Prisma.InputJsonValue;
@@ -18,11 +24,15 @@ export class LabourRepo {
 
   /**
    * Create a new labour profile with optional nested KYC record
-   * @param organizationId - Tenant organization UUID
+   * @param organizationId - Tenant organization UUID (optional for independent platform labours)
    * @param data - Validated labour creation input
    * @param tx - Optional transaction client
    */
-  async create(organizationId: string, data: CreateLabourInput, tx?: Prisma.TransactionClient) {
+  async create(
+    organizationId: string | undefined | null,
+    data: CreateLabourInput,
+    tx?: Prisma.TransactionClient,
+  ) {
     const db = tx || prisma;
     const {
       kyc,
@@ -45,11 +55,14 @@ export class LabourRepo {
       data: {
         ...labourData,
         dailyRate: new Prisma.Decimal(dailyRate),
-        hourlyRate: hourlyRate !== undefined && hourlyRate !== null ? new Prisma.Decimal(hourlyRate) : undefined,
+        hourlyRate:
+          hourlyRate !== undefined && hourlyRate !== null
+            ? new Prisma.Decimal(hourlyRate)
+            : undefined,
         photoUrl: this.formatJsonValue(photoUrl),
         aadhaarDoc: this.formatJsonValue(aadhaarDoc),
         additionalInformation: this.formatJsonValue(additionalInformation),
-        organizationId,
+        organizationId: organizationId || undefined,
         ...(kyc && {
           kycDocument: {
             create: {
@@ -95,15 +108,30 @@ export class LabourRepo {
    * @param query - Validated query parameters
    * @param tx - Optional transaction client
    */
-  async findAll(organizationId: string, query: GetLaboursQuery, tx?: Prisma.TransactionClient) {
+  async findAll(
+    organizationId: string,
+    query: GetLaboursQuery,
+    tx?: Prisma.TransactionClient,
+  ) {
     const db = tx || prisma;
-    const { search, trade, city, status, page, limit, sortBy, sortOrder } = query;
+    const {
+      search,
+      trade,
+      state,
+      city,
+      status,
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+    } = query;
     const skip = (page - 1) * limit;
 
     const where: Prisma.LabourWhereInput = {
-      organizationId,
+      ...(organizationId ? { organizationId } : {}),
       isDeleted: false,
       ...(trade && { trade: { equals: trade, mode: "insensitive" } }),
+      ...(state && { state: { equals: state, mode: "insensitive" } }),
       ...(city && { city: { equals: city, mode: "insensitive" } }),
       ...(status && { status: { equals: status, mode: "insensitive" } }),
       ...(search && {
@@ -111,6 +139,7 @@ export class LabourRepo {
           { name: { contains: search, mode: "insensitive" } },
           { phone: { contains: search, mode: "insensitive" } },
           { trade: { contains: search, mode: "insensitive" } },
+          { state: { contains: search, mode: "insensitive" } },
           { city: { contains: search, mode: "insensitive" } },
         ],
       }),
@@ -172,7 +201,11 @@ export class LabourRepo {
    * @param organizationId - Tenant organization UUID
    * @param tx - Optional transaction client
    */
-  async findById(id: string, organizationId: string, tx?: Prisma.TransactionClient) {
+  async findById(
+    id: string,
+    organizationId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
     const db = tx || prisma;
 
     return db.labour.findFirst({
@@ -247,7 +280,12 @@ export class LabourRepo {
    * @param data - Validated labour update input
    * @param tx - Optional transaction client
    */
-  async update(id: string, organizationId: string, data: UpdateLabourInput, tx?: Prisma.TransactionClient) {
+  async update(
+    id: string,
+    organizationId: string,
+    data: UpdateLabourInput,
+    tx?: Prisma.TransactionClient,
+  ) {
     const db = tx || prisma;
     const {
       kyc,
@@ -268,12 +306,18 @@ export class LabourRepo {
 
     const updateData: Prisma.LabourUpdateInput = {
       ...labourData,
-      ...(dailyRate !== undefined && { dailyRate: new Prisma.Decimal(dailyRate) }),
+      ...(dailyRate !== undefined && {
+        dailyRate: new Prisma.Decimal(dailyRate),
+      }),
       ...(hourlyRate !== undefined && {
         hourlyRate: hourlyRate !== null ? new Prisma.Decimal(hourlyRate) : null,
       }),
-      ...(photoUrl !== undefined && { photoUrl: this.formatJsonValue(photoUrl) }),
-      ...(aadhaarDoc !== undefined && { aadhaarDoc: this.formatJsonValue(aadhaarDoc) }),
+      ...(photoUrl !== undefined && {
+        photoUrl: this.formatJsonValue(photoUrl),
+      }),
+      ...(aadhaarDoc !== undefined && {
+        aadhaarDoc: this.formatJsonValue(aadhaarDoc),
+      }),
       ...(additionalInformation !== undefined && {
         additionalInformation: this.formatJsonValue(additionalInformation),
       }),
@@ -282,8 +326,12 @@ export class LabourRepo {
     if (kyc) {
       const kycData = {
         ...kyc,
-        ...(kyc.aadhaarDoc !== undefined && { aadhaarDoc: this.formatJsonValue(kyc.aadhaarDoc) }),
-        ...(kyc.selfiePhoto !== undefined && { selfiePhoto: this.formatJsonValue(kyc.selfiePhoto) }),
+        ...(kyc.aadhaarDoc !== undefined && {
+          aadhaarDoc: this.formatJsonValue(kyc.aadhaarDoc),
+        }),
+        ...(kyc.selfiePhoto !== undefined && {
+          selfiePhoto: this.formatJsonValue(kyc.selfiePhoto),
+        }),
         ...(kyc.policeClearanceDoc !== undefined && {
           policeClearanceDoc: this.formatJsonValue(kyc.policeClearanceDoc),
         }),
@@ -291,8 +339,10 @@ export class LabourRepo {
 
       updateData.kycDocument = {
         upsert: {
-          create: kycData as unknown as Prisma.LabourKycDocumentCreateWithoutLabourInput,
-          update: kycData as unknown as Prisma.LabourKycDocumentUpdateWithoutLabourInput,
+          create:
+            kycData as unknown as Prisma.LabourKycDocumentCreateWithoutLabourInput,
+          update:
+            kycData as unknown as Prisma.LabourKycDocumentUpdateWithoutLabourInput,
         },
       };
     }
@@ -335,7 +385,11 @@ export class LabourRepo {
    * @param organizationId - Tenant organization UUID
    * @param tx - Optional transaction client
    */
-  async softDelete(id: string, organizationId: string, tx?: Prisma.TransactionClient) {
+  async softDelete(
+    id: string,
+    organizationId: string,
+    tx?: Prisma.TransactionClient,
+  ) {
     const db = tx || prisma;
 
     return db.labour.update({
