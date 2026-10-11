@@ -16,6 +16,7 @@ import permissionRoutes from "./module/user/routes/permission.routes.js";
 import platformSubscriptionRoutes from "./module/subscription/routes/subscription.routes.js";
 import platformOrganizationRoutes from "./module/organization/routes/organization.routes.js";
 import platformAiStudioRoutes from "./module/ai-studio/routes/ai-studio-platform.routes.js";
+import platformLabourRoutes from "./module/labour/routes/platform-labour.routes.js";
 import { aiStudioTenantRouter } from "./module/ai-studio/routes/ai-studio-tenant.routes.js";
 import { doubtSolverRouter } from "./module/ai-studio/routes/doubt-solver.routes.js";
 import { roomDesignerRouter } from "./module/ai-studio/routes/room-designer.routes.js";
@@ -96,6 +97,7 @@ app.use("/api/v1/platform/subscriptions", platformSubscriptionRoutes);
 app.use("/api/v1/platform/organizations", platformOrganizationRoutes);
 app.use("/api/v1/platform/ai-studio", platformAiStudioRoutes);
 app.use("/api/v1/platform/llm", llmPlatformRoutes);
+app.use("/api/v1/platform/labours", platformLabourRoutes);
 
 /**
  * Marketplace Multi-Vertical Module Routes

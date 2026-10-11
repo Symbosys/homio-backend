@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { UserType, UserStatus } from "../../../types/types.js";
 
 /**
  * ImageType Schema adhering to Homio CRM Structured Image Storage (Rule 4)
@@ -128,8 +129,8 @@ export const createLabourSchema = z.object({
         }),
       ])
       .optional(),
-    userStatus: z.enum(["ACTIVE", "INACTIVE", "SUSPENDED", "PENDING_VERIFICATION"]).optional(),
-    userType: z.enum(["PLATFORM_ADMIN", "ADMIN", "USER"]).optional(),
+    userStatus: z.nativeEnum(UserStatus).optional(),
+    userType: z.nativeEnum(UserType).default(UserType.LABOUR).optional(),
 
     // Emergency Contact
     emergencyContact: z.string().optional().nullable(),
@@ -202,8 +203,8 @@ export const updateLabourSchema = z.object({
         }),
       ])
       .optional(),
-    userStatus: z.enum(["ACTIVE", "INACTIVE", "SUSPENDED", "PENDING_VERIFICATION"]).optional(),
-    userType: z.enum(["PLATFORM_ADMIN", "ADMIN", "USER"]).optional(),
+    userStatus: z.nativeEnum(UserStatus).optional(),
+    userType: z.nativeEnum(UserType).optional(),
 
     emergencyContact: z.string().optional().nullable(),
     emergencyPhone: z.string().optional().nullable(),
@@ -243,3 +244,40 @@ export const labourIdParamSchema = z.object({
 export type CreateLabourInput = z.infer<typeof createLabourSchema>["body"];
 export type UpdateLabourInput = z.infer<typeof updateLabourSchema>["body"];
 export type GetLaboursQuery = z.infer<typeof getLaboursQuerySchema>["query"];
+
+/**
+ * 5. PLATFORM GET LABOURS QUERY SCHEMA
+ */
+export const platformGetLaboursQuerySchema = z.object({
+  query: z.object({
+    scope: z.enum(["ALL", "PLATFORM_ONLY", "ORG_ONLY"]).default("ALL").optional(),
+    organizationId: z.preprocess((val) => {
+      if (val === "" || val === "null" || val === "undefined" || val === null) return undefined;
+      return val;
+    }, z.string().uuid("Invalid organization ID format").optional()),
+    search: z.string().optional(),
+    trade: z.string().optional(),
+    state: z.string().optional(),
+    city: z.string().optional(),
+    status: z.string().optional(),
+    page: z.coerce.number().int().positive().default(1),
+    limit: z.coerce.number().int().positive().max(100).default(20),
+    sortBy: z.enum(["createdAt", "name", "dailyRate", "trade"]).default("createdAt"),
+    sortOrder: z.enum(["asc", "desc"]).default("desc"),
+  }),
+});
+
+/**
+ * 6. PLATFORM CREATE LABOUR SCHEMA
+ */
+export const platformCreateLabourSchema = z.object({
+  body: createLabourSchema.shape.body.extend({
+    organizationId: z.preprocess((val) => {
+      if (val === "" || val === "null" || val === "undefined" || val === null) return null;
+      return val;
+    }, z.string().uuid("Invalid organization ID format").nullable().optional()),
+  }),
+});
+
+export type PlatformGetLaboursQuery = z.infer<typeof platformGetLaboursQuerySchema>["query"];
+export type PlatformCreateLabourInput = z.infer<typeof platformCreateLabourSchema>["body"];

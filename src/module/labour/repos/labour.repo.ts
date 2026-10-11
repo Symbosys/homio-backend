@@ -4,6 +4,7 @@ import type {
   CreateLabourInput,
   UpdateLabourInput,
   GetLaboursQuery,
+  PlatformGetLaboursQuery,
 } from "../validators/labour.validator.js";
 
 /**
@@ -75,6 +76,14 @@ export class LabourRepo {
         }),
       },
       include: {
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            logoUrl: true,
+          },
+        },
         kycDocument: true,
         user: {
           select: {
@@ -103,14 +112,14 @@ export class LabourRepo {
   }
 
   /**
-   * Find paginated list of labours scoped to organization with multi-field search and filters
-   * @param organizationId - Tenant organization UUID
+   * Find paginated list of labours scoped to organization or platform with multi-field search and filters
+   * @param organizationId - Tenant organization UUID (optional for platform admin)
    * @param query - Validated query parameters
    * @param tx - Optional transaction client
    */
   async findAll(
-    organizationId: string,
-    query: GetLaboursQuery,
+    organizationId: string | undefined | null,
+    query: GetLaboursQuery & { scope?: "ALL" | "PLATFORM_ONLY" | "ORG_ONLY" },
     tx?: Prisma.TransactionClient,
   ) {
     const db = tx || prisma;
@@ -124,11 +133,27 @@ export class LabourRepo {
       limit,
       sortBy,
       sortOrder,
+      scope,
     } = query;
     const skip = (page - 1) * limit;
 
+    let orgFilter: Prisma.LabourWhereInput = {};
+    if (scope === "PLATFORM_ONLY") {
+      orgFilter = { organizationId: null };
+    } else if (scope === "ORG_ONLY") {
+      if (organizationId) {
+        orgFilter = { organizationId };
+      } else {
+        orgFilter = { organizationId: { not: null } };
+      }
+    } else {
+      if (organizationId) {
+        orgFilter = { organizationId };
+      }
+    }
+
     const where: Prisma.LabourWhereInput = {
-      ...(organizationId ? { organizationId } : {}),
+      ...orgFilter,
       isDeleted: false,
       ...(trade && { trade: { equals: trade, mode: "insensitive" } }),
       ...(state && { state: { equals: state, mode: "insensitive" } }),
@@ -153,6 +178,14 @@ export class LabourRepo {
         take: limit,
         orderBy: { [sortBy]: sortOrder },
         include: {
+          organization: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              logoUrl: true,
+            },
+          },
           kycDocument: true,
           user: {
             select: {
@@ -198,12 +231,12 @@ export class LabourRepo {
   /**
    * Find single labour by ID with full KYC, bookings, attendances, ratings, and disputes
    * @param id - Labour UUID
-   * @param organizationId - Tenant organization UUID
+   * @param organizationId - Tenant organization UUID (optional for platform admin)
    * @param tx - Optional transaction client
    */
   async findById(
     id: string,
-    organizationId: string,
+    organizationId?: string | null,
     tx?: Prisma.TransactionClient,
   ) {
     const db = tx || prisma;
@@ -211,10 +244,18 @@ export class LabourRepo {
     return db.labour.findFirst({
       where: {
         id,
-        organizationId,
+        ...(organizationId ? { organizationId } : {}),
         isDeleted: false,
       },
       include: {
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            logoUrl: true,
+          },
+        },
         kycDocument: true,
         user: {
           select: {
@@ -282,7 +323,7 @@ export class LabourRepo {
    */
   async update(
     id: string,
-    organizationId: string,
+    organizationId: string | undefined | null,
     data: UpdateLabourInput,
     tx?: Prisma.TransactionClient,
   ) {
@@ -350,10 +391,18 @@ export class LabourRepo {
     return db.labour.update({
       where: {
         id,
-        organizationId,
+        ...(organizationId ? { organizationId } : {}),
       },
       data: updateData,
       include: {
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            logoUrl: true,
+          },
+        },
         kycDocument: true,
         user: {
           select: {
@@ -382,12 +431,12 @@ export class LabourRepo {
   /**
    * Soft delete labour profile within organization
    * @param id - Labour UUID
-   * @param organizationId - Tenant organization UUID
+   * @param organizationId - Tenant organization UUID (optional for platform admin)
    * @param tx - Optional transaction client
    */
   async softDelete(
     id: string,
-    organizationId: string,
+    organizationId?: string | null,
     tx?: Prisma.TransactionClient,
   ) {
     const db = tx || prisma;
@@ -395,7 +444,7 @@ export class LabourRepo {
     return db.labour.update({
       where: {
         id,
-        organizationId,
+        ...(organizationId ? { organizationId } : {}),
       },
       data: {
         isDeleted: true,

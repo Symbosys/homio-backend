@@ -3,9 +3,15 @@ import { labourRepo } from "../repos/labour.repo.js";
 import { userRepo } from "../../user/repos/user.repo.js";
 import { prisma } from "../../../lib/prisma.js";
 import { ErrorResponse } from "../../../utils/response.util.js";
-import { statusCode } from "../../../types/types.js";
+import { statusCode, UserType } from "../../../types/types.js";
 import { storageService } from "../../../lib/storage/storage.service.js";
-import type { CreateLabourInput, UpdateLabourInput, GetLaboursQuery } from "../validators/labour.validator.js";
+import type {
+  CreateLabourInput,
+  UpdateLabourInput,
+  GetLaboursQuery,
+  PlatformCreateLabourInput,
+  PlatformGetLaboursQuery,
+} from "../validators/labour.validator.js";
 
 /**
  * Service layer coordinating Labour business logic, data validation, and operations
@@ -149,13 +155,13 @@ export class LabourService {
         lastName,
         phone: loginPhone,
         status: payload.userStatus || "ACTIVE",
-        userType: payload.userType || "USER",
+        userType: UserType.LABOUR,
         invitedById: createdById,
         roleIds: payload.userRoleIds && payload.userRoleIds.length > 0 ? payload.userRoleIds : undefined,
       };
     } else if (payload.userId) {
       const existingUser = await prisma.user.findFirst({
-        where: { id: payload.userId, organizationId, isDeleted: false },
+        where: { id: payload.userId, ...(organizationId ? { organizationId } : {}), isDeleted: false },
       });
       if (!existingUser) {
         throw new ErrorResponse("Specified user account not found in this organization", statusCode.Not_Found);
@@ -192,16 +198,69 @@ export class LabourService {
   }
 
   /**
+   * Platform Admin: Fetch paginated list of labours across all organizations or platform-only
+   * @param query - Validated query parameters including scope and organizationId
+   */
+  async getPlatformLabours(query: PlatformGetLaboursQuery) {
+    const { organizationId, scope, ...restQuery } = query;
+    return labourRepo.findAll(organizationId, {
+      ...restQuery,
+      scope,
+    });
+  }
+
+  /**
    * Retrieve complete labour details by ID along with KYC and relations
    * @param id - Labour UUID
-   * @param organizationId - Tenant organization UUID
+   * @param organizationId - Tenant organization UUID (optional for platform admin)
    */
-  async getLabourById(id: string, organizationId: string) {
+  async getLabourById(id: string, organizationId?: string | null) {
     const labour = await labourRepo.findById(id, organizationId);
     if (!labour) {
       throw new ErrorResponse("Labour not found or unauthorized", statusCode.Not_Found);
     }
     return labour;
+  }
+
+  /**
+   * Platform Admin: Retrieve complete labour details by ID
+   * @param id - Labour UUID
+   */
+  async getPlatformLabourById(id: string) {
+    return this.getLabourById(id);
+  }
+
+  /**
+   * Platform Admin: Create labour profile
+   */
+  async createPlatformLabour(
+    payload: PlatformCreateLabourInput,
+    file?: Express.Multer.File,
+    createdById?: string
+  ) {
+    const { organizationId, ...labourPayload } = payload;
+    return this.createLabour(organizationId || null, labourPayload, file, createdById);
+  }
+
+  /**
+   * Platform Admin: Update labour profile
+   */
+  async updatePlatformLabour(
+    id: string,
+    payload: UpdateLabourInput,
+    file?: Express.Multer.File,
+    updatedById?: string
+  ) {
+    const existing = await this.getPlatformLabourById(id);
+    return this.updateLabour(id, existing.organizationId || null, payload, file, updatedById);
+  }
+
+  /**
+   * Platform Admin: Delete labour profile
+   */
+  async deletePlatformLabour(id: string) {
+    const existing = await this.getPlatformLabourById(id);
+    return this.deleteLabour(id, existing.organizationId || null);
   }
 
   /**
@@ -214,7 +273,7 @@ export class LabourService {
    */
   async updateLabour(
     id: string,
-    organizationId: string,
+    organizationId: string | undefined | null,
     payload: UpdateLabourInput,
     file?: Express.Multer.File,
     updatedById?: string
@@ -223,16 +282,19 @@ export class LabourService {
     const existing = await this.getLabourById(id, organizationId);
 
     if (file) {
+      const folder = organizationId ? `organizations/${organizationId}/labour/photos` : `platform/labour/photos`;
       const uploadResult = await storageService.upload(file, {
-        folder: `organizations/${organizationId}/labour/photos`,
+        folder,
       });
       payload.photoUrl = uploadResult;
     }
 
     // 1. Validate Labour Profile Phone, Email & AltPhone Uniqueness on Update
+    const orgScope = organizationId ? { organizationId } : { organizationId: null };
+
     if (payload.phone && payload.phone.trim() !== existing.phone) {
       const duplicatePhone = await prisma.labour.findFirst({
-        where: { organizationId, phone: payload.phone.trim(), id: { not: id }, isDeleted: false },
+        where: { ...orgScope, phone: payload.phone.trim(), id: { not: id }, isDeleted: false },
       });
       if (duplicatePhone) {
         throw new ErrorResponse(
@@ -244,7 +306,7 @@ export class LabourService {
 
     if (payload.email && payload.email.trim() !== existing.email) {
       const duplicateEmail = await prisma.labour.findFirst({
-        where: { organizationId, email: payload.email.trim().toLowerCase(), id: { not: id }, isDeleted: false },
+        where: { ...orgScope, email: payload.email.trim().toLowerCase(), id: { not: id }, isDeleted: false },
       });
       if (duplicateEmail) {
         throw new ErrorResponse(
@@ -256,7 +318,7 @@ export class LabourService {
 
     if (payload.altPhone && payload.altPhone.trim() !== existing.altPhone) {
       const duplicateAltPhone = await prisma.labour.findFirst({
-        where: { organizationId, altPhone: payload.altPhone.trim(), id: { not: id }, isDeleted: false },
+        where: { ...orgScope, altPhone: payload.altPhone.trim(), id: { not: id }, isDeleted: false },
       });
       if (duplicateAltPhone) {
         throw new ErrorResponse(
@@ -386,7 +448,7 @@ export class LabourService {
           lastName,
           phone: loginPhone,
           status: payload.userStatus || "ACTIVE",
-          userType: payload.userType || "USER",
+          userType: UserType.LABOUR,
           invitedById: updatedById,
           roleIds: payload.userRoleIds && payload.userRoleIds.length > 0 ? payload.userRoleIds : undefined,
         }, tx);
@@ -399,11 +461,11 @@ export class LabourService {
   }
 
   /**
-   * Soft delete labour profile within tenant organization
+   * Soft delete labour profile within tenant organization or platform
    * @param id - Labour UUID
-   * @param organizationId - Tenant organization UUID
+   * @param organizationId - Tenant organization UUID (optional for platform admin)
    */
-  async deleteLabour(id: string, organizationId: string) {
+  async deleteLabour(id: string, organizationId?: string | null) {
     // Verify existence & ownership
     await this.getLabourById(id, organizationId);
     return labourRepo.softDelete(id, organizationId);
