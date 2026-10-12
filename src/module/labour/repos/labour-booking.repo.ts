@@ -228,6 +228,21 @@ export class LabourBookingRepo {
             createdAt: true,
           },
         },
+        payments: {
+          orderBy: { paymentDate: "desc" },
+          select: {
+            id: true,
+            amount: true,
+            daysCount: true,
+            paymentDate: true,
+            paymentMethod: true,
+            transactionRef: true,
+            receiptPhoto: true,
+            status: true,
+            remarks: true,
+            createdAt: true,
+          },
+        },
         _count: {
           select: {
             attendances: true,

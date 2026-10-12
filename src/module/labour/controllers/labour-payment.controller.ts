@@ -16,13 +16,21 @@ import {
  * @access  Private (Authenticated Tenant User)
  */
 export const createLabourPayment = asyncHandler(async (req, res) => {
+  const isPlatformAdmin = req.user?.userType === "PLATFORM_ADMIN";
   const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+  const parsed = createLabourPaymentSchema.parse({ body: req.body });
+
+  if (!organizationId && !isPlatformAdmin && !parsed.body.bookingId) {
+    throw new ErrorResponse("Organization context or booking ID required", statusCode.Bad_Request);
   }
 
-  const parsed = createLabourPaymentSchema.parse({ body: req.body });
-  const result = await labourPaymentService.createPayment(parsed.body, organizationId, req.file);
+  const result = await labourPaymentService.createPayment(
+    parsed.body,
+    organizationId,
+    req.file,
+    isPlatformAdmin,
+    req.user?.id
+  );
   return SuccessResponse(res, "Labour payment recorded successfully", result, statusCode.Created);
 });
 
@@ -32,12 +40,14 @@ export const createLabourPayment = asyncHandler(async (req, res) => {
  * @access  Private (Authenticated Tenant User)
  */
 export const getAllLabourPayments = asyncHandler(async (req, res) => {
+  const isPlatformAdmin = req.user?.userType === "PLATFORM_ADMIN";
   const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+  const parsed = getLabourPaymentsQuerySchema.parse({ query: req.query });
+
+  if (!organizationId && !isPlatformAdmin && !parsed.query.bookingId) {
+    throw new ErrorResponse("Organization context or booking ID required", statusCode.Bad_Request);
   }
 
-  const parsed = getLabourPaymentsQuerySchema.parse({ query: req.query });
   const result = await labourPaymentService.getPayments(parsed.query, organizationId);
   return SuccessResponse(res, "Labour payments retrieved successfully", result, statusCode.OK);
 });

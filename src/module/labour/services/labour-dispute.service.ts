@@ -80,13 +80,16 @@ export class LabourDisputeService {
     organizationId?: string | null,
     files?: Express.Multer.File[]
   ) {
-    const labour = await labourRepo.findById(payload.labourId, organizationId);
+    const labour = await labourRepo.findById(payload.labourId, organizationId || undefined);
     if (!labour) {
       throw new ErrorResponse("Labour not found or unauthorized", statusCode.Not_Found);
     }
 
     if (payload.bookingId) {
-      const booking = await labourBookingRepo.findById(payload.bookingId, { organizationId });
+      const booking = await labourBookingRepo.findById(
+        payload.bookingId,
+        organizationId ? { organizationId } : undefined
+      );
       if (!booking) {
         throw new ErrorResponse("Labour booking not found or unauthorized", statusCode.Not_Found);
       }

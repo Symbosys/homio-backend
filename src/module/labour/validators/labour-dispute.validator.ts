@@ -2,10 +2,13 @@ import { z } from "zod";
 import { imageTypeSchema, additionalInformationSchema } from "./labour.validator.js";
 
 export const DISPUTE_TYPE_ENUM = [
-  "NON_PAYMENT",
-  "ABANDONMENT",
+  "WORK_ABANDONMENT_BY_LABOUR",
+  "NON_PAYMENT_BY_CLIENT",
+  "BYPASS_ATTEMPT",
   "QUALITY_BREACH",
   "SAFETY_VIOLATION",
+  "NON_PAYMENT",
+  "ABANDONMENT",
   "OFF_PLATFORM_BYPASS",
   "PAYMENT_DEFAULT",
   "WORK_ABANDONMENT",
@@ -22,7 +25,7 @@ export const createLabourDisputeSchema = z.object({
     disputeType: z.enum(DISPUTE_TYPE_ENUM).default("OTHER"),
     amountInDispute: z.coerce.number().nonnegative().default(0),
     status: z.enum(["OPEN", "UNDER_REVIEW", "NOTICE_SENT", "SETTLED", "CLOSED"]).default("OPEN"),
-    initiator: z.enum(["CLIENT", "LABOUR", "CONTRACTOR"]).default("CONTRACTOR"),
+    initiator: z.enum(["CLIENT", "LABOUR", "CONTRACTOR", "PLATFORM_SYSTEM"]).default("CLIENT"),
     reason: z.string().min(5, "Reason must be at least 5 characters"),
     resolutionSummary: z.string().optional().nullable(),
     lawyerName: z.string().optional().nullable(),

@@ -225,6 +225,7 @@ export class LabourDisputeRepo {
       page,
       limit,
       totalPages: Math.ceil(total / limit),
+      items: disputes,
       disputes,
     };
   }

@@ -115,12 +115,12 @@ export class LabourPaymentRepo {
   /**
    * Find all paginated payments with filters
    */
-  async findAll(query: GetLabourPaymentsQuery, organizationId: string) {
+  async findAll(query: GetLabourPaymentsQuery, organizationId?: string | null) {
     const { page, limit, labourId, bookingId, paymentMethod, status, startDate, endDate } = query;
     const skip = (page - 1) * limit;
 
     const where: Prisma.LabourPaymentWhereInput = {
-      labour: { organizationId },
+      ...(organizationId ? { labour: { organizationId } } : {}),
       ...(labourId && { labourId }),
       ...(bookingId && { bookingId }),
       ...(paymentMethod && { paymentMethod }),

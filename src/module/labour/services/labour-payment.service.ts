@@ -60,24 +60,37 @@ export class LabourPaymentService {
    */
   async createPayment(
     payload: CreateLabourPaymentInput,
-    organizationId: string,
-    file?: Express.Multer.File
+    organizationId?: string | null,
+    file?: Express.Multer.File,
+    isPlatformAdmin?: boolean,
+    requesterUserId?: string
   ) {
-    // 1. Verify Labour belongs to tenant
-    const labour = await labourRepo.findById(payload.labourId, organizationId);
+    let booking: any = null;
+    if (payload.bookingId) {
+      booking = await labourBookingRepo.findById(payload.bookingId);
+      if (!booking) {
+        throw new ErrorResponse("Labour booking not found or unauthorized", statusCode.Not_Found);
+      }
+
+      if (!isPlatformAdmin && !organizationId && requesterUserId) {
+        const isClient = booking.clientId === requesterUserId;
+        const isWorker = booking.labour?.userId === requesterUserId;
+        if (!isClient && !isWorker) {
+          throw new ErrorResponse("Unauthorized. You are neither the client nor worker for this booking.", statusCode.Forbidden);
+        }
+      }
+    }
+
+    // 1. Verify Labour belongs to tenant or platform or matches booking
+    const labour = await labourRepo.findById(
+      payload.labourId,
+      isPlatformAdmin || booking ? undefined : organizationId || undefined
+    );
     if (!labour) {
       throw new ErrorResponse("Labour not found or unauthorized", statusCode.Not_Found);
     }
 
-    // 2. Verify Booking if attached
-    if (payload.bookingId) {
-      const booking = await labourBookingRepo.findById(payload.bookingId, organizationId);
-      if (!booking) {
-        throw new ErrorResponse("Labour booking not found or unauthorized", statusCode.Not_Found);
-      }
-    }
-
-    // 3. Upload receipt photo if provided
+    // 2. Upload receipt photo if provided
     let receiptPhoto: ImageType | undefined;
     if (file) {
       receiptPhoto = await this.uploadToCloud(file, "homio/labour/payments");
@@ -103,7 +116,7 @@ export class LabourPaymentService {
   /**
    * Get all paginated payments
    */
-  async getPayments(query: GetLabourPaymentsQuery, organizationId: string) {
+  async getPayments(query: GetLabourPaymentsQuery, organizationId?: string | null) {
     return labourPaymentRepo.findAll(query, organizationId);
   }
 
