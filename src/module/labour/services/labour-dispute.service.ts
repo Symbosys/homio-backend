@@ -385,6 +385,14 @@ export class LabourDisputeService {
 
     let evidenceDocs = payload.evidenceDocs !== undefined ? payload.evidenceDocs : (existing.evidenceDocs as any) || [];
 
+    if (typeof evidenceDocs === "string") {
+      try {
+        evidenceDocs = JSON.parse(evidenceDocs);
+      } catch {
+        // ignore
+      }
+    }
+
     if (files && files.length > 0) {
       const uploaded = await this.uploadMultipleToCloud(files, "homio/labour/disputes");
       evidenceDocs = Array.isArray(evidenceDocs) ? [...evidenceDocs, ...uploaded] : uploaded;

@@ -15,6 +15,16 @@ export const DISPUTE_TYPE_ENUM = [
   "OTHER",
 ] as const;
 
+export const DISPUTE_STATUS_ENUM = [
+  "OPEN",
+  "UNDER_REVIEW",
+  "LAWYER_ASSIGNED",
+  "NOTICE_SENT",
+  "LABOUR_COURT_FILED",
+  "SETTLED",
+  "CLOSED",
+] as const;
+
 /**
  * 1. CREATE LABOUR DISPUTE SCHEMA
  */
@@ -24,13 +34,29 @@ export const createLabourDisputeSchema = z.object({
     bookingId: z.string().uuid("Invalid booking ID format").optional().nullable(),
     disputeType: z.enum(DISPUTE_TYPE_ENUM).default("OTHER"),
     amountInDispute: z.coerce.number().nonnegative().default(0),
-    status: z.enum(["OPEN", "UNDER_REVIEW", "NOTICE_SENT", "SETTLED", "CLOSED"]).default("OPEN"),
+    status: z.enum(DISPUTE_STATUS_ENUM).default("OPEN"),
     initiator: z.enum(["CLIENT", "LABOUR", "CONTRACTOR", "PLATFORM_SYSTEM"]).default("CLIENT"),
     reason: z.string().min(5, "Reason must be at least 5 characters"),
     resolutionSummary: z.string().optional().nullable(),
     lawyerName: z.string().optional().nullable(),
+    lawyerPhone: z.string().optional().nullable(),
+    lawyerEmail: z.string().optional().nullable(),
+    lawyerBarCouncilNo: z.string().optional().nullable(),
+    legalNoticeRef: z.string().optional().nullable(),
+    legalNoticeDoc: imageTypeSchema.optional().nullable(),
+    labourCourtCaseNo: z.string().optional().nullable(),
+    labourCourtLocation: z.string().optional().nullable(),
     hearingDate: z.coerce.date().optional().nullable(),
-    evidenceDocs: z.array(imageTypeSchema).optional().nullable(),
+    evidenceDocs: z.preprocess((val) => {
+      if (typeof val === "string") {
+        try {
+          return JSON.parse(val);
+        } catch {
+          return val;
+        }
+      }
+      return val;
+    }, z.array(imageTypeSchema).optional().nullable()),
     additionalInformation: additionalInformationSchema,
   }),
 });
@@ -43,7 +69,16 @@ export const reportBypassAttemptSchema = z.object({
     bookingId: z.string().uuid("Invalid booking ID format"),
     reportedRole: z.enum(["CLIENT", "LABOUR", "CONTRACTOR"]),
     reason: z.string().min(5, "Reason must be at least 5 characters"),
-    evidenceDocs: z.array(imageTypeSchema).optional().nullable(),
+    evidenceDocs: z.preprocess((val) => {
+      if (typeof val === "string") {
+        try {
+          return JSON.parse(val);
+        } catch {
+          return val;
+        }
+      }
+      return val;
+    }, z.array(imageTypeSchema).optional().nullable()),
   }),
 });
 
@@ -55,7 +90,16 @@ export const reportClientPaymentDueSchema = z.object({
     bookingId: z.string().uuid("Invalid booking ID format"),
     amountInDispute: z.coerce.number().positive("Unpaid amount must be greater than 0"),
     reason: z.string().min(5, "Reason must be at least 5 characters"),
-    evidenceDocs: z.array(imageTypeSchema).optional().nullable(),
+    evidenceDocs: z.preprocess((val) => {
+      if (typeof val === "string") {
+        try {
+          return JSON.parse(val);
+        } catch {
+          return val;
+        }
+      }
+      return val;
+    }, z.array(imageTypeSchema).optional().nullable()),
   }),
 });
 
@@ -66,7 +110,16 @@ export const reportLabourAbandonmentSchema = z.object({
   body: z.object({
     bookingId: z.string().uuid("Invalid booking ID format"),
     reason: z.string().min(5, "Reason must be at least 5 characters"),
-    evidenceDocs: z.array(imageTypeSchema).optional().nullable(),
+    evidenceDocs: z.preprocess((val) => {
+      if (typeof val === "string") {
+        try {
+          return JSON.parse(val);
+        } catch {
+          return val;
+        }
+      }
+      return val;
+    }, z.array(imageTypeSchema).optional().nullable()),
   }),
 });
 
@@ -123,13 +176,38 @@ export const updateLabourDisputeSchema = z.object({
     bookingId: z.string().uuid("Invalid booking ID format").optional().nullable(),
     disputeType: z.enum(DISPUTE_TYPE_ENUM).optional(),
     amountInDispute: z.coerce.number().nonnegative().optional(),
-    status: z.enum(["OPEN", "UNDER_REVIEW", "NOTICE_SENT", "SETTLED", "CLOSED"]).optional(),
-    initiator: z.enum(["CLIENT", "LABOUR", "CONTRACTOR"]).optional(),
+    status: z.enum(DISPUTE_STATUS_ENUM).optional(),
+    initiator: z.enum(["CLIENT", "LABOUR", "CONTRACTOR", "PLATFORM_SYSTEM"]).optional(),
     reason: z.string().min(5).optional(),
     resolutionSummary: z.string().optional().nullable(),
+    lawyerAssigned: z.preprocess((v) => (typeof v === "string" ? v === "true" : v), z.boolean().optional()),
     lawyerName: z.string().optional().nullable(),
+    lawyerPhone: z.string().optional().nullable(),
+    lawyerEmail: z.string().optional().nullable(),
+    lawyerBarCouncilNo: z.string().optional().nullable(),
+    lawyerAssignedAt: z.coerce.date().optional().nullable(),
+    legalNoticeSent: z.preprocess((v) => (typeof v === "string" ? v === "true" : v), z.boolean().optional()),
+    legalNoticeRef: z.string().optional().nullable(),
+    legalNoticeSentAt: z.coerce.date().optional().nullable(),
+    legalNoticeDate: z.coerce.date().optional().nullable(),
+    legalNoticeDoc: imageTypeSchema.optional().nullable(),
+    labourCourtFiled: z.preprocess((v) => (typeof v === "string" ? v === "true" : v), z.boolean().optional()),
+    labourCourtCaseNo: z.string().optional().nullable(),
+    labourCourtFilingDate: z.coerce.date().optional().nullable(),
+    labourCourtDate: z.coerce.date().optional().nullable(),
+    labourCourtLocation: z.string().optional().nullable(),
     hearingDate: z.coerce.date().optional().nullable(),
-    evidenceDocs: z.array(imageTypeSchema).optional().nullable(),
+    actionTaken: z.string().optional().nullable(),
+    evidenceDocs: z.preprocess((val) => {
+      if (typeof val === "string") {
+        try {
+          return JSON.parse(val);
+        } catch {
+          return val;
+        }
+      }
+      return val;
+    }, z.array(imageTypeSchema).optional().nullable()),
     additionalInformation: additionalInformationSchema,
   }),
 });
@@ -142,7 +220,7 @@ export const updateDisputeStatusSchema = z.object({
     id: z.string().uuid("Invalid dispute ID format"),
   }),
   body: z.object({
-    status: z.enum(["OPEN", "UNDER_REVIEW", "NOTICE_SENT", "SETTLED", "CLOSED"]),
+    status: z.enum(DISPUTE_STATUS_ENUM),
     resolutionSummary: z.string().optional().nullable(),
     hearingDate: z.coerce.date().optional().nullable(),
     lawyerName: z.string().optional().nullable(),
