@@ -122,7 +122,7 @@ export class ServiceCategoryRepository {
     const db = tx || prisma;
     const [projectCount, requestCount] = await Promise.all([
       db.project.count({ where: { organizationId, serviceCategoryId: id, isDeleted: false } }),
-      db.afterSalesServiceRequest.count({ where: { project: { organizationId }, categoryId: id, isDeleted: false } }),
+      db.afterSalesServiceRequest.count({ where: { project: { organizationId, serviceCategoryId: id }, isDeleted: false } }),
     ]);
     return { leadCount: 0, projectCount, requestCount, total: projectCount + requestCount };
   }

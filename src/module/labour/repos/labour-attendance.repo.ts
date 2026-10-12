@@ -16,14 +16,12 @@ export class LabourAttendanceRepo {
   /**
    * Find attendance by unique compound key (projectSiteId, labourId, attendanceDate)
    */
-  async findByUniqueDate(projectSiteId: string, labourId: string, attendanceDate: Date) {
-    return prisma.labourAttendance.findUnique({
+  async findByUniqueDate(projectSiteId: string | null | undefined, labourId: string, attendanceDate: Date) {
+    return prisma.labourAttendance.findFirst({
       where: {
-        projectSiteId_labourId_attendanceDate: {
-          projectSiteId,
-          labourId,
-          attendanceDate,
-        },
+        ...(projectSiteId ? { projectSiteId } : {}),
+        labourId,
+        attendanceDate,
       },
     });
   }

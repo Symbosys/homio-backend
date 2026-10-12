@@ -219,8 +219,6 @@ export class ProjectServiceRepository {
         { title: { contains: search, mode: "insensitive" } },
         { serviceCode: { contains: search, mode: "insensitive" } },
         { description: { contains: search, mode: "insensitive" } },
-        { scopeOfWork: { contains: search, mode: "insensitive" } },
-        { location: { contains: search, mode: "insensitive" } },
         { project: { name: { contains: search, mode: "insensitive" } } },
       ];
     }

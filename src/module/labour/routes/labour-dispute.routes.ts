@@ -3,6 +3,12 @@ import { authenticate } from "../../../middlewares/auth.middleware.js";
 import { upload } from "../../../middlewares/upload.middleware.js";
 import {
   createLabourDispute,
+  reportBypassAttempt,
+  reportClientPaymentDue,
+  reportLabourAbandonment,
+  assignEmpanelledLawyer,
+  recordLegalNotice,
+  recordLabourCourtAction,
   getAllLabourDisputes,
   getLabourDisputeById,
   updateLabourDispute,
@@ -14,6 +20,54 @@ const router = Router();
 
 // Protect all dispute endpoints with authentication
 router.use(authenticate);
+
+/**
+ * @route   POST /api/v1/labour/disputes/bypass-report
+ * @desc    Report off-platform cash bypass attempt
+ */
+router.post(
+  "/disputes/bypass-report",
+  upload.array("evidenceDocs", 5, { category: "all" }),
+  reportBypassAttempt
+);
+
+/**
+ * @route   POST /api/v1/labour/disputes/client-payment-due
+ * @desc    Worker reports client payment default
+ */
+router.post(
+  "/disputes/client-payment-due",
+  upload.array("evidenceDocs", 5, { category: "all" }),
+  reportClientPaymentDue
+);
+
+/**
+ * @route   POST /api/v1/labour/disputes/labour-abandonment
+ * @desc    Client reports worker work abandonment
+ */
+router.post(
+  "/disputes/labour-abandonment",
+  upload.array("evidenceDocs", 5, { category: "all" }),
+  reportLabourAbandonment
+);
+
+/**
+ * @route   POST /api/v1/labour/disputes/:id/assign-lawyer
+ * @desc    Assign empanelled lawyer to dispute
+ */
+router.post("/disputes/:id/assign-lawyer", assignEmpanelledLawyer);
+
+/**
+ * @route   POST /api/v1/labour/disputes/:id/legal-notice
+ * @desc    Record formal demand/legal notice dispatched
+ */
+router.post("/disputes/:id/legal-notice", recordLegalNotice);
+
+/**
+ * @route   POST /api/v1/labour/disputes/:id/labour-court
+ * @desc    Record claim petition filed in Labour Court
+ */
+router.post("/disputes/:id/labour-court", recordLabourCourtAction);
 
 /**
  * @route   POST /api/v1/labour/disputes

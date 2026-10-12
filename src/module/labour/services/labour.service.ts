@@ -190,10 +190,10 @@ export class LabourService {
 
   /**
    * Fetch paginated list of labours with search and filter parameters
-   * @param organizationId - Tenant organization UUID
+   * @param organizationId - Tenant organization UUID (optional for marketplace/platform)
    * @param query - Validated query parameters
    */
-  async getLabours(organizationId: string, query: GetLaboursQuery) {
+  async getLabours(organizationId: string | undefined | null, query: GetLaboursQuery) {
     return labourRepo.findAll(organizationId, query);
   }
 

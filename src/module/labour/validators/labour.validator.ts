@@ -94,6 +94,9 @@ export const createLabourSchema = z.object({
     address: z.string().optional().nullable(),
     state: z.string().optional().nullable(),
     city: z.string().optional().nullable(),
+    locality: z.string().optional().nullable(),
+    isAvailable: z.boolean().default(true).optional(),
+    isKycVerified: z.boolean().default(false).optional(),
     aadhaarNo: z.string().optional().nullable(),
     aadhaarDoc: imageTypeSchema.optional().nullable(),
 
@@ -169,6 +172,9 @@ export const updateLabourSchema = z.object({
     address: z.string().optional().nullable(),
     state: z.string().optional().nullable(),
     city: z.string().optional().nullable(),
+    locality: z.string().optional().nullable(),
+    isAvailable: z.boolean().optional(),
+    isKycVerified: z.boolean().optional(),
     aadhaarNo: z.string().optional().nullable(),
     aadhaarDoc: imageTypeSchema.optional().nullable(),
 
@@ -224,7 +230,20 @@ export const getLaboursQuerySchema = z.object({
     trade: z.string().optional(),
     state: z.string().optional(),
     city: z.string().optional(),
+    locality: z.string().optional(),
     status: z.string().optional(),
+    isKycVerified: z
+      .union([
+        z.boolean(),
+        z.string().transform((v) => v === "true" || v === "1"),
+      ])
+      .optional(),
+    isAvailable: z
+      .union([
+        z.boolean(),
+        z.string().transform((v) => v === "true" || v === "1"),
+      ])
+      .optional(),
     page: z.coerce.number().int().positive().default(1),
     limit: z.coerce.number().int().positive().max(100).default(20),
     sortBy: z.enum(["createdAt", "name", "dailyRate", "trade"]).default("createdAt"),
@@ -259,7 +278,20 @@ export const platformGetLaboursQuerySchema = z.object({
     trade: z.string().optional(),
     state: z.string().optional(),
     city: z.string().optional(),
+    locality: z.string().optional(),
     status: z.string().optional(),
+    isKycVerified: z
+      .union([
+        z.boolean(),
+        z.string().transform((v) => v === "true" || v === "1"),
+      ])
+      .optional(),
+    isAvailable: z
+      .union([
+        z.boolean(),
+        z.string().transform((v) => v === "true" || v === "1"),
+      ])
+      .optional(),
     page: z.coerce.number().int().positive().default(1),
     limit: z.coerce.number().int().positive().max(100).default(20),
     sortBy: z.enum(["createdAt", "name", "dailyRate", "trade"]).default("createdAt"),

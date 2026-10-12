@@ -31,10 +31,7 @@ export const createLabour = asyncHandler(async (req, res) => {
  * @access  Private (Authenticated Tenant User)
  */
 export const getLabours = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
+  const organizationId = req.user?.organizationId || undefined;
 
   const parsed = getLaboursQuerySchema.parse({ query: req.query });
   const result = await labourService.getLabours(organizationId, parsed.query);
@@ -44,13 +41,10 @@ export const getLabours = asyncHandler(async (req, res) => {
 /**
  * @route   GET /api/v1/labour/:id
  * @desc    Fetch single labour profile with full KYC documents and project history
- * @access  Private (Authenticated Tenant User)
+ * @access  Private (Authenticated User)
  */
 export const getLabourById = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
+  const organizationId = req.user?.organizationId || undefined;
 
   const parsed = labourIdParamSchema.parse({ params: req.params });
   const result = await labourService.getLabourById(parsed.params.id, organizationId);

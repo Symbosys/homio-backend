@@ -4,7 +4,7 @@ import type { GetLabourDisputesQuery } from "../validators/labour-dispute.valida
 
 /**
  * Labour Dispute Repository
- * Handles legal and site dispute case tracking, damages, and resolution.
+ * Handles legal and site dispute case tracking, damages, empanelled lawyers, and resolution.
  */
 export class LabourDisputeRepo {
   private formatJsonValue(val: unknown): Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput | undefined {
@@ -20,6 +20,7 @@ export class LabourDisputeRepo {
     const formattedData: any = {
       ...data,
       ...(data.evidenceDocs !== undefined && { evidenceDocs: this.formatJsonValue(data.evidenceDocs) }),
+      ...(data.legalNoticeDoc !== undefined && { legalNoticeDoc: this.formatJsonValue(data.legalNoticeDoc) }),
       ...(data.additionalInformation !== undefined && {
         additionalInformation: this.formatJsonValue(data.additionalInformation),
       }),
@@ -34,6 +35,9 @@ export class LabourDisputeRepo {
             name: true,
             phone: true,
             trade: true,
+            averageRating: true,
+            warningCount: true,
+            isBlacklisted: true,
           },
         },
         booking: {
@@ -41,6 +45,19 @@ export class LabourDisputeRepo {
             id: true,
             bookingNumber: true,
             workTitle: true,
+            channel: true,
+            clientId: true,
+            client: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                clientRating: true,
+                clientDuesCount: true,
+                isBlacklisted: true,
+              },
+            },
             project: {
               select: {
                 id: true,
@@ -54,14 +71,40 @@ export class LabourDisputeRepo {
   }
 
   /**
-   * Find dispute by ID with tenant verification
+   * Find dispute by ID with optional tenant/client/worker verification
    */
-  async findById(id: string, organizationId: string) {
+  async findById(
+    id: string,
+    scope?: {
+      organizationId?: string | null;
+      clientId?: string | null;
+      labourId?: string | null;
+      isPlatformAdmin?: boolean;
+    }
+  ) {
+    const andConditions: Prisma.LabourDisputeWhereInput[] = [{ id }];
+
+    if (scope && !scope.isPlatformAdmin) {
+      if (scope.organizationId) {
+        andConditions.push({
+          OR: [
+            { labour: { organizationId: scope.organizationId } },
+            { booking: { organizationId: scope.organizationId } },
+          ],
+        });
+      }
+
+      if (scope.clientId) {
+        andConditions.push({ booking: { clientId: scope.clientId } });
+      }
+
+      if (scope.labourId) {
+        andConditions.push({ labourId: scope.labourId });
+      }
+    }
+
     return prisma.labourDispute.findFirst({
-      where: {
-        id,
-        labour: { organizationId },
-      },
+      where: { AND: andConditions },
       include: {
         labour: {
           select: {
@@ -70,6 +113,9 @@ export class LabourDisputeRepo {
             phone: true,
             trade: true,
             photoUrl: true,
+            averageRating: true,
+            warningCount: true,
+            isBlacklisted: true,
           },
         },
         booking: {
@@ -77,6 +123,20 @@ export class LabourDisputeRepo {
             id: true,
             bookingNumber: true,
             workTitle: true,
+            channel: true,
+            clientId: true,
+            client: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                phone: true,
+                clientRating: true,
+                clientDuesCount: true,
+                isBlacklisted: true,
+              },
+            },
             project: {
               select: {
                 id: true,
@@ -93,18 +153,46 @@ export class LabourDisputeRepo {
   /**
    * List paginated disputes with filters
    */
-  async findAll(query: GetLabourDisputesQuery, organizationId: string) {
+  async findAll(
+    query: GetLabourDisputesQuery,
+    scope?: {
+      organizationId?: string | null;
+      clientId?: string | null;
+      labourId?: string | null;
+      isPlatformAdmin?: boolean;
+    }
+  ) {
     const { page, limit, labourId, bookingId, disputeType, status, initiator } = query;
     const skip = (page - 1) * limit;
 
-    const where: Prisma.LabourDisputeWhereInput = {
-      labour: { organizationId },
-      ...(labourId && { labourId }),
-      ...(bookingId && { bookingId }),
-      ...(disputeType && { disputeType }),
-      ...(status && { status }),
-      ...(initiator && { initiator }),
-    };
+    const andConditions: Prisma.LabourDisputeWhereInput[] = [];
+
+    if (scope && !scope.isPlatformAdmin) {
+      if (scope.organizationId) {
+        andConditions.push({
+          OR: [
+            { labour: { organizationId: scope.organizationId } },
+            { booking: { organizationId: scope.organizationId } },
+          ],
+        });
+      }
+
+      if (scope.clientId) {
+        andConditions.push({ booking: { clientId: scope.clientId } });
+      }
+
+      if (scope.labourId) {
+        andConditions.push({ labourId: scope.labourId });
+      }
+    }
+
+    if (labourId) andConditions.push({ labourId });
+    if (bookingId) andConditions.push({ bookingId });
+    if (disputeType) andConditions.push({ disputeType });
+    if (status) andConditions.push({ status });
+    if (initiator) andConditions.push({ initiator });
+
+    const where: Prisma.LabourDisputeWhereInput = { AND: andConditions };
 
     const [total, disputes] = await Promise.all([
       prisma.labourDispute.count({ where }),
@@ -148,6 +236,7 @@ export class LabourDisputeRepo {
     const formattedData: any = {
       ...data,
       ...(data.evidenceDocs !== undefined && { evidenceDocs: this.formatJsonValue(data.evidenceDocs) }),
+      ...(data.legalNoticeDoc !== undefined && { legalNoticeDoc: this.formatJsonValue(data.legalNoticeDoc) }),
       ...(data.additionalInformation !== undefined && {
         additionalInformation: this.formatJsonValue(data.additionalInformation),
       }),

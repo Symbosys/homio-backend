@@ -312,23 +312,26 @@ export class LabourAttendanceService {
     const projectSite = attendance.projectSite;
     let distanceMeters = 0;
     let isWithinRadius = true;
-    const allowedRadius = projectSite.punchRadiusMeters || 200;
 
-    if (projectSite.gpsLat != null && projectSite.gpsLng != null) {
-      distanceMeters = calculateGpsDistanceMeters(
-        payload.punchOutLat,
-        payload.punchOutLng,
-        projectSite.gpsLat,
-        projectSite.gpsLng
-      );
+    if (projectSite) {
+      const allowedRadius = projectSite.punchRadiusMeters || 200;
 
-      isWithinRadius = distanceMeters <= allowedRadius;
-
-      if (!isWithinRadius && projectSite.isPunchGeofenceStrict) {
-        throw new ErrorResponse(
-          `Labour is outside the authorized project site perimeter for punch out. Distance: ${distanceMeters}m (Allowed max: ${allowedRadius}m). Punch rejected.`,
-          statusCode.Forbidden
+      if (projectSite.gpsLat != null && projectSite.gpsLng != null) {
+        distanceMeters = calculateGpsDistanceMeters(
+          payload.punchOutLat,
+          payload.punchOutLng,
+          projectSite.gpsLat,
+          projectSite.gpsLng
         );
+
+        isWithinRadius = distanceMeters <= allowedRadius;
+
+        if (!isWithinRadius && projectSite.isPunchGeofenceStrict) {
+          throw new ErrorResponse(
+            `Labour is outside the authorized project site perimeter for punch out. Distance: ${distanceMeters}m (Allowed max: ${allowedRadius}m). Punch rejected.`,
+            statusCode.Forbidden
+          );
+        }
       }
     }
 
@@ -366,7 +369,7 @@ export class LabourAttendanceService {
       punchOutPhoto,
       hoursWorked,
       status,
-      workNotes: payload.workNotes ?? attendance.workNotes,
+      workNotes: payload.workNotes ?? (attendance as any).workNotes,
     });
   }
 

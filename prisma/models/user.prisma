@@ -93,6 +93,14 @@ model User {
   leadFunnelTransitions     LeadFunnelTransition[]  @relation("LeadFunnelTransitionChangedBy")
   createdFollowUpConfigs    OrgFollowUpConfig[]     @relation("UserCreatedFollowUpConfigs")
 
+  // Marketplace Client Compliance & Relations
+  clientRating              Float                   @default(5.0)   @map("client_rating")
+  clientDuesCount           Int                     @default(0)     @map("client_dues_count")
+  isBlacklisted             Boolean                 @default(false) @map("is_blacklisted")
+  blacklistedAt             DateTime?               @map("blacklisted_at")
+  blacklistReason           String?                 @map("blacklist_reason")
+  clientMarketplaceBookings LabourBooking[]         @relation("ClientMarketplaceBookings")
+
   @@index([organizationId])
   @@index([email])
   @@index([status])

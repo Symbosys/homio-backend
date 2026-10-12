@@ -128,6 +128,9 @@ export class LabourRepo {
       trade,
       state,
       city,
+      locality,
+      isKycVerified,
+      isAvailable,
       status,
       page,
       limit,
@@ -152,23 +155,45 @@ export class LabourRepo {
       }
     }
 
-    const where: Prisma.LabourWhereInput = {
-      ...orgFilter,
-      isDeleted: false,
-      ...(trade && { trade: { equals: trade, mode: "insensitive" } }),
-      ...(state && { state: { equals: state, mode: "insensitive" } }),
-      ...(city && { city: { equals: city, mode: "insensitive" } }),
-      ...(status && { status: { equals: status, mode: "insensitive" } }),
-      ...(search && {
+    const andConditions: Prisma.LabourWhereInput[] = [
+      orgFilter,
+      { isDeleted: false },
+    ];
+    if (trade) andConditions.push({ trade: { equals: trade, mode: "insensitive" } });
+    if (state) andConditions.push({ state: { equals: state, mode: "insensitive" } });
+    if (city) andConditions.push({ city: { equals: city, mode: "insensitive" } });
+    if (locality) andConditions.push({ locality: { contains: locality, mode: "insensitive" } });
+    if (status) andConditions.push({ status: { equals: status, mode: "insensitive" } });
+    if (isAvailable !== undefined) andConditions.push({ isAvailable });
+    if (isKycVerified !== undefined) {
+      if (isKycVerified) {
+        andConditions.push({
+          OR: [
+            { isKycVerified: true },
+            { kycDocument: { status: "APPROVED" } },
+          ],
+        });
+      } else {
+        andConditions.push({
+          isKycVerified: false,
+          NOT: { kycDocument: { status: "APPROVED" } },
+        });
+      }
+    }
+    if (search) {
+      andConditions.push({
         OR: [
           { name: { contains: search, mode: "insensitive" } },
           { phone: { contains: search, mode: "insensitive" } },
           { trade: { contains: search, mode: "insensitive" } },
           { state: { contains: search, mode: "insensitive" } },
           { city: { contains: search, mode: "insensitive" } },
+          { locality: { contains: search, mode: "insensitive" } },
         ],
-      }),
-    };
+      });
+    }
+
+    const where: Prisma.LabourWhereInput = { AND: andConditions };
 
     const [total, items] = await Promise.all([
       db.labour.count({ where }),

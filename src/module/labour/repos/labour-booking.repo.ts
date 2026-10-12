@@ -4,7 +4,9 @@ import type { GetLabourBookingsQuery } from "../validators/labour-booking.valida
 
 /**
  * Labour Booking Repository
- * Handles tenant-isolated DB operations for labour bookings/assignments under Project Services.
+ * Handles DB operations for labour bookings/assignments under both:
+ * 1. Organization Project Services (B2B tenant interior design projects)
+ * 2. Direct Platform Marketplace (B2C on-demand home service bookings)
  */
 export class LabourBookingRepo {
   private formatJsonValue(val: unknown): Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput | undefined {
@@ -14,14 +16,16 @@ export class LabourBookingRepo {
   }
 
   /**
-   * Generates next booking number (e.g. LB-2026-0001) for a project
+   * Generates next sequential booking number (e.g. LB-2026-0001 for Org Project, SB-2026-0001 for Marketplace Service Booking)
    */
-  async generateBookingNumber(projectId: string): Promise<string> {
+  async generateBookingNumber(prefix: string = "LB", projectId?: string | null): Promise<string> {
     const currentYear = new Date().getFullYear();
     const count = await prisma.labourBooking.count({
-      where: { projectId },
+      where: {
+        bookingNumber: { startsWith: `${prefix}-${currentYear}` },
+      },
     });
-    return `LB-${currentYear}-${String(count + 1).padStart(4, "0")}`;
+    return `${prefix}-${currentYear}-${String(count + 1).padStart(4, "0")}`;
   }
 
   /**
@@ -33,7 +37,14 @@ export class LabourBookingRepo {
       ...(data.additionalInformation !== undefined && {
         additionalInformation: this.formatJsonValue(data.additionalInformation),
       }),
+      ...(data.taskChecklist !== undefined && {
+        taskChecklist: this.formatJsonValue(data.taskChecklist),
+      }),
+      ...(data.proofPhotos !== undefined && {
+        proofPhotos: this.formatJsonValue(data.proofPhotos),
+      }),
     };
+
     return prisma.labourBooking.create({
       data: formattedData,
       include: {
@@ -45,6 +56,25 @@ export class LabourBookingRepo {
             trade: true,
             skillLevel: true,
             photoUrl: true,
+            dailyRate: true,
+            locality: true,
+            city: true,
+            state: true,
+            isKycVerified: true,
+            averageRating: true,
+            userId: true,
+          },
+        },
+        client: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+            clientRating: true,
+            clientDuesCount: true,
+            isBlacklisted: true,
           },
         },
         project: {
@@ -69,15 +99,57 @@ export class LabourBookingRepo {
   }
 
   /**
-   * Find booking by ID with tenant verification
+   * Find booking by ID with optional tenant/client/worker verification
    */
-  async findById(id: string, organizationId: string) {
+  async findById(
+    id: string,
+    scope?:
+      | string
+      | null
+      | {
+          organizationId?: string | null;
+          clientId?: string | null;
+          workerLabourId?: string | null;
+          workerUserId?: string | null;
+          isPlatformAdmin?: boolean;
+        }
+  ) {
+    const normalizedScope =
+      typeof scope === "string"
+        ? { organizationId: scope }
+        : scope === null
+        ? {}
+        : scope;
+
+    const andConditions: Prisma.LabourBookingWhereInput[] = [
+      { id, isDeleted: false },
+    ];
+
+    if (normalizedScope && !normalizedScope.isPlatformAdmin) {
+      if (normalizedScope.organizationId) {
+        andConditions.push({
+          OR: [
+            { organizationId: normalizedScope.organizationId },
+            { project: { organizationId: normalizedScope.organizationId } },
+          ],
+        });
+      }
+
+      if (normalizedScope.clientId) {
+        andConditions.push({ clientId: normalizedScope.clientId });
+      }
+
+      if (normalizedScope.workerLabourId) {
+        andConditions.push({ labourId: normalizedScope.workerLabourId });
+      }
+
+      if (normalizedScope.workerUserId) {
+        andConditions.push({ labour: { userId: normalizedScope.workerUserId } });
+      }
+    }
+
     return prisma.labourBooking.findFirst({
-      where: {
-        id,
-        isDeleted: false,
-        project: { organizationId },
-      },
+      where: { AND: andConditions },
       include: {
         labour: {
           select: {
@@ -88,6 +160,26 @@ export class LabourBookingRepo {
             skillLevel: true,
             photoUrl: true,
             dailyRate: true,
+            locality: true,
+            city: true,
+            state: true,
+            isKycVerified: true,
+            averageRating: true,
+            warningCount: true,
+            isBlacklisted: true,
+            userId: true,
+          },
+        },
+        client: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+            clientRating: true,
+            clientDuesCount: true,
+            isBlacklisted: true,
           },
         },
         project: {
@@ -105,7 +197,30 @@ export class LabourBookingRepo {
             title: true,
             category: true,
             status: true,
-            location: true,
+          },
+        },
+        ratings: {
+          select: {
+            id: true,
+            rating: true,
+            reviewNotes: true,
+            qualityScore: true,
+            punctualityScore: true,
+            behaviourScore: true,
+            reviewerRole: true,
+            createdAt: true,
+          },
+        },
+        disputes: {
+          select: {
+            id: true,
+            disputeType: true,
+            reason: true,
+            status: true,
+            lawyerAssigned: true,
+            lawyerName: true,
+            labourCourtFiled: true,
+            createdAt: true,
           },
         },
         _count: {
@@ -121,28 +236,95 @@ export class LabourBookingRepo {
   }
 
   /**
-   * List paginated bookings with filters
+   * List paginated bookings with flexible filters across B2B and B2C channels
    */
-  async findAll(query: GetLabourBookingsQuery, organizationId: string) {
-    const { page, limit, projectId, projectServiceId, labourId, status, search } = query;
+  async findAll(
+    query: GetLabourBookingsQuery,
+    scope?: {
+      organizationId?: string | null;
+      clientId?: string | null;
+      workerLabourId?: string | null;
+      workerUserId?: string | null;
+      isPlatformAdmin?: boolean;
+    }
+  ) {
+    const {
+      page,
+      limit,
+      channel,
+      clientId,
+      projectId,
+      projectServiceId,
+      labourId,
+      locality,
+      city,
+      state,
+      status,
+      search,
+    } = query;
     const skip = (page - 1) * limit;
 
-    const where: Prisma.LabourBookingWhereInput = {
-      isDeleted: false,
-      project: { organizationId },
-      ...(projectId && { projectId }),
-      ...(projectServiceId && { projectServiceId }),
-      ...(labourId && { labourId }),
-      ...(status && { status }),
-      ...(search && {
+    const andConditions: Prisma.LabourBookingWhereInput[] = [
+      { isDeleted: false },
+    ];
+
+    // Scoping constraints
+    if (scope && !scope.isPlatformAdmin) {
+      if (scope.organizationId) {
+        andConditions.push({
+          OR: [
+            { organizationId: scope.organizationId },
+            { project: { organizationId: scope.organizationId } },
+          ],
+        });
+      }
+
+      if (scope.clientId) {
+        andConditions.push({ clientId: scope.clientId });
+      }
+
+      if (scope.workerLabourId) {
+        andConditions.push({ labourId: scope.workerLabourId });
+      }
+
+      if (scope.workerUserId) {
+        andConditions.push({ labour: { userId: scope.workerUserId } });
+      }
+    }
+
+    // Direct query filters
+    if (channel) andConditions.push({ channel });
+    if (clientId) andConditions.push({ clientId });
+    if (projectId) andConditions.push({ projectId });
+    if (projectServiceId) andConditions.push({ projectServiceId });
+    if (labourId) andConditions.push({ labourId });
+    if (status) andConditions.push({ status });
+    if (locality) andConditions.push({ locality: { contains: locality, mode: "insensitive" } });
+    if (city) andConditions.push({ city: { equals: city, mode: "insensitive" } });
+    if (state) andConditions.push({ state: { equals: state, mode: "insensitive" } });
+
+    if (search) {
+      andConditions.push({
         OR: [
           { bookingNumber: { contains: search, mode: "insensitive" } },
           { workTitle: { contains: search, mode: "insensitive" } },
           { labour: { name: { contains: search, mode: "insensitive" } } },
+          {
+            client: {
+              OR: [
+                { firstName: { contains: search, mode: "insensitive" } },
+                { lastName: { contains: search, mode: "insensitive" } },
+                { email: { contains: search, mode: "insensitive" } },
+              ],
+            },
+          },
           { projectService: { title: { contains: search, mode: "insensitive" } } },
+          { locality: { contains: search, mode: "insensitive" } },
         ],
-      }),
-    };
+      });
+    }
+
+    const where: Prisma.LabourBookingWhereInput = { AND: andConditions };
 
     const [total, bookings] = await Promise.all([
       prisma.labourBooking.count({ where }),
@@ -159,6 +341,21 @@ export class LabourBookingRepo {
               phone: true,
               trade: true,
               photoUrl: true,
+              locality: true,
+              city: true,
+              state: true,
+              isKycVerified: true,
+              averageRating: true,
+            },
+          },
+          client: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              clientRating: true,
             },
           },
           project: {
@@ -199,6 +396,12 @@ export class LabourBookingRepo {
       ...(data.additionalInformation !== undefined && {
         additionalInformation: this.formatJsonValue(data.additionalInformation),
       }),
+      ...(data.taskChecklist !== undefined && {
+        taskChecklist: this.formatJsonValue(data.taskChecklist),
+      }),
+      ...(data.proofPhotos !== undefined && {
+        proofPhotos: this.formatJsonValue(data.proofPhotos),
+      }),
     };
 
     return prisma.labourBooking.update({
@@ -211,6 +414,29 @@ export class LabourBookingRepo {
             name: true,
             phone: true,
             trade: true,
+            skillLevel: true,
+            photoUrl: true,
+            dailyRate: true,
+            locality: true,
+            city: true,
+            state: true,
+            isKycVerified: true,
+            averageRating: true,
+            warningCount: true,
+            isBlacklisted: true,
+            userId: true,
+          },
+        },
+        client: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+            clientRating: true,
+            clientDuesCount: true,
+            isBlacklisted: true,
           },
         },
         project: {
@@ -218,6 +444,7 @@ export class LabourBookingRepo {
             id: true,
             name: true,
             projectCode: true,
+            site: true,
           },
         },
         projectService: {
