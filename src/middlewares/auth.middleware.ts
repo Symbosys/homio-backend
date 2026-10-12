@@ -12,7 +12,7 @@ export interface AuthenticatedUser {
   firstName: string;
   lastName: string | null;
   phone: string | null;
-  userType: "PLATFORM_ADMIN" | "ADMIN" | "USER";
+  userType: "PLATFORM_ADMIN" | "ADMIN" | "USER" | "LABOUR";
   organizationId?: string | null;
   status: string;
   roles: Array<{
@@ -35,7 +35,7 @@ declare global {
 export interface JwtUserPayload {
   userId: string;
   email: string;
-  userType: "PLATFORM_ADMIN" | "ADMIN" | "USER";
+  userType: "PLATFORM_ADMIN" | "ADMIN" | "USER" | "LABOUR";
   organizationId?: string | null;
 }
 
@@ -165,7 +165,7 @@ export const authenticate = async (
       firstName: user.firstName,
       lastName: user.lastName,
       phone: user.phone,
-      userType: user.userType as "PLATFORM_ADMIN" | "ADMIN" | "USER",
+      userType: user.userType as "PLATFORM_ADMIN" | "ADMIN" | "USER" | "LABOUR",
       organizationId: user.organizationId,
       status: user.status,
       roles: user.roles.map((ur) => ({
@@ -188,7 +188,7 @@ export const authenticate = async (
  * (e.g. 'PLATFORM_ADMIN', 'ADMIN' for CRM Admin Panel vs 'USER' for Customer App).
  */
 export const authorize = (
-  ...allowedTypes: Array<"PLATFORM_ADMIN" | "ADMIN" | "USER">
+  ...allowedTypes: Array<"PLATFORM_ADMIN" | "ADMIN" | "USER" | "LABOUR">
 ) => {
   return (req: Request, _res: Response, next: NextFunction) => {
     if (!req.user) {

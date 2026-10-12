@@ -159,11 +159,18 @@ export class LabourRepo {
       orgFilter,
       { isDeleted: false },
     ];
-    if (trade) andConditions.push({ trade: { equals: trade, mode: "insensitive" } });
-    if (state) andConditions.push({ state: { equals: state, mode: "insensitive" } });
-    if (city) andConditions.push({ city: { equals: city, mode: "insensitive" } });
-    if (locality) andConditions.push({ locality: { contains: locality, mode: "insensitive" } });
-    if (status) andConditions.push({ status: { equals: status, mode: "insensitive" } });
+    if (trade)
+      andConditions.push({ trade: { equals: trade, mode: "insensitive" } });
+    if (state)
+      andConditions.push({ state: { equals: state, mode: "insensitive" } });
+    if (city)
+      andConditions.push({ city: { equals: city, mode: "insensitive" } });
+    if (locality)
+      andConditions.push({
+        locality: { contains: locality, mode: "insensitive" },
+      });
+    if (status)
+      andConditions.push({ status: { equals: status, mode: "insensitive" } });
     if (isAvailable !== undefined) andConditions.push({ isAvailable });
     if (isKycVerified !== undefined) {
       if (isKycVerified) {

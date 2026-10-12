@@ -32,8 +32,13 @@ export class LabourBookingRepo {
    * Create new booking
    */
   async create(data: any) {
+    const startDate = data.startDate ? new Date(data.startDate) : new Date();
+    const endDate = data.endDate ? new Date(data.endDate) : startDate;
+
     const formattedData = {
       ...data,
+      startDate,
+      endDate,
       ...(data.additionalInformation !== undefined && {
         additionalInformation: this.formatJsonValue(data.additionalInformation),
       }),
@@ -261,6 +266,12 @@ export class LabourBookingRepo {
       state,
       status,
       search,
+      trade,
+      startDate,
+      endDate,
+      from,
+      to,
+      date,
     } = query;
     const skip = (page - 1) * limit;
 
@@ -288,7 +299,12 @@ export class LabourBookingRepo {
       }
 
       if (scope.workerUserId) {
-        andConditions.push({ labour: { userId: scope.workerUserId } });
+        andConditions.push({
+          OR: [
+            { labour: { userId: scope.workerUserId } },
+            { labourId: scope.workerUserId },
+          ],
+        });
       }
     }
 
@@ -302,6 +318,45 @@ export class LabourBookingRepo {
     if (locality) andConditions.push({ locality: { contains: locality, mode: "insensitive" } });
     if (city) andConditions.push({ city: { equals: city, mode: "insensitive" } });
     if (state) andConditions.push({ state: { equals: state, mode: "insensitive" } });
+
+    if (trade) {
+      andConditions.push({
+        OR: [
+          { labour: { trade: { equals: trade, mode: "insensitive" } } },
+          { projectService: { category: { equals: trade, mode: "insensitive" } } },
+        ],
+      });
+    }
+
+    if (date) {
+      const targetDate = new Date(date);
+      if (!isNaN(targetDate.getTime())) {
+        const startOfDay = new Date(targetDate);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(targetDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        andConditions.push({
+          startDate: {
+            gte: startOfDay,
+            lte: endOfDay,
+          },
+        });
+      }
+    } else {
+      if (startDate || from) {
+        const fromDate = new Date((startDate || from)!);
+        if (!isNaN(fromDate.getTime())) {
+          andConditions.push({ startDate: { gte: fromDate } });
+        }
+      }
+      if (endDate || to) {
+        const toDate = new Date((endDate || to)!);
+        if (!isNaN(toDate.getTime())) {
+          toDate.setHours(23, 59, 59, 999);
+          andConditions.push({ startDate: { lte: toDate } });
+        }
+      }
+    }
 
     if (search) {
       andConditions.push({
@@ -384,6 +439,7 @@ export class LabourBookingRepo {
       limit,
       totalPages: Math.ceil(total / limit),
       bookings,
+      items: bookings,
     };
   }
 

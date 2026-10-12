@@ -2,12 +2,14 @@ import { asyncHandler } from "../../../middlewares/error.middleware.js";
 import { SuccessResponse } from "../../../utils/response.util.js";
 import { statusCode } from "../../../types/types.js";
 import { labourService } from "../services/labour.service.js";
+import { labourBookingService } from "../services/labour-booking.service.js";
 import {
   platformCreateLabourSchema,
   updateLabourSchema,
   platformGetLaboursQuerySchema,
   labourIdParamSchema,
 } from "../validators/labour.validator.js";
+import { getLabourBookingsQuerySchema } from "../validators/labour-booking.validator.js";
 
 /**
  * @route   POST /api/v1/platform/labours
@@ -63,3 +65,41 @@ export const deleteLabour = asyncHandler(async (req, res) => {
   await labourService.deletePlatformLabour(parsed.params.id);
   return SuccessResponse(res, "Labour profile deleted successfully by platform admin", null, statusCode.OK);
 });
+
+/**
+ * @route   GET /api/v1/platform/labours/bookings
+ * @desc    Fetch platform service / labour bookings with channel filter (ORGANIZATION_PROJECT vs PLATFORM_MARKETPLACE) and full date / status filters
+ * @access  Private (PLATFORM_ADMIN, LABOUR, USER)
+ */
+export const getPlatformLabourBookings = asyncHandler(async (req, res) => {
+  const parsed = getLabourBookingsQuerySchema.parse({ query: req.query });
+
+  let scope: {
+    organizationId?: string | null;
+    clientId?: string | null;
+    workerUserId?: string | null;
+    isPlatformAdmin?: boolean;
+  } = {};
+
+  const userType = req.user?.userType as string | undefined;
+
+  if (userType === "PLATFORM_ADMIN") {
+    scope.isPlatformAdmin = true;
+  } else if (userType === "LABOUR") {
+    // Labour sees all their assigned bookings across Org and Marketplace
+    scope.workerUserId = req.user!.id;
+  } else if (userType === "USER" || !req.user?.organizationId) {
+    scope.clientId = req.user!.id;
+  } else {
+    scope.organizationId = req.user?.organizationId;
+  }
+
+  const result = await labourBookingService.getBookings(parsed.query, scope);
+  return SuccessResponse(
+    res,
+    "Platform service bookings retrieved successfully",
+    result,
+    statusCode.OK
+  );
+});
+

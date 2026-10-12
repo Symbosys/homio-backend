@@ -36,6 +36,19 @@ export const createLabourBookingSchema = z.object({
     estimatedDays: z.coerce.number().int().positive("Estimated days must be at least 1").default(1),
     status: z.enum(BOOKING_STATUS_ENUM).default("CONFIRMED"),
     notes: z.string().optional().nullable(),
+    taskChecklist: z
+      .union([
+        z.array(
+          z.object({
+            task: z.string().min(1, "Task description is required"),
+            done: z.boolean().default(false).optional(),
+          })
+        ),
+        z.array(z.string()),
+        z.any(),
+      ])
+      .optional()
+      .nullable(),
     additionalInformation: additionalInformationSchema,
   }),
 });
@@ -61,6 +74,19 @@ export const createMarketplaceBookingSchema = z.object({
       message: "Terms and conditions must be accepted to proceed with service booking",
     }),
     notes: z.string().optional().nullable(),
+    taskChecklist: z
+      .union([
+        z.array(
+          z.object({
+            task: z.string().min(1, "Task description is required"),
+            done: z.boolean().default(false).optional(),
+          })
+        ),
+        z.array(z.string()),
+        z.any(),
+      ])
+      .optional()
+      .nullable(),
     additionalInformation: additionalInformationSchema,
   }),
 });
@@ -90,6 +116,19 @@ export const updateLabourBookingSchema = z.object({
     totalBudget: z.coerce.number().nonnegative().optional(),
     status: z.enum(BOOKING_STATUS_ENUM).optional(),
     notes: z.string().optional().nullable(),
+    taskChecklist: z
+      .union([
+        z.array(
+          z.object({
+            task: z.string().min(1, "Task description is required"),
+            done: z.boolean().default(false).optional(),
+          })
+        ),
+        z.array(z.string()),
+        z.any(),
+      ])
+      .optional()
+      .nullable(),
     additionalInformation: additionalInformationSchema,
   }),
 });
@@ -218,6 +257,12 @@ export const getLabourBookingsQuerySchema = z.object({
     state: z.string().optional(),
     locality: z.string().optional(),
     search: z.string().optional(),
+    trade: z.string().optional(),
+    startDate: z.string().optional(),
+    endDate: z.string().optional(),
+    from: z.string().optional(),
+    to: z.string().optional(),
+    date: z.string().optional(),
   }),
 });
 

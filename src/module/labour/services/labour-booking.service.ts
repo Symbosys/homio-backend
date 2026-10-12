@@ -135,6 +135,20 @@ export class LabourBookingService {
     // 3. Generate Service Booking sequence number (SB-YYYY-0001)
     const bookingNumber = await labourBookingRepo.generateBookingNumber("SB");
 
+    const startDate = payload.startDate ? new Date(payload.startDate) : new Date();
+    const endDate = payload.endDate
+      ? new Date(payload.endDate)
+      : payload.startDate
+        ? new Date(payload.startDate)
+        : new Date();
+
+    const diffTime = endDate.getTime() - startDate.getTime();
+    const estimatedDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
+    const dailyRate = Number(labour.dailyRate || 0);
+    const totalBudget = dailyRate * estimatedDays;
+    const commissionRate = MARKETPLACE_CONFIG.DEFAULT_COMMISSION_PERCENTAGE;
+    const commissionAmount = Number(((totalBudget * commissionRate) / 100).toFixed(2));
+
     // 4. Create marketplace booking record
     const booking = await labourBookingRepo.create({
       channel: "PLATFORM_MARKETPLACE",
@@ -150,15 +164,19 @@ export class LabourBookingService {
       pincode: payload.pincode,
       latitude: payload.latitude,
       longitude: payload.longitude,
-      startDate: payload.startDate ? new Date(payload.startDate) : new Date(),
-      endDate: payload.endDate ? new Date(payload.endDate) : null,
+      startDate,
+      endDate,
       termsAccepted: true,
       termsAcceptedAt: new Date(),
       agreedDailyRate: labour.dailyRate,
-      commissionRate: MARKETPLACE_CONFIG.DEFAULT_COMMISSION_PERCENTAGE,
-      commissionAmount: 0.00,
+      estimatedDays,
+      totalBudget,
+      commissionRate,
+      commissionAmount,
       commissionStatus: "PENDING",
       status: "REQUESTED",
+      notes: payload.notes,
+      taskChecklist: payload.taskChecklist,
       additionalInformation: payload.additionalInformation,
     });
 

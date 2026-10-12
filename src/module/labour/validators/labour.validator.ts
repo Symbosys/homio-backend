@@ -4,56 +4,65 @@ import { UserType, UserStatus } from "../../../types/types.js";
 /**
  * ImageType Schema adhering to Homio CRM Structured Image Storage (Rule 4)
  */
-export const imageTypeSchema = z.preprocess((val) => {
-  if (typeof val === "string") {
-    try {
-      return JSON.parse(val);
-    } catch {
-      return val;
+export const imageTypeSchema = z.preprocess(
+  (val) => {
+    if (typeof val === "string") {
+      try {
+        return JSON.parse(val);
+      } catch {
+        return val;
+      }
     }
-  }
-  return val;
-}, z.object({
-  id: z.string().optional(),
-  url: z.string().url("Valid image URL required"),
-  bytes: z.number().nonnegative().optional(),
-  format: z.string().optional(),
-  provider: z.string().optional(),
-}));
+    return val;
+  },
+  z.object({
+    id: z.string().optional(),
+    url: z.string().url("Valid image URL required"),
+    bytes: z.number().nonnegative().optional(),
+    format: z.string().optional(),
+    provider: z.string().optional(),
+  }),
+);
 
 /**
  * KYC Document Embed Schema for nested onboarding & update
  */
-export const labourKycEmbedSchema = z.preprocess((val) => {
-  if (typeof val === "string") {
-    try {
-      return JSON.parse(val);
-    } catch {
-      return val;
+export const labourKycEmbedSchema = z.preprocess(
+  (val) => {
+    if (typeof val === "string") {
+      try {
+        return JSON.parse(val);
+      } catch {
+        return val;
+      }
     }
-  }
-  return val;
-}, z.object({
-  aadhaarNumber: z.string().optional().nullable(),
-  aadhaarDoc: imageTypeSchema.optional().nullable(),
-  selfiePhoto: imageTypeSchema.optional().nullable(),
-  policeClearanceDoc: imageTypeSchema.optional().nullable(),
-  policeStationName: z.string().optional().nullable(),
-  bankAccountNo: z.string().optional().nullable(),
-  ifscCode: z.string().optional().nullable(),
-  bankName: z.string().optional().nullable(),
-  accountHolderName: z.string().optional().nullable(),
-  upiId: z.string().optional().nullable(),
-  tradeTestScore: z.preprocess((val) => {
-    if (val === "" || val === null || val === undefined) return null;
-    const num = Number(val);
-    return isNaN(num) ? val : num;
-  }, z.number().min(0).max(100).optional().nullable()),
-  status: z.string().default("PENDING").optional(),
-  verificationNotes: z.string().optional().nullable(),
-  rejectionReason: z.string().optional().nullable(),
-  verifiedBy: z.string().optional().nullable(),
-}).optional().nullable());
+    return val;
+  },
+  z
+    .object({
+      aadhaarNumber: z.string().optional().nullable(),
+      aadhaarDoc: imageTypeSchema.optional().nullable(),
+      selfiePhoto: imageTypeSchema.optional().nullable(),
+      policeClearanceDoc: imageTypeSchema.optional().nullable(),
+      policeStationName: z.string().optional().nullable(),
+      bankAccountNo: z.string().optional().nullable(),
+      ifscCode: z.string().optional().nullable(),
+      bankName: z.string().optional().nullable(),
+      accountHolderName: z.string().optional().nullable(),
+      upiId: z.string().optional().nullable(),
+      tradeTestScore: z.preprocess((val) => {
+        if (val === "" || val === null || val === undefined) return null;
+        const num = Number(val);
+        return isNaN(num) ? val : num;
+      }, z.number().min(0).max(100).optional().nullable()),
+      status: z.string().default("PENDING").optional(),
+      verificationNotes: z.string().optional().nullable(),
+      rejectionReason: z.string().optional().nullable(),
+      verifiedBy: z.string().optional().nullable(),
+    })
+    .optional()
+    .nullable(),
+);
 
 /**
  * Universal Additional Information Schema (Rule 18)
@@ -75,15 +84,30 @@ export const additionalInformationSchema = z.preprocess((val) => {
 export const createLabourSchema = z.object({
   body: z.object({
     name: z.string().min(2, "Name must be at least 2 characters").max(100),
-    phone: z.string().min(10, "Phone number must be at least 10 digits").max(20),
+    phone: z
+      .string()
+      .min(10, "Phone number must be at least 10 digits")
+      .max(20),
     altPhone: z.string().max(20).optional().nullable().or(z.literal("")),
-    email: z.string().email("Invalid email format").optional().nullable().or(z.literal("")),
+    email: z
+      .string()
+      .email("Invalid email format")
+      .optional()
+      .nullable()
+      .or(z.literal("")),
     photoUrl: imageTypeSchema.optional().nullable(),
 
     // Trade & Rates
-    trade: z.string().min(2, "Trade is required (e.g. Carpentry, Masonry, Plumbing, Painting)"),
+    trade: z
+      .string()
+      .min(
+        2,
+        "Trade is required (e.g. Carpentry, Masonry, Plumbing, Painting)",
+      ),
     skillLevel: z.string().default("Skilled").optional().nullable(),
-    dailyRate: z.coerce.number().positive("Daily wage rate must be greater than 0"),
+    dailyRate: z.coerce
+      .number()
+      .positive("Daily wage rate must be greater than 0"),
     hourlyRate: z.preprocess((val) => {
       if (val === "" || val === null || val === undefined) return null;
       const num = Number(val);
@@ -116,9 +140,27 @@ export const createLabourSchema = z.object({
         z.string().transform((v) => v === "true" || v === "1"),
       ])
       .optional(),
-    userEmail: z.string().trim().email("Invalid user login email").nullable().optional().or(z.literal("")),
-    userPhone: z.string().trim().max(20).nullable().optional().or(z.literal("")),
-    userPassword: z.string().trim().min(6, "Password must be at least 6 characters").nullable().optional().or(z.literal("")),
+    userEmail: z
+      .string()
+      .trim()
+      .email("Invalid user login email")
+      .nullable()
+      .optional()
+      .or(z.literal("")),
+    userPhone: z
+      .string()
+      .trim()
+      .max(20)
+      .nullable()
+      .optional()
+      .or(z.literal("")),
+    userPassword: z
+      .string()
+      .trim()
+      .min(6, "Password must be at least 6 characters")
+      .nullable()
+      .optional()
+      .or(z.literal("")),
     userRoleIds: z
       .union([
         z.array(z.string().uuid("Invalid role ID")),
@@ -127,7 +169,12 @@ export const createLabourSchema = z.object({
             const parsed = JSON.parse(val);
             return Array.isArray(parsed) ? parsed : [val];
           } catch {
-            return val ? val.split(",").map((s) => s.trim()).filter(Boolean) : [];
+            return val
+              ? val
+                  .split(",")
+                  .map((s) => s.trim())
+                  .filter(Boolean)
+              : [];
           }
         }),
       ])
@@ -193,9 +240,27 @@ export const updateLabourSchema = z.object({
         z.string().transform((v) => v === "true" || v === "1"),
       ])
       .optional(),
-    userEmail: z.string().trim().email("Invalid user login email").nullable().optional().or(z.literal("")),
-    userPhone: z.string().trim().max(20).nullable().optional().or(z.literal("")),
-    userPassword: z.string().trim().min(6, "Password must be at least 6 characters").nullable().optional().or(z.literal("")),
+    userEmail: z
+      .string()
+      .trim()
+      .email("Invalid user login email")
+      .nullable()
+      .optional()
+      .or(z.literal("")),
+    userPhone: z
+      .string()
+      .trim()
+      .max(20)
+      .nullable()
+      .optional()
+      .or(z.literal("")),
+    userPassword: z
+      .string()
+      .trim()
+      .min(6, "Password must be at least 6 characters")
+      .nullable()
+      .optional()
+      .or(z.literal("")),
     userRoleIds: z
       .union([
         z.array(z.string().uuid("Invalid role ID")),
@@ -204,7 +269,12 @@ export const updateLabourSchema = z.object({
             const parsed = JSON.parse(val);
             return Array.isArray(parsed) ? parsed : [val];
           } catch {
-            return val ? val.split(",").map((s) => s.trim()).filter(Boolean) : [];
+            return val
+              ? val
+                  .split(",")
+                  .map((s) => s.trim())
+                  .filter(Boolean)
+              : [];
           }
         }),
       ])
@@ -246,7 +316,9 @@ export const getLaboursQuerySchema = z.object({
       .optional(),
     page: z.coerce.number().int().positive().default(1),
     limit: z.coerce.number().int().positive().max(100).default(20),
-    sortBy: z.enum(["createdAt", "name", "dailyRate", "trade"]).default("createdAt"),
+    sortBy: z
+      .enum(["createdAt", "name", "dailyRate", "trade", "averageRating"])
+      .default("createdAt"),
     sortOrder: z.enum(["asc", "desc"]).default("desc"),
   }),
 });
@@ -269,9 +341,13 @@ export type GetLaboursQuery = z.infer<typeof getLaboursQuerySchema>["query"];
  */
 export const platformGetLaboursQuerySchema = z.object({
   query: z.object({
-    scope: z.enum(["ALL", "PLATFORM_ONLY", "ORG_ONLY"]).default("ALL").optional(),
+    scope: z
+      .enum(["ALL", "PLATFORM_ONLY", "ORG_ONLY"])
+      .default("ALL")
+      .optional(),
     organizationId: z.preprocess((val) => {
-      if (val === "" || val === "null" || val === "undefined" || val === null) return undefined;
+      if (val === "" || val === "null" || val === "undefined" || val === null)
+        return undefined;
       return val;
     }, z.string().uuid("Invalid organization ID format").optional()),
     search: z.string().optional(),
@@ -294,7 +370,9 @@ export const platformGetLaboursQuerySchema = z.object({
       .optional(),
     page: z.coerce.number().int().positive().default(1),
     limit: z.coerce.number().int().positive().max(100).default(20),
-    sortBy: z.enum(["createdAt", "name", "dailyRate", "trade"]).default("createdAt"),
+    sortBy: z
+      .enum(["createdAt", "name", "dailyRate", "trade", "averageRating"])
+      .default("createdAt"),
     sortOrder: z.enum(["asc", "desc"]).default("desc"),
   }),
 });
@@ -305,11 +383,16 @@ export const platformGetLaboursQuerySchema = z.object({
 export const platformCreateLabourSchema = z.object({
   body: createLabourSchema.shape.body.extend({
     organizationId: z.preprocess((val) => {
-      if (val === "" || val === "null" || val === "undefined" || val === null) return null;
+      if (val === "" || val === "null" || val === "undefined" || val === null)
+        return null;
       return val;
     }, z.string().uuid("Invalid organization ID format").nullable().optional()),
   }),
 });
 
-export type PlatformGetLaboursQuery = z.infer<typeof platformGetLaboursQuerySchema>["query"];
-export type PlatformCreateLabourInput = z.infer<typeof platformCreateLabourSchema>["body"];
+export type PlatformGetLaboursQuery = z.infer<
+  typeof platformGetLaboursQuerySchema
+>["query"];
+export type PlatformCreateLabourInput = z.infer<
+  typeof platformCreateLabourSchema
+>["body"];
