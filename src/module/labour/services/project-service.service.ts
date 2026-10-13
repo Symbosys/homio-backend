@@ -137,6 +137,7 @@ export class ProjectServiceService {
 
   /**
    * Update status of Project Service
+   * If status is updated to COMPLETED, all active child labour bookings are also automatically marked as COMPLETED.
    */
   async updateServiceStatus(
     id: string,
@@ -144,7 +145,17 @@ export class ProjectServiceService {
     organizationId: string
   ) {
     await this.getServiceById(id, organizationId);
-    return projectServiceRepo.updateStatus(id, status, organizationId);
+    const updated = await projectServiceRepo.updateStatus(id, status, organizationId);
+
+    // If marked as COMPLETED, cascade completion to all child labour bookings
+    if (status === "COMPLETED") {
+      await projectServiceRepo.cascadeCompleteLabourBookings(id, organizationId);
+
+      // Recalculate financial rollups
+      await projectServiceRepo.recalculateRollup(id);
+    }
+
+    return updated;
   }
 
   /**

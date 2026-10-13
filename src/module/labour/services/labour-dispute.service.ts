@@ -18,6 +18,7 @@ import type {
   UpdateLabourDisputeInput,
   UpdateDisputeStatusInput,
   GetLabourDisputesQuery,
+  TakeDisputeActionInput,
 } from "../validators/labour-dispute.validator.js";
 
 /**
@@ -335,6 +336,312 @@ export class LabourDisputeService {
       status: "UNDER_REVIEW",
       actionTaken: payload.actionSummary || `Labour Court recovery claim registered under Case No: ${payload.labourCourtCaseNo}.`,
     });
+  }
+
+  /**
+   * Platform Admin takes disciplinary or legal action against a dispute
+   * Actions: CLIENT_RATING_DOWN, CLIENT_BLACKLISTED, LABOUR_WARNED, LABOUR_BLACKLISTED, LABOUR_RATING_DOWN, LEGAL_ACTION
+   */
+  async takeDisputeAction(id: string, payload: TakeDisputeActionInput, adminUserId?: string) {
+    const dispute = await labourDisputeRepo.findById(id);
+    if (!dispute) {
+      throw new ErrorResponse("Dispute case not found", statusCode.Not_Found);
+    }
+
+    const currentAddl = (dispute.additionalInformation as Record<string, any>) || {};
+    let actionDetails: Record<string, any> = {
+      action: payload.action,
+      appliedAt: new Date().toISOString(),
+      appliedBy: adminUserId || "PLATFORM_ADMIN",
+      notes: payload.notes || null,
+    };
+
+    let updateDisputeData: Record<string, any> = {
+      actionTaken: payload.action,
+    };
+
+    // 1. CLIENT_RATING_DOWN
+    if (payload.action === "CLIENT_RATING_DOWN") {
+      let targetClientId = dispute.booking?.clientId;
+      if (!targetClientId && dispute.bookingId) {
+        const booking = await prisma.labourBooking.findUnique({
+          where: { id: dispute.bookingId },
+          select: { clientId: true },
+        });
+        targetClientId = booking?.clientId || null;
+      }
+
+      if (!targetClientId) {
+        throw new ErrorResponse("No linked client found for this dispute to adjust rating", statusCode.Bad_Request);
+      }
+
+      const client = await prisma.user.findUnique({ where: { id: targetClientId } });
+      if (!client) {
+        throw new ErrorResponse("Target client user account not found", statusCode.Not_Found);
+      }
+
+      const prevRating = client.clientRating ?? 5.0;
+      let newRating: number;
+      if (payload.clientRating !== undefined) {
+        newRating = Math.max(1.0, Math.min(5.0, Number(payload.clientRating)));
+      } else if (payload.ratingDeduction !== undefined) {
+        newRating = Math.max(1.0, prevRating - Number(payload.ratingDeduction));
+      } else {
+        newRating = Math.max(1.0, prevRating - 1.0);
+      }
+
+      await prisma.user.update({
+        where: { id: targetClientId },
+        data: { clientRating: newRating },
+      });
+
+      actionDetails = {
+        ...actionDetails,
+        targetClientId,
+        previousRating: prevRating,
+        newRating,
+        deduction: prevRating - newRating,
+      };
+      updateDisputeData.status = "UNDER_REVIEW";
+      updateDisputeData.resolutionSummary = `Platform reduced client rating to ${newRating.toFixed(1)}★.`;
+    }
+
+    // 2. CLIENT_BLACKLISTED
+    else if (payload.action === "CLIENT_BLACKLISTED") {
+      let targetClientId = dispute.booking?.clientId;
+      if (!targetClientId && dispute.bookingId) {
+        const booking = await prisma.labourBooking.findUnique({
+          where: { id: dispute.bookingId },
+          select: { clientId: true },
+        });
+        targetClientId = booking?.clientId || null;
+      }
+
+      if (!targetClientId) {
+        throw new ErrorResponse("No linked client found for this dispute to blacklist", statusCode.Bad_Request);
+      }
+
+      const reason = payload.blacklistReason || payload.notes || "Disciplinary violation: Dispute default / misconduct";
+
+      await prisma.user.update({
+        where: { id: targetClientId },
+        data: {
+          isBlacklisted: true,
+          blacklistedAt: new Date(),
+          blacklistReason: reason,
+        },
+      });
+
+      actionDetails = {
+        ...actionDetails,
+        targetClientId,
+        blacklistReason: reason,
+        blacklistedAt: new Date().toISOString(),
+      };
+      updateDisputeData.status = "UNDER_REVIEW";
+      updateDisputeData.resolutionSummary = `Platform blacklisted client account: ${reason}`;
+    }
+
+    // 3. LABOUR_WARNED
+    else if (payload.action === "LABOUR_WARNED") {
+      const labour = await prisma.labour.findUnique({ where: { id: dispute.labourId } });
+      if (!labour) {
+        throw new ErrorResponse("Target labour worker not found", statusCode.Not_Found);
+      }
+
+      const warningMessage = payload.warningMessage || payload.notes || "Disciplinary notice issued by platform governance.";
+      const newWarningCount = (labour.warningCount || 0) + 1;
+      const shouldBlacklist = newWarningCount >= MARKETPLACE_CONFIG.MAX_LABOUR_WARNINGS_BEFORE_BLACKLIST;
+
+      const labourAddl = (labour.additionalInformation as Record<string, any>) || {};
+      const warningsList = Array.isArray(labourAddl.warnings)
+        ? [...labourAddl.warnings, { message: warningMessage, disputeId: id, warnedAt: new Date().toISOString() }]
+        : [{ message: warningMessage, disputeId: id, warnedAt: new Date().toISOString() }];
+
+      await prisma.labour.update({
+        where: { id: dispute.labourId },
+        data: {
+          warningCount: newWarningCount,
+          additionalInformation: { ...labourAddl, warnings: warningsList },
+          ...(shouldBlacklist && {
+            isBlacklisted: true,
+            blacklistedAt: new Date(),
+            blacklistReason: `Accumulated disciplinary threshold: ${newWarningCount} warnings`,
+          }),
+        },
+      });
+
+      // Also attach the warning to the linked booking so it's shown in the Labour Panel Labour Booking view
+      if (dispute.bookingId) {
+        const booking = await prisma.labourBooking.findUnique({ where: { id: dispute.bookingId } });
+        if (booking) {
+          const bookingAddl = (booking.additionalInformation as Record<string, any>) || {};
+          await prisma.labourBooking.update({
+            where: { id: dispute.bookingId },
+            data: {
+              additionalInformation: {
+                ...bookingAddl,
+                labourWarning: {
+                  message: warningMessage,
+                  disputeId: id,
+                  warningCount: newWarningCount,
+                  warnedAt: new Date().toISOString(),
+                },
+              },
+            },
+          });
+        }
+      }
+
+      actionDetails = {
+        ...actionDetails,
+        warningMessage,
+        warningCount: newWarningCount,
+        labourId: dispute.labourId,
+      };
+      updateDisputeData.status = "UNDER_REVIEW";
+      updateDisputeData.resolutionSummary = `Official warning issued to worker (${newWarningCount} warning(s)): ${warningMessage}`;
+    }
+
+    // 4. LABOUR_BLACKLISTED
+    else if (payload.action === "LABOUR_BLACKLISTED") {
+      const labour = await prisma.labour.findUnique({ where: { id: dispute.labourId } });
+      if (!labour) {
+        throw new ErrorResponse("Target labour worker not found", statusCode.Not_Found);
+      }
+
+      const reason = payload.blacklistReason || payload.notes || "Disciplinary violation: Dispute breach / misconduct";
+
+      await prisma.labour.update({
+        where: { id: dispute.labourId },
+        data: {
+          isBlacklisted: true,
+          blacklistedAt: new Date(),
+          blacklistReason: reason,
+          isAvailable: false,
+          status: "BLACKLISTED",
+        },
+      });
+
+      actionDetails = {
+        ...actionDetails,
+        labourId: dispute.labourId,
+        blacklistReason: reason,
+        blacklistedAt: new Date().toISOString(),
+      };
+      updateDisputeData.status = "UNDER_REVIEW";
+      updateDisputeData.resolutionSummary = `Platform blacklisted worker profile: ${reason}`;
+    }
+
+    // 5. LABOUR_RATING_DOWN
+    else if (payload.action === "LABOUR_RATING_DOWN") {
+      const labour = await prisma.labour.findUnique({ where: { id: dispute.labourId } });
+      if (!labour) {
+        throw new ErrorResponse("Target labour worker not found", statusCode.Not_Found);
+      }
+
+      const prevRating = labour.averageRating ?? 5.0;
+      let newRating: number;
+      if (payload.labourRating !== undefined) {
+        newRating = Math.max(1.0, Math.min(5.0, Number(payload.labourRating)));
+      } else if (payload.ratingDeduction !== undefined) {
+        newRating = Math.max(1.0, prevRating - Number(payload.ratingDeduction));
+      } else {
+        newRating = Math.max(1.0, prevRating - 0.50);
+      }
+
+      await prisma.labour.update({
+        where: { id: dispute.labourId },
+        data: { averageRating: newRating },
+      });
+
+      actionDetails = {
+        ...actionDetails,
+        labourId: dispute.labourId,
+        previousRating: prevRating,
+        newRating,
+        deduction: prevRating - newRating,
+      };
+      updateDisputeData.status = "UNDER_REVIEW";
+      updateDisputeData.resolutionSummary = `Platform penalized worker rating to ${newRating.toFixed(1)}★.`;
+    }
+
+    // 6. LEGAL_ACTION
+    else if (payload.action === "LEGAL_ACTION") {
+      const lawyerAssigned = payload.lawyerAssigned ?? Boolean(payload.lawyerName);
+      const lawyerAssignedAt = payload.lawyerAssignedAt
+        ? new Date(payload.lawyerAssignedAt)
+        : lawyerAssigned
+        ? new Date()
+        : null;
+
+      const legalNoticeSent = payload.legalNoticeSent ?? Boolean(payload.legalNoticeDate);
+      const legalNoticeDate = payload.legalNoticeDate ? new Date(payload.legalNoticeDate) : legalNoticeSent ? new Date() : null;
+
+      const labourCourtFiled = payload.labourCourtFiled ?? Boolean(payload.labourCourtCaseNo);
+      const labourCourtDate = payload.labourCourtDate ? new Date(payload.labourCourtDate) : labourCourtFiled ? new Date() : null;
+      const hearingDate = payload.hearingDate ? new Date(payload.hearingDate) : null;
+
+      updateDisputeData = {
+        ...updateDisputeData,
+        lawyerAssigned,
+        lawyerName: payload.lawyerName || null,
+        lawyerPhone: payload.lawyerPhone || null,
+        lawyerBarCouncilNo: payload.lawyerBarCouncilNo || null,
+        lawyerAssignedAt,
+        legalNoticeSent,
+        legalNoticeDate,
+        ...(payload.legalNoticeDoc ? { legalNoticeDoc: payload.legalNoticeDoc } : {}),
+        labourCourtFiled,
+        labourCourtCaseNo: payload.labourCourtCaseNo || null,
+        labourCourtDate,
+        hearingDate,
+        status: labourCourtFiled
+          ? "LABOUR_COURT_FILED"
+          : legalNoticeSent
+          ? "NOTICE_SENT"
+          : lawyerAssigned
+          ? "LAWYER_ASSIGNED"
+          : "UNDER_REVIEW",
+        resolutionSummary:
+          payload.resolutionSummary ||
+          (labourCourtFiled
+            ? `Labour Court action registered under Case #${payload.labourCourtCaseNo}`
+            : legalNoticeSent
+            ? "Statutory legal demand notice issued"
+            : lawyerAssigned
+            ? `Advocate ${payload.lawyerName} assigned for representation`
+            : "Legal proceedings initiated"),
+      };
+
+      actionDetails = {
+        ...actionDetails,
+        lawyerAssigned,
+        lawyerName: payload.lawyerName,
+        lawyerPhone: payload.lawyerPhone,
+        lawyerBarCouncilNo: payload.lawyerBarCouncilNo,
+        lawyerAssignedAt: lawyerAssignedAt?.toISOString(),
+        legalNoticeSent,
+        legalNoticeDate: legalNoticeDate?.toISOString(),
+        labourCourtFiled,
+        labourCourtCaseNo: payload.labourCourtCaseNo,
+        labourCourtDate: labourCourtDate?.toISOString(),
+        hearingDate: hearingDate?.toISOString(),
+      };
+    }
+
+    // Append to actionHistory in additionalInformation
+    const historyList = Array.isArray(currentAddl.actionHistory)
+      ? [...currentAddl.actionHistory, actionDetails]
+      : [actionDetails];
+
+    updateDisputeData.additionalInformation = {
+      ...currentAddl,
+      actionDetails,
+      actionHistory: historyList,
+    };
+
+    return labourDisputeRepo.update(id, updateDisputeData);
   }
 
   /**

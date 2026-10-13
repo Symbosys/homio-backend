@@ -38,6 +38,34 @@ export class LabourBookingService {
   }
 
   /**
+   * Helper: Check if a labour worker is available and has no active ongoing work on another booking
+   */
+  private async validateLabourAvailability(labourId: string, excludeBookingId?: string): Promise<void> {
+    const labour = await prisma.labour.findUnique({
+      where: { id: labourId, isDeleted: false },
+      select: { id: true, isAvailable: true, status: true },
+    });
+
+    if (!labour || labour.isAvailable === false || labour.status === "ON_LEAVE" || labour.status === "INACTIVE") {
+      throw new ErrorResponse("Labour is already unavailable", statusCode.Bad_Request);
+    }
+
+    const ongoingBooking = await prisma.labourBooking.findFirst({
+      where: {
+        labourId,
+        isDeleted: false,
+        ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
+        status: { in: ["WORK_STARTED", "IN_PROGRESS"] },
+      },
+      select: { id: true, bookingNumber: true, status: true },
+    });
+
+    if (ongoingBooking) {
+      throw new ErrorResponse("Labour is already unavailable", statusCode.Bad_Request);
+    }
+  }
+
+  /**
    * Create a new project booking allocated under a Project Service (B2B Org Channel - 0% Commission)
    */
   async createBooking(payload: CreateLabourBookingInput, organizationId: string) {
@@ -46,6 +74,9 @@ export class LabourBookingService {
     if (!labour) {
       throw new ErrorResponse("Labour not found or unauthorized", statusCode.Not_Found);
     }
+
+    // Verify labour worker is available and has no active ongoing work
+    await this.validateLabourAvailability(payload.labourId);
 
     // 2. Verify project belongs to tenant and fetch linked project site
     const project = await prisma.project.findFirst({
@@ -168,6 +199,9 @@ export class LabourBookingService {
         statusCode.Bad_Request
       );
     }
+
+    // Verify labour worker is available and has no active ongoing work
+    await this.validateLabourAvailability(payload.labourId);
 
     // 3. Generate Service Booking sequence number (SB-YYYY-0001)
     const bookingNumber = await labourBookingRepo.generateBookingNumber("SB");
@@ -598,6 +632,9 @@ export class LabourBookingService {
       throw new ErrorResponse("Cannot reassign to the same labour worker", statusCode.Bad_Request);
     }
 
+    // Verify replacement labour worker is available and has no active ongoing work
+    await this.validateLabourAvailability(payload.newLabourId, id);
+
     // Build reassignment history log in additionalInformation
     const currentAddl = (booking.additionalInformation as Record<string, any>) || {};
     const reassignmentLog = {
@@ -686,12 +723,31 @@ export class LabourBookingService {
     const existing = await this.getBookingById(id, normalizedScope);
     const orgId = normalizedScope?.organizationId || existing.organizationId || undefined;
 
+    // Guard: Client can only modify task checklist if work has NOT been started yet
+    if (payload.taskChecklist !== undefined && normalizedScope?.clientId && !normalizedScope?.isPlatformAdmin) {
+      const WORK_STARTED_STATUSES = [
+        "WORK_STARTED",
+        "IN_PROGRESS",
+        "WORK_COMPLETED",
+        "COMPLETED",
+        "CANCELLED",
+        "DISPUTED",
+      ];
+      if (WORK_STARTED_STATUSES.includes(existing.status)) {
+        throw new ErrorResponse(
+          `Task checklist cannot be modified once work has started (Current booking status: ${existing.status})`,
+          statusCode.Bad_Request
+        );
+      }
+    }
+
     // If labourId is changing, verify
     if (payload.labourId && payload.labourId !== existing.labourId) {
       const labour = await labourRepo.findById(payload.labourId, orgId);
       if (!labour) {
         throw new ErrorResponse("Labour not found or unauthorized", statusCode.Not_Found);
       }
+      await this.validateLabourAvailability(payload.labourId, id);
     }
 
     // If projectId is changing, verify
@@ -750,10 +806,20 @@ export class LabourBookingService {
   async updateStatus(
     id: string,
     status: any,
-    organizationId?: string
+    organizationId?: string,
+    isPlatformAdmin?: boolean
   ) {
-    await this.getBookingById(id, { organizationId });
-    return labourBookingRepo.update(id, { status });
+    const booking = await this.getBookingById(id, { organizationId, isPlatformAdmin });
+    const updated = await labourBookingRepo.update(id, {
+      status,
+      ...(status === "COMPLETED" && !booking.completedAt ? { completedAt: new Date() } : {}),
+    });
+
+    if (booking.projectServiceId) {
+      await projectServiceRepo.recalculateRollup(booking.projectServiceId);
+    }
+
+    return updated;
   }
 
   /**

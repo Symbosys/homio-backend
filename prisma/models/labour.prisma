@@ -477,7 +477,7 @@ model LabourDispute {
 
   hearingDate  DateTime? @map("hearing_date")
   evidenceDocs Json?     @map("evidence_docs") // Array of ImageType JSON (geotagged site photos, chat proof)
-  actionTaken  String?   @map("action_taken") // CLIENT_RATING_DOWN, CLIENT_BLACKLISTED, LABOUR_WARNED, LABOUR_BLACKLISTED
+  actionTaken  String?   @map("action_taken") // CLIENT_RATING_DOWN, CLIENT_BLACKLISTED, LABOUR_WARNED, LABOUR_BLACKLISTED,LABOUR_RATING_DOWN, LEGAL_ACTION
 
   additionalInformation Json? @map("additional_information")
 

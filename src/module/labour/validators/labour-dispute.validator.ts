@@ -251,6 +251,51 @@ export const disputeIdParamSchema = z.object({
   }),
 });
 
+/**
+ * 12. TAKE DISPUTE ACTION SCHEMA (PLATFORM ADMIN ACTIONS)
+ */
+export const DISPUTE_ACTION_ENUM = [
+  "CLIENT_RATING_DOWN",
+  "CLIENT_BLACKLISTED",
+  "LABOUR_WARNED",
+  "LABOUR_BLACKLISTED",
+  "LABOUR_RATING_DOWN",
+  "LEGAL_ACTION",
+] as const;
+
+export const takeDisputeActionSchema = z.object({
+  params: z.object({
+    id: z.string().uuid("Invalid dispute ID format"),
+  }),
+  body: z.object({
+    action: z.enum(DISPUTE_ACTION_ENUM),
+    // CLIENT_RATING_DOWN
+    clientRating: z.coerce.number().min(1.0).max(5.0).optional(),
+    ratingDeduction: z.coerce.number().positive().optional(),
+    // CLIENT_BLACKLISTED / LABOUR_BLACKLISTED
+    blacklistReason: z.string().min(3).optional(),
+    // LABOUR_WARNED
+    warningMessage: z.string().min(3).optional(),
+    // LABOUR_RATING_DOWN
+    labourRating: z.coerce.number().min(1.0).max(5.0).optional(),
+    // LEGAL_ACTION
+    lawyerAssigned: z.preprocess((v) => (typeof v === "string" ? v === "true" : v), z.boolean().optional()),
+    lawyerName: z.string().optional().nullable(),
+    lawyerPhone: z.string().optional().nullable(),
+    lawyerBarCouncilNo: z.string().optional().nullable(),
+    lawyerAssignedAt: z.coerce.date().optional().nullable(),
+    legalNoticeSent: z.preprocess((v) => (typeof v === "string" ? v === "true" : v), z.boolean().optional()),
+    legalNoticeDate: z.coerce.date().optional().nullable(),
+    legalNoticeDoc: imageTypeSchema.optional().nullable(),
+    labourCourtFiled: z.preprocess((v) => (typeof v === "string" ? v === "true" : v), z.boolean().optional()),
+    labourCourtCaseNo: z.string().optional().nullable(),
+    labourCourtDate: z.coerce.date().optional().nullable(),
+    hearingDate: z.coerce.date().optional().nullable(),
+    notes: z.string().optional().nullable(),
+    resolutionSummary: z.string().optional().nullable(),
+  }),
+});
+
 export type CreateLabourDisputeInput = z.infer<typeof createLabourDisputeSchema>["body"];
 export type ReportBypassAttemptInput = z.infer<typeof reportBypassAttemptSchema>["body"];
 export type ReportClientPaymentDueInput = z.infer<typeof reportClientPaymentDueSchema>["body"];
@@ -261,3 +306,4 @@ export type RecordLabourCourtActionInput = z.infer<typeof recordLabourCourtActio
 export type UpdateLabourDisputeInput = z.infer<typeof updateLabourDisputeSchema>["body"];
 export type UpdateDisputeStatusInput = z.infer<typeof updateDisputeStatusSchema>["body"];
 export type GetLabourDisputesQuery = z.infer<typeof getLabourDisputesQuerySchema>["query"];
+export type TakeDisputeActionInput = z.infer<typeof takeDisputeActionSchema>["body"];

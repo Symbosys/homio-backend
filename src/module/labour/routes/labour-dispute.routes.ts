@@ -14,6 +14,7 @@ import {
   updateLabourDispute,
   updateLabourDisputeStatus,
   deleteLabourDispute,
+  takeLabourDisputeAction,
 } from "../controllers/labour-dispute.controller.js";
 
 const router = Router();
@@ -102,5 +103,11 @@ router
  * @desc    Update dispute status
  */
 router.patch("/disputes/:id/status", updateLabourDisputeStatus);
+
+/**
+ * @route   PATCH /api/v1/labour/disputes/:id/take-action
+ * @desc    Platform Admin takes action against dispute (rating reduction, warning, blacklisting, legal proceedings)
+ */
+router.patch("/disputes/:id/take-action", takeLabourDisputeAction);
 
 export default router;

@@ -14,6 +14,7 @@ import {
   updateDisputeStatusSchema,
   getLabourDisputesQuerySchema,
   disputeIdParamSchema,
+  takeDisputeActionSchema,
 } from "../validators/labour-dispute.validator.js";
 
 /**
@@ -156,4 +157,16 @@ export const deleteLabourDispute = asyncHandler(async (req, res) => {
   const parsed = disputeIdParamSchema.parse({ params: req.params });
   await labourDisputeService.deleteDispute(parsed.params.id, req.user?.organizationId);
   return SuccessResponse(res, "Labour dispute deleted successfully", null, statusCode.OK);
+});
+
+/**
+ * @route   PATCH /api/v1/labour/disputes/:id/take-action
+ * @desc    Platform Admin takes action against dispute (rating reduction, warning, blacklisting, legal proceedings)
+ * @access  Private (Platform Admin)
+ */
+export const takeLabourDisputeAction = asyncHandler(async (req, res) => {
+  const parsed = takeDisputeActionSchema.parse({ params: req.params, body: req.body });
+  const adminUserId = req.user?.id;
+  const result = await labourDisputeService.takeDisputeAction(parsed.params.id, parsed.body, adminUserId);
+  return SuccessResponse(res, `Dispute action ${parsed.body.action} executed successfully`, result, statusCode.OK);
 });

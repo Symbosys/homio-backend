@@ -348,6 +348,27 @@ export class ProjectServiceRepository {
   }
 
   /**
+   * Cascade completion to all child labour bookings under a Project Service
+   */
+  async cascadeCompleteLabourBookings(projectServiceId: string, organizationId: string) {
+    return prisma.labourBooking.updateMany({
+      where: {
+        projectServiceId,
+        organizationId,
+        isDeleted: false,
+        status: {
+          notIn: ["COMPLETED", "CANCELLED"],
+        },
+      },
+      data: {
+        status: "COMPLETED",
+        completedAt: new Date(),
+        statusReason: "Automatically marked as completed via Project Service completion",
+      },
+    });
+  }
+
+  /**
    * Soft delete a Project Service
    */
   async delete(id: string, organizationId: string) {

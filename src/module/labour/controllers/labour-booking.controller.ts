@@ -320,9 +320,15 @@ export const updateLabourBooking = asyncHandler(async (req, res) => {
  * @access  Private (Authenticated Tenant User / Admin)
  */
 export const updateLabourBookingStatus = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId || undefined;
+  const isPlatformAdmin = (req.user?.userType as string) === "PLATFORM_ADMIN";
+  const organizationId = isPlatformAdmin ? undefined : (req.user?.organizationId || undefined);
   const parsed = updateBookingStatusSchema.parse({ params: req.params, body: req.body });
-  const result = await labourBookingService.updateStatus(parsed.params.id, parsed.body.status, organizationId);
+  const result = await labourBookingService.updateStatus(
+    parsed.params.id,
+    parsed.body.status,
+    organizationId,
+    isPlatformAdmin
+  );
   return SuccessResponse(res, "Labour booking status updated successfully", result, statusCode.OK);
 });
 
