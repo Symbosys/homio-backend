@@ -46,10 +46,12 @@ export class DoubtSolverChain {
       topicCategory
     );
 
-    // If platform admin defined a custom system prompt/guide in AiServiceRate, inject it with priority
+    // Ensure strict domain guardrails are always enforced at top priority
+    const guardrailDirective = `### STRICT DOMAIN GUARDRAIL: You are exclusively an Architecture, Interior Design, Construction & Vedic Vastu assistant. You MUST strictly refuse to answer any programming, software, or non-architectural questions under any circumstances.`;
+
     const systemPrompt = customSystemPrompt?.trim()
-      ? `${customSystemPrompt.trim()}\n\n### DOMAIN PROTOCOLS & ARCHITECTURAL GUIDELINES:\n${baseSystemPrompt}`
-      : baseSystemPrompt;
+      ? `${guardrailDirective}\n\n${customSystemPrompt.trim()}\n\n### DOMAIN PROTOCOLS & ARCHITECTURAL GUIDELINES:\n${baseSystemPrompt}`
+      : `${guardrailDirective}\n\n${baseSystemPrompt}`;
 
     // Build message thread context
     const messages: LlmMessage[] = [];
@@ -63,15 +65,21 @@ export class DoubtSolverChain {
       });
     }
 
-    // Append current user question with structured JSON instruction
+    // Append current user question with structured domain verification instruction
     const userPromptWithFormatting = `
 User Query: "${question}"
 
-Please provide a comprehensive, expert answer. 
-Respond in the following structured format with clear sections:
-1. An opening overview answering the question directly.
-2. A bulleted list of 3-6 distinct points with bold titles (e.g. "**Title**: Description").
-3. A concluding practical tip / execution note.
+CRITICAL DOMAIN GUARDRAIL CHECK:
+First, check if the user query is strictly related to architecture, interior design, civil construction, building materials, BoQ budgeting, or Vedic Vastu Shastra.
+- IF THE QUERY IS OUTSIDE THIS DOMAIN (e.g. computer programming, software development, Python, Next.js, JavaScript, OAuth, coding, general math, general trivia, recipes, gaming, etc.):
+  DO NOT answer the query. You MUST strictly refuse to answer. Politely state that you are exclusively specialized in architecture, interior design, building materials, and Vedic Vastu Shastra, and cannot assist with software programming or non-architectural topics. Do NOT provide any code, scripts, or out-of-domain answers under any conditions.
+- IF THE QUERY IS WITHIN DOMAIN:
+  Provide a comprehensive, expert answer.
+  FORMATTING INSTRUCTIONS:
+  * NEVER write markdown section titles or headers such as "### Introduction", "### Key Recommendations", "### Direct Answer", or "### Conclusion". Do NOT include raw "###" hashes.
+  * Begin directly with a concise 1-2 sentence direct opening answer paragraph.
+  * Next, provide 3 to 6 numbered recommendations with bold titles (e.g. "1. **Hardwood Flooring** – Description").
+  * Finish with a 1-2 sentence practical execution takeaway.
 `.trim();
 
     messages.push({
@@ -105,6 +113,20 @@ Respond in the following structured format with clear sections:
     let isCollectingPoints = false;
     let isCollectingConclusion = false;
 
+    // Helper to identify and strip section header lines
+    const isHeaderLine = (l: string) => {
+      const stripped = l.toLowerCase().replace(/^[#*_\s:]+|[#*_\s:]+$/g, "");
+      return (
+        stripped.startsWith("introduction") ||
+        stripped.startsWith("direct answer") ||
+        stripped.startsWith("key recommendation") ||
+        stripped.startsWith("recommendation") ||
+        stripped.startsWith("key point") ||
+        stripped.startsWith("overview") ||
+        stripped.startsWith("response guideline")
+      );
+    };
+
     // Regex to match bullet lines with bold title: - **Title**: Description or 1. **Title**: Description or * **Title** - Description
     const bulletPattern = /^[-*•\d.]+\s*(?:\*\*(.*?)\*\*|([A-Z][\w\s&/-]{2,30}):)\s*[:\-–]?\s*(.*)$/i;
 
@@ -117,33 +139,56 @@ Respond in the following structured format with clear sections:
       if (
         lowerLine.startsWith("**conclusion") ||
         lowerLine.startsWith("### conclusion") ||
+        lowerLine.startsWith("## conclusion") ||
+        lowerLine.startsWith("# conclusion") ||
         lowerLine.startsWith("**pro tip") ||
+        lowerLine.startsWith("### pro tip") ||
         lowerLine.startsWith("**takeaway") ||
+        lowerLine.startsWith("### takeaway") ||
         lowerLine.startsWith("**summary") ||
+        lowerLine.startsWith("### summary") ||
         lowerLine.startsWith("in conclusion")
       ) {
         isCollectingConclusion = true;
         isCollectingPoints = false;
-        const noteContent = line.replace(/^[#*]+\s*[^:]*:\s*/i, "");
-        if (noteContent) concludingLines.push(noteContent);
+        const noteContent = line
+          .replace(/^[#*]+\s*[^:]*:\s*/i, "")
+          .replace(/^#+\s*/, "")
+          .trim();
+        if (noteContent && !lowerLine.includes("conclusion")) {
+          concludingLines.push(noteContent);
+        }
         continue;
       }
 
       if (isCollectingConclusion) {
-        concludingLines.push(line);
+        const cleanConclusion = line.replace(/^#+\s*/, "").trim();
+        if (cleanConclusion) {
+          concludingLines.push(cleanConclusion);
+        }
+        continue;
+      }
+
+      // Skip lines that are purely section headers (e.g. ### Introduction, ### Key Recommendations)
+      if (line.startsWith("#") || isHeaderLine(line)) {
         continue;
       }
 
       const match = line.match(bulletPattern);
       if (match) {
         isCollectingPoints = true;
-        const title = (match[1] || match[2] || "").trim();
+        const title = (match[1] || match[2] || "")
+          .trim()
+          .replace(/^#+\s*/, "");
         const desc = (match[3] || "").trim();
         if (title) {
           points.push({ title, desc });
         }
       } else if (!isCollectingPoints && !isCollectingConclusion) {
-        introLines.push(line);
+        const cleanLine = line.replace(/^#+\s*/, "").trim();
+        if (cleanLine && !isHeaderLine(cleanLine)) {
+          introLines.push(cleanLine);
+        }
       } else if (isCollectingPoints && points.length > 0 && !line.startsWith("#")) {
         // Line might be continuation of previous point description
         const lastPoint = points[points.length - 1];
@@ -153,11 +198,25 @@ Respond in the following structured format with clear sections:
       }
     }
 
-    const messageText =
-      introLines.join(" ").trim() ||
-      (points.length > 0 ? "Here is the expert recommendation for your query:" : cleanText);
+    // Clean any remaining markdown header tokens like "### Introduction / Direct Answer" if embedded inside a line
+    const cleanIntro = introLines
+      .join(" ")
+      .replace(/#{1,6}\s*(Introduction\s*\/?\s*Direct Answer|Key Recommendations?|Recommendations?|Conclusion)?:?\s*/gi, "")
+      .replace(/#{1,6}\s+/g, "")
+      .trim();
 
-    const concludingNote = concludingLines.join(" ").trim() || undefined;
+    const messageText =
+      cleanIntro ||
+      (points.length > 0
+        ? "Here is the expert recommendation for your query:"
+        : cleanText.replace(/#{1,6}\s+/g, ""));
+
+    const concludingNote =
+      concludingLines
+        .join(" ")
+        .replace(/#{1,6}\s*(Conclusion|Pro Tip|Takeaway|Summary)?:?\s*/gi, "")
+        .replace(/#{1,6}\s+/g, "")
+        .trim() || undefined;
 
     return {
       messageText,

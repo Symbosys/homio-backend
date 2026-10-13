@@ -1,9 +1,6 @@
 import { prisma } from "../../../lib/prisma.js";
 import { AiStudioRepository } from "../repos/ai-studio.repository.js";
-import {
-  AiServiceType,
-  AiTransactionType,
-} from "../../../types/types.js";
+import { AiServiceType, AiTransactionType } from "../../../types/types.js";
 import type {
   CreateCreditPackInput,
   UpdateCreditPackInput,
@@ -55,7 +52,7 @@ export class AiStudioPlatformService {
 
   async getAllServiceRates() {
     const rates = await this.repo.findAllServiceRates();
-    
+
     // If rates table is empty, return default array or initialize
     if (rates.length === 0) {
       const defaultRates: Array<{
@@ -71,7 +68,8 @@ export class AiStudioPlatformService {
           name: "AI Room Designer",
           defaultCreditCost: 5,
           billingUnit: "per render",
-          description: "Multi-style photorealistic interior visual generation and style transfer",
+          description:
+            "Multi-style photorealistic interior visual generation and style transfer",
           modelKey: "gpt-4o-mini",
         },
         {
@@ -79,7 +77,8 @@ export class AiStudioPlatformService {
           name: "AI Vastu Spatial Audit",
           defaultCreditCost: 10,
           billingUnit: "per audit",
-          description: "16-zone Vedic directional energy audit, floor plan heatmaps and BOQ remedies",
+          description:
+            "16-zone Vedic directional energy audit, floor plan heatmaps and BOQ remedies",
           modelKey: "gpt-4o-mini",
         },
         {
@@ -87,7 +86,8 @@ export class AiStudioPlatformService {
           name: "AI Doubt Solver",
           defaultCreditCost: 1,
           billingUnit: "per query",
-          description: "Deducted per individual question asked to chatbot (e.g. 5 questions = 5x credit cost)",
+          description:
+            "Deducted per individual question asked to chatbot (e.g. 5 questions = 5x credit cost)",
           modelKey: "gpt-4o-mini",
         },
         {
@@ -95,7 +95,8 @@ export class AiStudioPlatformService {
           name: "AI 3D Mesh Generator",
           defaultCreditCost: 25,
           billingUnit: "per 3D mesh",
-          description: "Interactive 3D voxel energy mesh & walkthrough layout generation",
+          description:
+            "Interactive 3D voxel energy mesh & walkthrough layout generation",
           modelKey: "gpt-4o-mini",
         },
         {
@@ -103,7 +104,8 @@ export class AiStudioPlatformService {
           name: "AI Cinematic Video Walkthrough",
           defaultCreditCost: 50,
           billingUnit: "per 10s video",
-          description: "High-definition interior camera motion and lighting walkthrough render",
+          description:
+            "High-definition interior camera motion and lighting walkthrough render",
           modelKey: "gpt-4o-mini",
         },
       ];
@@ -114,7 +116,10 @@ export class AiStudioPlatformService {
     return rates;
   }
 
-  async updateServiceRate(serviceType: AiServiceType, input: UpdateServiceRateInput) {
+  async updateServiceRate(
+    serviceType: AiServiceType,
+    input: UpdateServiceRateInput,
+  ) {
     return this.repo.upsertServiceRate(serviceType, input);
   }
 
@@ -163,7 +168,9 @@ export class AiStudioPlatformService {
         orderBy: { createdAt: "asc" },
       });
       if (!orgAdmin) {
-        throw new Error(`No primary admin user found for organization ${input.organizationId}`);
+        throw new Error(
+          `No primary admin user found for organization ${input.organizationId}`,
+        );
       }
       targetUserId = orgAdmin.id;
     }
@@ -176,16 +183,20 @@ export class AiStudioPlatformService {
     if (input.creditPackId) {
       const pack = await this.repo.findCreditPackById(input.creditPackId);
       if (!pack) {
-        throw new Error(`Credit pack with ID ${input.creditPackId} does not exist`);
+        throw new Error(
+          `Credit pack with ID ${input.creditPackId} does not exist`,
+        );
       }
       creditsToAdd = pack.credits + (pack.bonusCredits || 0);
       if (amountPaid === undefined || amountPaid === null) {
         amountPaid = Number(pack.price);
       }
-      description = description || `Recharge with ${pack.name} (${creditsToAdd} Credits)`;
+      description =
+        description || `Recharge with ${pack.name} (${creditsToAdd} Credits)`;
     } else if (input.customCredits) {
       creditsToAdd = input.customCredits;
-      description = description || `Custom Admin Grant of ${creditsToAdd} Credits`;
+      description =
+        description || `Custom Admin Grant of ${creditsToAdd} Credits`;
     }
 
     if (creditsToAdd <= 0) {
