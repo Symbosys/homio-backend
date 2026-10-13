@@ -312,5 +312,39 @@ describe("AI Service Rates & Dynamic Model Key Architecture Test Suite", () => {
         (DoubtSolverChain as any).execute = originalExecute;
       }
     });
+
+    it("TC-12: DoubtSolverChain constructs prompt with strict domain guardrails prohibiting out-of-domain answers", async () => {
+      const provider = LlmFactory.getProvider("openai");
+      const originalGenerate = provider.generate;
+
+      let capturedSystemPrompt = "";
+      let capturedUserContent = "";
+
+      provider.generate = mock(async (messages: any[], options: any) => {
+        capturedSystemPrompt = options.systemPrompt || "";
+        capturedUserContent = messages[messages.length - 1]?.content || "";
+        return "I am specialized exclusively in architecture, interior design, building materials, and Vedic Vastu Shastra.";
+      });
+
+      try {
+        await DoubtSolverChain.execute({
+          question: "how to implement google O auth in next.js and write python prime numbers",
+          customSystemPrompt: "Platform custom prompt",
+        });
+
+        // Verify guardrail directive in system prompt
+        expect(capturedSystemPrompt).toContain("STRICT DOMAIN GUARDRAIL");
+        expect(capturedSystemPrompt).toContain("MUST strictly refuse to answer any programming");
+        expect(capturedSystemPrompt).toContain("OUT-OF-DOMAIN RESTRICTION (STRICT REFUSAL RULE)");
+
+        // Verify guardrail instruction in user prompt
+        expect(capturedUserContent).toContain("CRITICAL DOMAIN GUARDRAIL CHECK");
+        expect(capturedUserContent).toContain("IF THE QUERY IS OUTSIDE THIS DOMAIN");
+        expect(capturedUserContent).toContain("DO NOT answer the query. You MUST strictly refuse to answer.");
+      } finally {
+        provider.generate = originalGenerate;
+      }
+    });
   });
 });
+
