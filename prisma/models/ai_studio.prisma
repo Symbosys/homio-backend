@@ -71,6 +71,7 @@ model AiServiceRate {
   defaultCreditCost Int           @map("default_credit_cost") // e.g., 5 Credits
   billingUnit       String        @default("per render") @map("billing_unit") // "per render", "per audit", "per query"
   description       String?       @map("description")
+  modelKey          String        @default("gpt-4o-mini") @map("model_key")
   isActive          Boolean       @default(true) @map("is_active")
 
   // Dynamic Metadata

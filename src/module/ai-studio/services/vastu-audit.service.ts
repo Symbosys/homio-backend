@@ -46,9 +46,10 @@ export class VastuAuditService {
       throw err;
     }
 
-    // 2. Fetch platform service rate for custom system prompt/guide and credit cost
+    // 2. Fetch platform service rate for custom system prompt/guide, model and credit cost
     const rate = await this.repo.getVastuServiceRate();
     const customSystemPrompt = rate?.description?.trim() || undefined;
+    const model = rate?.modelKey?.trim() || "gpt-4o-mini";
 
     // 3. Execute deep 16-zone Vedic analysis via LangChain
     const auditResult = await VastuAuditChain.executeAudit({
@@ -64,6 +65,7 @@ export class VastuAuditService {
       hasFloorPlan: Boolean(input.floorPlanUrl),
       hasSitePhotos: Boolean(input.sitePhotos && input.sitePhotos.length > 0),
       customSystemPrompt,
+      model,
     });
 
     const executionDurationMs = Date.now() - startTime;

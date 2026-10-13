@@ -10,6 +10,7 @@ export interface RoomDesignPromptInput {
   customInstructions?: string;
   hasBeforeImage?: boolean;
   customSystemPrompt?: string;
+  model?: string;
 }
 
 /**
@@ -33,6 +34,7 @@ export class RoomDesignChain {
       customInstructions = "",
       hasBeforeImage = false,
       customSystemPrompt,
+      model,
     } = input;
 
     const llm = LlmFactory.getProvider("openai");
@@ -84,10 +86,16 @@ Please synthesize this into an ultra-realistic 8K architectural interior photogr
     };
 
     try {
+      const promptModel =
+        model && !model.startsWith("dall") && !model.startsWith("gpt-image")
+          ? model
+          : "gpt-4o-mini";
+
       const generatedPrompt = await llm.generate([userMessage], {
         systemPrompt,
         temperature: 0.25,
         maxTokens: 400,
+        model: promptModel,
       });
 
       const cleanPrompt = generatedPrompt

@@ -67,9 +67,10 @@ export class DoubtSolverService {
         messageText: input.initialQuestion,
       });
 
-      // Fetch platform service rate for custom system prompt/guide
+      // Fetch platform service rate for custom system prompt/guide and model
       const rate = await this.repo.getDoubtSolverServiceRate();
       const customSystemPrompt = rate?.description?.trim() || undefined;
+      const model = rate?.modelKey?.trim() || "gpt-4o-mini";
 
       // Run LangChain AI generation
       const aiResult = await DoubtSolverChain.execute({
@@ -78,6 +79,7 @@ export class DoubtSolverService {
         intelligenceMode: doubtSession.intelligenceMode,
         history: [],
         customSystemPrompt,
+        model,
       });
 
       // Add AI response message
@@ -137,6 +139,7 @@ export class DoubtSolverService {
     const rate = await this.repo.getDoubtSolverServiceRate();
     const cost = rate?.defaultCreditCost ?? 10;
     const customSystemPrompt = rate?.description?.trim() || undefined;
+    const model = rate?.modelKey?.trim() || "gpt-4o-mini";
     const wallet = await this.repo.findOrCreateWallet(userId);
 
     if (wallet.currentBalance < cost) {
@@ -161,7 +164,7 @@ export class DoubtSolverService {
       messageText: m.messageText,
     }));
 
-    // 5. Execute LangChain AI Generation with platform injected system prompt
+    // 5. Execute LangChain AI Generation with platform injected system prompt & dynamic model
     const intelligenceMode =
       input.intelligenceMode || doubtSession.intelligenceMode || "smart";
     const topicCategory =
@@ -173,6 +176,7 @@ export class DoubtSolverService {
       intelligenceMode,
       history,
       customSystemPrompt,
+      model,
     });
 
     // 6. Record AI Response Message

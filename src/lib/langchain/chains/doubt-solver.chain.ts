@@ -16,6 +16,7 @@ export interface DoubtSolverChainInput {
   }>;
   provider?: string;
   customSystemPrompt?: string;
+  model?: string;
 }
 
 /**
@@ -36,6 +37,7 @@ export class DoubtSolverChain {
       history = [],
       provider,
       customSystemPrompt,
+      model,
     } = input;
 
     const llm = LlmFactory.getProvider(provider || "openai");
@@ -81,6 +83,7 @@ Respond in the following structured format with clear sections:
       systemPrompt,
       temperature: 0.35,
       maxTokens: 2500,
+      model: model || "gpt-4o-mini",
     });
 
     return this.parseStructuredResponse(rawResponse);

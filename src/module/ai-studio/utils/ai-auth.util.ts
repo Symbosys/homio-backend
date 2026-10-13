@@ -1,5 +1,5 @@
 import { prisma } from "../../../lib/prisma.js";
-import { statusCode } from "../../../types/types.js";
+import { statusCode, UserType } from "../../../types/types.js";
 import { ErrorResponse } from "../../../utils/response.util.js";
 import type { AuthenticatedUser } from "../../../middlewares/auth.middleware.js";
 
@@ -13,14 +13,14 @@ export interface ResolvedAiTargetUser {
  * Resolves and authorizes the effective AI wallet owner for the given request context.
  * 
  * Standard Behavior:
- * 1. Retail Client (no organizationId):
- *    - Always operates on their own user wallet (caller.id).
- *    - Any attempt to access another user's wallet is rejected unless caller is PLATFORM_ADMIN.
- * 2. Platform Admin:
+ * 1. Platform Admin (userType = UserType.PLATFORM_ADMIN):
  *    - Can specify any valid user ID via requestedOrgUserId or operates on self.
- * 3. Organization Admin (userType = 'ADMIN' with organizationId):
+ * 2. Retail / Direct User (no organizationId, userType = UserType.USER):
+ *    - Always operates on their own user wallet (caller.id).
+ *    - Any attempt to access another user's wallet is rejected with 403 Forbidden.
+ * 3. Organization Admin (userType = UserType.ADMIN with organizationId):
  *    - Operates on self (caller.id), who acts as the primary holder of the organization's AI credits.
- * 4. Organization Employee (userType = 'USER' or other with organizationId):
+ * 4. Organization Employee (userType = UserType.USER / LABOUR with organizationId):
  *    - If requestedOrgUserId is supplied:
  *        - Validates that the requested target user belongs to the SAME organizationId.
  *        - If target user does not belong to the same organization, rejects with 403 Forbidden.
@@ -55,7 +55,7 @@ export async function resolveAiTargetUser(
   }
 
   // 1. Platform Admin override
-  if (caller.userType === "PLATFORM_ADMIN") {
+  if (caller.userType === UserType.PLATFORM_ADMIN) {
     if (requestedOrgUserId) {
       const targetExists = await prisma.user.findUnique({
         where: { id: requestedOrgUserId },
@@ -77,11 +77,11 @@ export async function resolveAiTargetUser(
     };
   }
 
-  // 2. Retail Client / Client Portal User (Directly client user-centric)
-  if (!caller.organizationId || caller.userType === "USER") {
+  // 2. Retail / Direct User (No organizationId)
+  if (!caller.organizationId) {
     if (requestedOrgUserId && requestedOrgUserId !== caller.id) {
       throw new ErrorResponse(
-        "Forbidden: Retail and client accounts cannot access other user credit pools",
+        "Retail client accounts cannot access other user credit pools",
         statusCode.Forbidden
       );
     }
@@ -93,7 +93,7 @@ export async function resolveAiTargetUser(
   }
 
   // 3. Organization Admin (Owner of the organization credit pool)
-  if (caller.userType === "ADMIN") {
+  if (caller.userType === UserType.ADMIN) {
     // If Org Admin specifically targets another user within their organization, verify ownership
     if (requestedOrgUserId && requestedOrgUserId !== caller.id) {
       const orgMember = await prisma.user.findFirst({
@@ -151,7 +151,7 @@ export async function resolveAiTargetUser(
   const primaryOrgAdmin = await prisma.user.findFirst({
     where: {
       organizationId: caller.organizationId,
-      userType: "ADMIN",
+      userType: UserType.ADMIN,
     },
     orderBy: { createdAt: "asc" },
     select: { id: true },

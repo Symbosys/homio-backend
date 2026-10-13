@@ -24,6 +24,8 @@ import {
 } from "../../src/module/ai-studio/validators/ai-studio.validator.js";
 import { prisma } from "../../src/lib/prisma.js";
 
+import { statusCode, UserType } from "../../src/types/types.js";
+
 // Mock IDs
 const MOCK_CLIENT_USER_ID = "11111111-1111-4111-a111-111111111111";
 const MOCK_ORG_A_ID = "22222222-2222-4222-a222-222222222222";
@@ -39,11 +41,11 @@ describe("User-Centric AI Studio Multi-Tenant Architecture Test Suite", () => {
   // 1. Target User Resolution & Security Boundary Tests (ai-auth.util)
   // =========================================================================
   describe("1. Target User Resolution & Multi-Tenant Boundary Enforcement", () => {
-    it("TC-01: Retail Client Context: Resolves directly to caller userId when organizationId is absent", async () => {
+    it("TC-01: Direct User Context: Resolves directly to caller userId when organizationId is absent", async () => {
       const caller: any = {
         id: MOCK_CLIENT_USER_ID,
         organizationId: null,
-        userType: "CLIENT",
+        userType: UserType.USER,
       };
 
       const result = await resolveAiTargetUser(caller);
@@ -52,11 +54,11 @@ describe("User-Centric AI Studio Multi-Tenant Architecture Test Suite", () => {
       expect(result.actorEmployeeId).toBeNull();
     });
 
-    it("TC-01b: Retail Client Context: Rejects passing orgUserId with 403 Forbidden", async () => {
+    it("TC-01b: Direct User Context: Rejects passing orgUserId with 403 Forbidden", async () => {
       const caller: any = {
         id: MOCK_CLIENT_USER_ID,
         organizationId: null,
-        userType: "CLIENT",
+        userType: UserType.USER,
       };
 
       let thrownError: any = null;

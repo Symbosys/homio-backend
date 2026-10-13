@@ -64,6 +64,7 @@ export class AiStudioPlatformService {
         defaultCreditCost: number;
         billingUnit: string;
         description: string;
+        modelKey: string;
       }> = [
         {
           serviceType: AiServiceType.ROOM_DESIGN,
@@ -71,6 +72,7 @@ export class AiStudioPlatformService {
           defaultCreditCost: 5,
           billingUnit: "per render",
           description: "Multi-style photorealistic interior visual generation and style transfer",
+          modelKey: "gpt-4o-mini",
         },
         {
           serviceType: AiServiceType.VASTU_CONSULTATION,
@@ -78,6 +80,7 @@ export class AiStudioPlatformService {
           defaultCreditCost: 10,
           billingUnit: "per audit",
           description: "16-zone Vedic directional energy audit, floor plan heatmaps and BOQ remedies",
+          modelKey: "gpt-4o-mini",
         },
         {
           serviceType: AiServiceType.DOUBT_SOLVER,
@@ -85,6 +88,7 @@ export class AiStudioPlatformService {
           defaultCreditCost: 1,
           billingUnit: "per query",
           description: "Deducted per individual question asked to chatbot (e.g. 5 questions = 5x credit cost)",
+          modelKey: "gpt-4o-mini",
         },
         {
           serviceType: AiServiceType.THREE_D_DESIGN,
@@ -92,6 +96,7 @@ export class AiStudioPlatformService {
           defaultCreditCost: 25,
           billingUnit: "per 3D mesh",
           description: "Interactive 3D voxel energy mesh & walkthrough layout generation",
+          modelKey: "gpt-4o-mini",
         },
         {
           serviceType: AiServiceType.VIDEO_DESIGN,
@@ -99,6 +104,7 @@ export class AiStudioPlatformService {
           defaultCreditCost: 50,
           billingUnit: "per 10s video",
           description: "High-definition interior camera motion and lighting walkthrough render",
+          modelKey: "gpt-4o-mini",
         },
       ];
 

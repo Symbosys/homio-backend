@@ -38,6 +38,7 @@ export const UpdateServiceRateSchema = z.object({
   defaultCreditCost: z.number().int().nonnegative("Credit cost must be 0 or a positive integer"),
   billingUnit: z.string().min(1).max(50).default("per render"),
   description: z.string().optional().nullable(),
+  modelKey: z.string().trim().min(1, "Model key is required").default("gpt-4o-mini"),
   isActive: z.boolean().default(true),
   additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
 });

@@ -14,6 +14,7 @@ export interface VastuAuditInput {
   hasFloorPlan?: boolean;
   hasSitePhotos?: boolean;
   customSystemPrompt?: string;
+  model?: string;
 }
 
 export interface ZoneEvaluation {
@@ -214,6 +215,7 @@ Return a valid JSON object matching this exact structure:
         temperature: 0.3,
         maxTokens: 3500,
         jsonMode: true,
+        model: input.model || "gpt-4o-mini",
       });
 
       const cleanJson = response

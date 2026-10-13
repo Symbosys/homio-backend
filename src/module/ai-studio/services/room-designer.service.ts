@@ -56,9 +56,10 @@ export class RoomDesignerService {
       input.beforeImage || (input.beforeImages && input.beforeImages.length > 0)
     );
 
-    // Fetch platform service rate for custom system prompt/guide
+    // Fetch platform service rate for custom system prompt/guide and model
     const rate = await this.repo.getRoomDesignerServiceRate();
     const customSystemPrompt = rate?.description?.trim() || undefined;
+    const model = rate?.modelKey?.trim() || "gpt-4o-mini";
 
     const synthesizedPrompt = await RoomDesignChain.synthesizePrompt({
       roomType: input.roomType,
@@ -69,9 +70,13 @@ export class RoomDesignerService {
       customInstructions: input.customInstructions,
       hasBeforeImage,
       customSystemPrompt,
+      model,
     });
 
-    const imageModel = (process.env.OPENAI_IMAGE_MODEL as any) || "gpt-image-1";
+    const imageModel =
+      model.startsWith("dall") || model.startsWith("gpt-image")
+        ? (model as any)
+        : (process.env.OPENAI_IMAGE_MODEL as any) || "gpt-image-1";
 
     // 3. Generate photorealistic renders with OpenAI & store in Cloud Storage
     const imageResult = await OpenAiImageService.generateRoomImages({
