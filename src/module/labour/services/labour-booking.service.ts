@@ -47,9 +47,10 @@ export class LabourBookingService {
       throw new ErrorResponse("Labour not found or unauthorized", statusCode.Not_Found);
     }
 
-    // 2. Verify project belongs to tenant
+    // 2. Verify project belongs to tenant and fetch linked project site
     const project = await prisma.project.findFirst({
       where: { id: payload.projectId, organizationId, isDeleted: false },
+      include: { site: true },
     });
     if (!project) {
       throw new ErrorResponse("Project not found or unauthorized", statusCode.Not_Found);
@@ -77,8 +78,44 @@ export class LabourBookingService {
     // 5. Calculate total budget
     const totalBudget = payload.agreedDailyRate * (payload.estimatedDays || 1);
 
+    // Auto-populate service location and attendance geofence from ProjectSite if not provided
+    const site = project.site;
+    const serviceAddress = payload.serviceAddress ?? site?.address ?? null;
+    const locality = payload.locality ?? site?.siteName ?? null;
+    const city = payload.city ?? site?.city ?? null;
+    const state = payload.state ?? site?.state ?? null;
+    const pincode = payload.pincode ?? site?.pincode ?? null;
+    const latitude =
+      payload.latitude !== undefined && payload.latitude !== null
+        ? payload.latitude
+        : site?.gpsLat != null
+          ? site.gpsLat
+          : null;
+    const longitude =
+      payload.longitude !== undefined && payload.longitude !== null
+        ? payload.longitude
+        : site?.gpsLng != null
+          ? site.gpsLng
+          : null;
+    const geofenceRadius = payload.geofenceRadius ?? site?.punchRadiusMeters ?? 200;
+    const isStrictGeofence =
+      payload.isStrictGeofence !== undefined
+        ? payload.isStrictGeofence
+        : site?.isPunchGeofenceStrict !== undefined
+          ? site.isPunchGeofenceStrict
+          : true;
+
     const booking = await labourBookingRepo.create({
       ...payload,
+      serviceAddress,
+      locality,
+      city,
+      state,
+      pincode,
+      latitude,
+      longitude,
+      geofenceRadius,
+      isStrictGeofence,
       organizationId,
       channel: "ORGANIZATION_PROJECT",
       commissionRate: 0.00,
@@ -164,6 +201,8 @@ export class LabourBookingService {
       pincode: payload.pincode,
       latitude: payload.latitude,
       longitude: payload.longitude,
+      geofenceRadius: payload.geofenceRadius ?? 200,
+      isStrictGeofence: payload.isStrictGeofence !== undefined ? payload.isStrictGeofence : true,
       startDate,
       endDate,
       termsAccepted: true,
@@ -629,14 +668,27 @@ export class LabourBookingService {
   }
 
   /**
-   * Full symmetric update of booking (Org/Admin)
+   * Full symmetric update of booking (Org/Client/Admin)
    */
-  async updateBooking(id: string, payload: UpdateLabourBookingInput, organizationId?: string) {
-    const existing = await this.getBookingById(id, { organizationId });
+  async updateBooking(
+    id: string,
+    payload: UpdateLabourBookingInput,
+    scope?:
+      | string
+      | {
+          organizationId?: string | null;
+          clientId?: string | null;
+          workerUserId?: string | null;
+          isPlatformAdmin?: boolean;
+        }
+  ) {
+    const normalizedScope = typeof scope === "string" ? { organizationId: scope } : scope;
+    const existing = await this.getBookingById(id, normalizedScope);
+    const orgId = normalizedScope?.organizationId || existing.organizationId || undefined;
 
     // If labourId is changing, verify
     if (payload.labourId && payload.labourId !== existing.labourId) {
-      const labour = await labourRepo.findById(payload.labourId, organizationId);
+      const labour = await labourRepo.findById(payload.labourId, orgId);
       if (!labour) {
         throw new ErrorResponse("Labour not found or unauthorized", statusCode.Not_Found);
       }
@@ -646,7 +698,7 @@ export class LabourBookingService {
     const targetProjectId = payload.projectId || existing.projectId;
     if (payload.projectId && payload.projectId !== existing.projectId) {
       const project = await prisma.project.findFirst({
-        where: { id: payload.projectId, ...(organizationId && { organizationId }), isDeleted: false },
+        where: { id: payload.projectId, ...(orgId && { organizationId: orgId }), isDeleted: false },
       });
       if (!project) {
         throw new ErrorResponse("Project not found or unauthorized", statusCode.Not_Found);
@@ -658,7 +710,7 @@ export class LabourBookingService {
       const projectService = await prisma.projectService.findFirst({
         where: {
           id: payload.projectServiceId,
-          ...(organizationId && { organizationId }),
+          ...(orgId && { organizationId: orgId }),
           projectId: targetProjectId!,
           isDeleted: false,
         },

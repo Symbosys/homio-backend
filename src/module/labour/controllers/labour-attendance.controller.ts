@@ -15,53 +15,48 @@ import {
 /**
  * @route   GET /api/v1/labour/attendances/today-status
  * @desc    Fetch today's attendance status, active booking, and project site geofence
- * @access  Private (Authenticated Tenant User)
+ * @access  Private (Authenticated User - Labour, Org Staff, or Platform Admin)
  */
 export const getTodayStatus = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+  if (!req.user) {
+    throw new ErrorResponse("Authentication required", statusCode.Unauthorized);
   }
 
   const labourId = typeof req.query.labourId === "string" ? req.query.labourId : undefined;
-  const userId = req.user?.id;
-
-  const result = await labourAttendanceService.getTodayStatus(organizationId, labourId, userId);
+  const result = await labourAttendanceService.getTodayStatus(req.user, labourId);
   return SuccessResponse(res, "Today's attendance status retrieved successfully", result, statusCode.OK);
 });
 
 /**
  * @route   POST /api/v1/labour/attendances/punch-in
- * @desc    Geofenced punch-in with live camera selfie and GPS distance calculation
- * @access  Private (Authenticated Tenant User)
+ * @desc    Geofenced punch-in with live camera selfie and GPS distance calculation (Requires active service booking)
+ * @access  Private (Authenticated Labour Worker or Org Supervisor)
  */
 export const punchIn = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+  if (!req.user) {
+    throw new ErrorResponse("Authentication required", statusCode.Unauthorized);
   }
 
   const parsed = punchInSchema.parse({ body: req.body });
-  const result = await labourAttendanceService.punchIn(parsed.body, organizationId, req.file);
+  const result = await labourAttendanceService.punchIn(parsed.body, req.user, req.file);
   return SuccessResponse(res, "Attendance punch-in recorded successfully", result, statusCode.Created);
 });
 
 /**
  * @route   POST /api/v1/labour/attendances/:id/punch-out
- * @desc    Geofenced punch-out with live camera selfie and automated hour calculation
- * @access  Private (Authenticated Tenant User)
+ * @desc    Geofenced punch-out with live camera selfie and automated hour/wage calculation
+ * @access  Private (Authenticated Labour Worker or Org Supervisor)
  */
 export const punchOut = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+  if (!req.user) {
+    throw new ErrorResponse("Authentication required", statusCode.Unauthorized);
   }
 
   const parsed = punchOutSchema.parse({ params: req.params, body: req.body });
   const result = await labourAttendanceService.punchOut(
     parsed.params.id,
     parsed.body,
-    organizationId,
+    req.user,
     req.file
   );
   return SuccessResponse(res, "Attendance punch-out recorded successfully", result, statusCode.OK);
@@ -70,67 +65,63 @@ export const punchOut = asyncHandler(async (req, res) => {
 /**
  * @route   POST /api/v1/labour/attendances/manual
  * @desc    Manual attendance entry by site supervisor
- * @access  Private (Authenticated Tenant User)
+ * @access  Private (Authenticated Tenant Staff)
  */
 export const createManualAttendance = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+  if (!req.user) {
+    throw new ErrorResponse("Authentication required", statusCode.Unauthorized);
   }
 
   const parsed = createManualAttendanceSchema.parse({ body: req.body });
-  const result = await labourAttendanceService.createManualAttendance(parsed.body, organizationId);
+  const result = await labourAttendanceService.createManualAttendance(parsed.body, req.user);
   return SuccessResponse(res, "Manual attendance created successfully", result, statusCode.Created);
 });
 
 /**
  * @route   GET /api/v1/labour/attendances
  * @desc    Fetch paginated attendance records with site and status filters
- * @access  Private (Authenticated Tenant User)
+ * @access  Private (Authenticated User)
  */
 export const getAllAttendances = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+  if (!req.user) {
+    throw new ErrorResponse("Authentication required", statusCode.Unauthorized);
   }
 
   const parsed = getAttendancesQuerySchema.parse({ query: req.query });
-  const result = await labourAttendanceService.getAttendances(parsed.query, organizationId);
+  const result = await labourAttendanceService.getAttendances(parsed.query, req.user);
   return SuccessResponse(res, "Labour attendances retrieved successfully", result, statusCode.OK);
 });
 
 /**
  * @route   GET /api/v1/labour/attendances/:id
  * @desc    Get detailed attendance record by ID
- * @access  Private (Authenticated Tenant User)
+ * @access  Private (Authenticated User)
  */
 export const getAttendanceById = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+  if (!req.user) {
+    throw new ErrorResponse("Authentication required", statusCode.Unauthorized);
   }
 
   const parsed = attendanceIdParamSchema.parse({ params: req.params });
-  const result = await labourAttendanceService.getAttendanceById(parsed.params.id, organizationId);
+  const result = await labourAttendanceService.getAttendanceById(parsed.params.id, req.user);
   return SuccessResponse(res, "Labour attendance retrieved successfully", result, statusCode.OK);
 });
 
 /**
  * @route   PUT /api/v1/labour/attendances/:id
  * @desc    Full symmetric update of attendance record (Rule 19)
- * @access  Private (Authenticated Tenant User)
+ * @access  Private (Authenticated User)
  */
 export const updateAttendance = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+  if (!req.user) {
+    throw new ErrorResponse("Authentication required", statusCode.Unauthorized);
   }
 
   const parsed = updateAttendanceSchema.parse({ params: req.params, body: req.body });
   const result = await labourAttendanceService.updateAttendance(
     parsed.params.id,
     parsed.body,
-    organizationId
+    req.user
   );
   return SuccessResponse(res, "Labour attendance updated successfully", result, statusCode.OK);
 });
@@ -138,19 +129,18 @@ export const updateAttendance = asyncHandler(async (req, res) => {
 /**
  * @route   PATCH /api/v1/labour/attendances/:id/approve
  * @desc    Supervisor sign-off and approval of attendance shift
- * @access  Private (Authenticated Tenant User)
+ * @access  Private (Authenticated User)
  */
 export const approveAttendance = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+  if (!req.user) {
+    throw new ErrorResponse("Authentication required", statusCode.Unauthorized);
   }
 
   const parsed = approveAttendanceSchema.parse({ params: req.params, body: req.body });
   const result = await labourAttendanceService.approveAttendance(
     parsed.params.id,
     parsed.body,
-    organizationId
+    req.user
   );
   return SuccessResponse(res, "Attendance approved successfully", result, statusCode.OK);
 });
@@ -158,15 +148,14 @@ export const approveAttendance = asyncHandler(async (req, res) => {
 /**
  * @route   DELETE /api/v1/labour/attendances/:id
  * @desc    Delete attendance record and prune associated cloud selfies
- * @access  Private (Authenticated Tenant User)
+ * @access  Private (Authenticated User)
  */
 export const deleteAttendance = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+  if (!req.user) {
+    throw new ErrorResponse("Authentication required", statusCode.Unauthorized);
   }
 
   const parsed = attendanceIdParamSchema.parse({ params: req.params });
-  await labourAttendanceService.deleteAttendance(parsed.params.id, organizationId);
+  await labourAttendanceService.deleteAttendance(parsed.params.id, req.user);
   return SuccessResponse(res, "Labour attendance deleted successfully", null, statusCode.OK);
 });

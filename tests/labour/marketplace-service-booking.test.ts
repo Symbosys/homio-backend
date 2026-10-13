@@ -48,6 +48,10 @@ describe("Marketplace Labour Service Booking Module Tests", () => {
           state: "Karnataka",
           pincode: "560038",
           termsAccepted: true,
+          latitude: 12.9716,
+          longitude: 77.5946,
+          geofenceRadius: 300,
+          isStrictGeofence: true,
           additionalInformation: {
             apartmentFloor: 4,
             hasServiceElevator: true,
@@ -60,8 +64,31 @@ describe("Marketplace Labour Service Booking Module Tests", () => {
       expect(parsed.body.labourId).toBe(mockLabourId);
       expect(parsed.body.locality).toBe("Indiranagar");
       expect(parsed.body.city).toBe("Bengaluru");
+      expect(parsed.body.latitude).toBe(12.9716);
+      expect(parsed.body.longitude).toBe(77.5946);
+      expect(parsed.body.geofenceRadius).toBe(300);
+      expect(parsed.body.isStrictGeofence).toBe(true);
       expect(parsed.body.termsAccepted).toBe(true);
       expect(parsed.body.additionalInformation?.apartmentFloor).toBe(4);
+    });
+
+    it("should default geofenceRadius to 200 and isStrictGeofence to true if omitted", () => {
+      const payload = {
+        body: {
+          labourId: mockLabourId,
+          workTitle: "Plumbing check",
+          startDate: new Date().toISOString(),
+          serviceAddress: "Flat 101, Test Lane",
+          locality: "Koramangala",
+          city: "Bengaluru",
+          state: "Karnataka",
+          termsAccepted: true,
+        },
+      };
+
+      const parsed = createMarketplaceBookingSchema.parse(payload);
+      expect(parsed.body.geofenceRadius).toBe(200);
+      expect(parsed.body.isStrictGeofence).toBe(true);
     });
 
     it("should reject marketplace booking request when termsAccepted is false", () => {

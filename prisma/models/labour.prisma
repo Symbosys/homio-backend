@@ -239,13 +239,15 @@ model LabourBooking {
   endDate         DateTime @map("end_date")   @db.Date
 
   // 5. Service Location (Client Home Address & Explicit Locality)
-  serviceAddress String?  @map("service_address")
-  locality       String?  @map("locality") // Explicit locality box
-  city           String?  @map("city")
-  state          String?  @map("state")
-  pincode        String?  @map("pincode")
-  latitude       Decimal? @map("latitude")  @db.Decimal(10, 7)
-  longitude      Decimal? @map("longitude") @db.Decimal(10, 7)
+  serviceAddress   String?  @map("service_address")
+  locality         String?  @map("locality") // Explicit locality box
+  city             String?  @map("city")
+  state            String?  @map("state")
+  pincode          String?  @map("pincode")
+  latitude         Decimal? @map("latitude")  @db.Decimal(10, 7)
+  longitude        Decimal? @map("longitude") @db.Decimal(10, 7)
+  geofenceRadius   Int      @default(200) @map("geofence_radius")
+  isStrictGeofence Boolean  @default(true) @map("is_strict_geofence")
 
   // 6. Terms & Conditions Acceptance (Flowchart: Terms and Conditions Acceptance)
   termsAccepted   Boolean   @default(false) @map("terms_accepted")
@@ -335,6 +337,7 @@ model LabourAttendance {
   punchInLatitude        Decimal?  @map("punch_in_latitude") @db.Decimal(10, 7)
   punchInLongitude       Decimal?  @map("punch_in_longitude") @db.Decimal(10, 7)
   punchInDistanceMeters  Float?    @map("punch_in_distance_meters")
+  punchInAddress         String?   @map("punch_in_address")
   punchInPhoto           Json?     @map("punch_in_photo") // ImageType JSON
 
   // Punch Out Data
@@ -342,9 +345,11 @@ model LabourAttendance {
   punchOutLatitude       Decimal?  @map("punch_out_latitude") @db.Decimal(10, 7)
   punchOutLongitude      Decimal?  @map("punch_out_longitude") @db.Decimal(10, 7)
   punchOutDistanceMeters Float?    @map("punch_out_distance_meters")
+  punchOutAddress        String?   @map("punch_out_address")
   punchOutPhoto          Json?     @map("punch_out_photo")
 
-  // Work Hours & Wage Multiplier
+  // Work Hours, Wage & Notes
+  workNotes   String?  @map("work_notes") @db.Text
   hoursWorked Decimal? @map("hours_worked") @db.Decimal(4, 2)
   rateApplied Decimal? @map("rate_applied") @db.Decimal(10, 2)
   wageEarned  Decimal? @map("wage_earned")  @db.Decimal(10, 2)

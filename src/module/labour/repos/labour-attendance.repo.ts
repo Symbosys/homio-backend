@@ -23,6 +23,60 @@ export class LabourAttendanceRepo {
         labourId,
         attendanceDate,
       },
+      include: {
+        booking: true,
+        projectSite: true,
+      },
+    });
+  }
+
+  /**
+   * Find currently active punched-in shift for worker
+   */
+  async findActivePunchedIn(labourId: string, bookingId?: string) {
+    return prisma.labourAttendance.findFirst({
+      where: {
+        labourId,
+        ...(bookingId ? { bookingId } : {}),
+        punchInTime: { not: null },
+        punchOutTime: null,
+      },
+      include: {
+        booking: {
+          include: {
+            project: { include: { site: true } },
+            client: true,
+          },
+        },
+        projectSite: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  /**
+   * Find today's attendance record for specific booking
+   */
+  async findTodayAttendanceByBooking(labourId: string, bookingId: string, date: Date) {
+    const startOfDay = new Date(date);
+    startOfDay.setUTCHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setUTCHours(23, 59, 59, 999);
+
+    return prisma.labourAttendance.findFirst({
+      where: {
+        labourId,
+        bookingId,
+        attendanceDate: {
+          gte: startOfDay,
+          lte: endOfDay,
+        },
+      },
+      include: {
+        booking: true,
+        projectSite: true,
+      },
+      orderBy: { createdAt: "desc" },
     });
   }
 
@@ -69,19 +123,63 @@ export class LabourAttendanceRepo {
             },
           },
         },
+        booking: {
+          select: {
+            id: true,
+            bookingNumber: true,
+            workTitle: true,
+            agreedDailyRate: true,
+            status: true,
+            latitude: true,
+            longitude: true,
+            geofenceRadius: true,
+            isStrictGeofence: true,
+            serviceAddress: true,
+            locality: true,
+            city: true,
+            state: true,
+          },
+        },
       },
     });
   }
 
   /**
-   * Find attendance by ID with tenant verification
+   * Find attendance by ID with flexible scoping (Org, Worker, or Platform Admin)
    */
-  async findById(id: string, organizationId: string) {
+  async findById(
+    id: string,
+    scope?:
+      | string
+      | null
+      | {
+          organizationId?: string | null;
+          workerUserId?: string | null;
+          labourId?: string | null;
+          isPlatformAdmin?: boolean;
+        }
+  ) {
+    const normalizedScope = typeof scope === "string" ? { organizationId: scope } : scope;
+
+    const where: Prisma.LabourAttendanceWhereInput = { id };
+
+    if (normalizedScope && !normalizedScope.isPlatformAdmin) {
+      if (normalizedScope.organizationId) {
+        where.OR = [
+          { labour: { organizationId: normalizedScope.organizationId } },
+          { booking: { organizationId: normalizedScope.organizationId } },
+        ];
+      }
+      if (normalizedScope.workerUserId) {
+        where.labour = { userId: normalizedScope.workerUserId };
+      }
+      if (normalizedScope.labourId) {
+        where.labourId = normalizedScope.labourId;
+      }
+    }
+
     return prisma.labourAttendance.findFirst({
-      where: {
-        id,
-        labour: { organizationId },
-      },
+      where,
       include: {
         labour: {
           select: {
@@ -91,6 +189,7 @@ export class LabourAttendanceRepo {
             trade: true,
             dailyRate: true,
             photoUrl: true,
+            userId: true,
           },
         },
         projectSite: {
@@ -117,6 +216,15 @@ export class LabourAttendanceRepo {
             bookingNumber: true,
             workTitle: true,
             agreedDailyRate: true,
+            status: true,
+            latitude: true,
+            longitude: true,
+            geofenceRadius: true,
+            isStrictGeofence: true,
+            serviceAddress: true,
+            locality: true,
+            city: true,
+            state: true,
           },
         },
       },
@@ -124,14 +232,37 @@ export class LabourAttendanceRepo {
   }
 
   /**
-   * Find all paginated attendance records with filters
+   * Find all paginated attendance records with flexible filters across roles
    */
-  async findAll(query: GetAttendancesQuery, organizationId: string) {
-    const { page, limit, search, projectSiteId, labourId, bookingId, status, startDate, endDate, supervisorApproved } = query;
+  async findAll(
+    query: GetAttendancesQuery,
+    scope?:
+      | string
+      | null
+      | {
+          organizationId?: string | null;
+          workerUserId?: string | null;
+          labourId?: string | null;
+          clientId?: string | null;
+          isPlatformAdmin?: boolean;
+        }
+  ) {
+    const {
+      page,
+      limit,
+      search,
+      projectSiteId,
+      labourId,
+      bookingId,
+      status,
+      startDate,
+      endDate,
+      supervisorApproved,
+    } = query;
     const skip = (page - 1) * limit;
 
+    const normalizedScope = typeof scope === "string" ? { organizationId: scope } : scope;
     const where: Prisma.LabourAttendanceWhereInput = {
-      labour: { organizationId },
       ...(projectSiteId && { projectSiteId }),
       ...(labourId && { labourId }),
       ...(bookingId && { bookingId }),
@@ -145,18 +276,40 @@ export class LabourAttendanceRepo {
             },
           }
         : {}),
-      ...(search
-        ? {
-            OR: [
-              { labour: { name: { contains: search, mode: "insensitive" } } },
-              { labour: { phone: { contains: search, mode: "insensitive" } } },
-              { labour: { trade: { contains: search, mode: "insensitive" } } },
-              { projectSite: { siteName: { contains: search, mode: "insensitive" } } },
-              { projectSite: { project: { name: { contains: search, mode: "insensitive" } } } },
-            ],
-          }
-        : {}),
     };
+
+    if (normalizedScope && !normalizedScope.isPlatformAdmin) {
+      if (normalizedScope.organizationId) {
+        where.OR = [
+          { labour: { organizationId: normalizedScope.organizationId } },
+          { booking: { organizationId: normalizedScope.organizationId } },
+        ];
+      }
+      if (normalizedScope.workerUserId) {
+        where.labour = { userId: normalizedScope.workerUserId };
+      }
+      if (normalizedScope.labourId) {
+        where.labourId = normalizedScope.labourId;
+      }
+      if (normalizedScope.clientId) {
+        where.booking = { clientId: normalizedScope.clientId };
+      }
+    }
+
+    if (search) {
+      where.AND = [
+        {
+          OR: [
+            { labour: { name: { contains: search, mode: "insensitive" } } },
+            { labour: { phone: { contains: search, mode: "insensitive" } } },
+            { labour: { trade: { contains: search, mode: "insensitive" } } },
+            { booking: { bookingNumber: { contains: search, mode: "insensitive" } } },
+            { booking: { workTitle: { contains: search, mode: "insensitive" } } },
+            { projectSite: { siteName: { contains: search, mode: "insensitive" } } },
+          ],
+        },
+      ];
+    }
 
     const [total, attendances] = await Promise.all([
       prisma.labourAttendance.count({ where }),
@@ -200,6 +353,15 @@ export class LabourAttendanceRepo {
               bookingNumber: true,
               workTitle: true,
               agreedDailyRate: true,
+              status: true,
+              latitude: true,
+              longitude: true,
+              geofenceRadius: true,
+              isStrictGeofence: true,
+              serviceAddress: true,
+              locality: true,
+              city: true,
+              state: true,
             },
           },
         },
@@ -212,6 +374,7 @@ export class LabourAttendanceRepo {
       limit,
       totalPages: Math.ceil(total / limit),
       attendances,
+      items: attendances,
     };
   }
 
@@ -239,6 +402,7 @@ export class LabourAttendanceRepo {
             phone: true,
           },
         },
+        booking: true,
       },
     });
   }

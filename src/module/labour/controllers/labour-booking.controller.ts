@@ -293,9 +293,24 @@ export const getLabourBookingById = asyncHandler(async (req, res) => {
  * @access  Private (Authenticated Tenant User / Admin)
  */
 export const updateLabourBooking = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId || undefined;
+  const isPlatformAdmin = req.user?.userType === "PLATFORM_ADMIN";
+  const userType = req.user?.userType as string | undefined;
+  const scope: {
+    organizationId?: string | null;
+    clientId?: string | null;
+    isPlatformAdmin?: boolean;
+  } = {};
+
+  if (isPlatformAdmin) {
+    scope.isPlatformAdmin = true;
+  } else if (userType === "USER" || !req.user?.organizationId) {
+    scope.clientId = req.user!.id;
+  } else {
+    scope.organizationId = req.user?.organizationId;
+  }
+
   const parsed = updateLabourBookingSchema.parse({ params: req.params, body: req.body });
-  const result = await labourBookingService.updateBooking(parsed.params.id, parsed.body, organizationId);
+  const result = await labourBookingService.updateBooking(parsed.params.id, parsed.body, scope);
   return SuccessResponse(res, "Labour booking updated successfully", result, statusCode.OK);
 });
 

@@ -54,6 +54,33 @@ describe("Labour Module - Booking Management Tests", () => {
       expect(parsed.body.status).toBe("CONFIRMED");
     });
 
+    it("should accept optional site location and geofence parameters", () => {
+      const payload = {
+        body: {
+          projectId: MOCK_PROJECT_ID_1,
+          projectServiceId: MOCK_PROJECT_SERVICE_ID_1,
+          labourId: MOCK_LABOUR_ID_1,
+          workTitle: "Framing",
+          startDate: "2026-10-01",
+          endDate: "2026-10-15",
+          agreedDailyRate: 1200.0,
+          serviceAddress: "Tower 2, Prestige Site",
+          locality: "Whitefield",
+          city: "Bengaluru",
+          latitude: 12.9716,
+          longitude: 77.5946,
+          geofenceRadius: 250,
+          isStrictGeofence: true,
+        },
+      };
+
+      const parsed = createLabourBookingSchema.parse(payload);
+      expect(parsed.body.latitude).toBe(12.9716);
+      expect(parsed.body.longitude).toBe(77.5946);
+      expect(parsed.body.geofenceRadius).toBe(250);
+      expect(parsed.body.isStrictGeofence).toBe(true);
+    });
+
     it("should calculate total budget correctly based on daily rate and estimated days", () => {
       const dailyRate = 1250.0;
       const estimatedDays = 14;

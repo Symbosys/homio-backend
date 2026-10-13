@@ -2,16 +2,16 @@ import { z } from "zod";
 import { additionalInformationSchema } from "./labour.validator.js";
 
 /**
- * 1. PUNCH IN SCHEMA
+ * 1. PUNCH IN SCHEMA (Service-Bound Attendance)
  */
 export const punchInSchema = z.object({
   body: z.object({
-    labourId: z.string().uuid("Invalid labour ID format"),
-    projectSiteId: z.string().uuid("Invalid project site ID format"),
-    bookingId: z.string().uuid("Invalid booking ID format").optional().nullable(),
+    bookingId: z.string().uuid("Valid booking ID is required to mark attendance"),
+    labourId: z.string().uuid("Invalid labour ID format").optional(),
+    projectSiteId: z.string().uuid("Invalid project site ID format").optional().nullable(),
     attendanceDate: z.coerce.date().optional(),
-    punchInLat: z.coerce.number(),
-    punchInLng: z.coerce.number(),
+    punchInLat: z.coerce.number().min(-90, "Latitude must be >= -90").max(90, "Latitude must be <= 90"),
+    punchInLng: z.coerce.number().min(-180, "Longitude must be >= -180").max(180, "Longitude must be <= 180"),
     punchInAddress: z.string().optional().nullable(),
     workNotes: z.string().optional().nullable(),
     additionalInformation: additionalInformationSchema,
@@ -26,8 +26,8 @@ export const punchOutSchema = z.object({
     id: z.string().uuid("Invalid attendance ID format"),
   }),
   body: z.object({
-    punchOutLat: z.coerce.number(),
-    punchOutLng: z.coerce.number(),
+    punchOutLat: z.coerce.number().min(-90, "Latitude must be >= -90").max(90, "Latitude must be <= 90"),
+    punchOutLng: z.coerce.number().min(-180, "Longitude must be >= -180").max(180, "Longitude must be <= 180"),
     punchOutAddress: z.string().optional().nullable(),
     workNotes: z.string().optional().nullable(),
   }),
