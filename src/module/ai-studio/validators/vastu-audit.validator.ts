@@ -15,6 +15,7 @@ export const ImageTypeSchema = z.object({
  * Zod schema for Vastu Spatial Audit generation request
  */
 export const GenerateVastuAuditSchema = z.object({
+  orgUserId: z.string().uuid("Invalid organization user ID").optional(),
   propertyType: z.string().min(1, "Property type is required").max(100),
   facingDirection: z.string().min(1, "Facing direction is required").max(50),
   totalAreaSqft: z.coerce.number().positive().optional().default(1500),
@@ -33,6 +34,7 @@ export type GenerateVastuAuditInput = z.infer<typeof GenerateVastuAuditSchema>;
  * Zod schema for querying past Vastu audit sessions
  */
 export const QueryVastuAuditsSchema = z.object({
+  orgUserId: z.string().uuid("Invalid organization user ID").optional(),
   page: z.coerce.number().int().min(1).optional().default(1),
   limit: z.coerce.number().int().min(1).max(50).optional().default(12),
   search: z.string().optional(),

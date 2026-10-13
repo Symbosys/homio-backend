@@ -140,32 +140,40 @@ export class AiStudioRepository {
   }
 
   // ==========================================
-  // ORGANIZATION WALLETS & TRANSACTIONS
+  // USER WALLETS & TRANSACTIONS
   // ==========================================
 
   /**
-   * Find or initialize an Organization's AI Wallet
+   * Find or initialize a User's AI Wallet
    */
-  async findOrCreateWallet(organizationId: string) {
+  async findOrCreateWallet(userId: string) {
     return prisma.aiWallet.upsert({
-      where: { organizationId },
+      where: { userId },
       update: {},
       create: {
-        organizationId,
-        currentBalance: 0,
-        lifetimeCreditsCredited: 0,
+        userId,
+        currentBalance: 100, // Initial promotional allocation
+        lifetimeCreditsCredited: 100,
         lifetimeCreditsConsumed: 0,
       },
       include: {
-        organization: {
-          select: { id: true, name: true, slug: true, logoUrl: true },
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            avatarUrl: true,
+            organizationId: true,
+            userType: true,
+          },
         },
       },
     });
   }
 
   /**
-   * Find paginated organization wallets for platform overview
+   * Find paginated user wallets for platform overview
    */
   async findWalletsPaginated(query: GetOrgWalletsQuery) {
     const { search, page, limit, sortBy, sortOrder } = query;
@@ -174,11 +182,19 @@ export class AiStudioRepository {
     const where: any = search
       ? {
           OR: [
-            { organization: { name: { contains: search, mode: "insensitive" } } },
-            { organization: { slug: { contains: search, mode: "insensitive" } } },
+            { user: { firstName: { contains: search, mode: "insensitive" } } },
+            { user: { lastName: { contains: search, mode: "insensitive" } } },
+            { user: { email: { contains: search, mode: "insensitive" } } },
           ],
         }
       : {};
+
+    const orderBy: any =
+      sortBy === "name"
+        ? { user: { firstName: sortOrder } }
+        : sortBy === "email"
+        ? { user: { email: sortOrder } }
+        : { [sortBy]: sortOrder };
 
     const [total, wallets] = await Promise.all([
       prisma.aiWallet.count({ where }),
@@ -186,10 +202,18 @@ export class AiStudioRepository {
         where,
         skip,
         take: limit,
-        orderBy: sortBy === "name" ? { organization: { name: sortOrder } } : { [sortBy]: sortOrder },
+        orderBy,
         include: {
-          organization: {
-            select: { id: true, name: true, slug: true, logoUrl: true, email: true, phone: true },
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              avatarUrl: true,
+              organizationId: true,
+              userType: true,
+            },
           },
           _count: {
             select: { transactions: true },
@@ -202,10 +226,10 @@ export class AiStudioRepository {
   }
 
   /**
-   * Atomic Wallet Recharge within a Prisma Transaction
+   * Atomic User Wallet Recharge within a Prisma Transaction
    */
   async executeRechargeTransaction(params: {
-    organizationId: string;
+    userId: string;
     creditsToAdd: number;
     amountPaid?: number | null;
     currency?: string;
@@ -220,13 +244,13 @@ export class AiStudioRepository {
     return prisma.$transaction(async (tx) => {
       // 1. Ensure wallet exists and fetch current balance
       let wallet = await tx.aiWallet.findUnique({
-        where: { organizationId: params.organizationId },
+        where: { userId: params.userId },
       });
 
       if (!wallet) {
         wallet = await tx.aiWallet.create({
           data: {
-            organizationId: params.organizationId,
+            userId: params.userId,
             currentBalance: 0,
             lifetimeCreditsCredited: 0,
             lifetimeCreditsConsumed: 0,
@@ -247,30 +271,12 @@ export class AiStudioRepository {
         },
       });
 
-      // Safe check for valid employee FK
-      let validEmployeeId: string | null = null;
-      if (params.employeeId) {
-        const emp = await tx.employee.findFirst({
-          where: {
-            OR: [
-              { id: params.employeeId },
-              { userId: params.employeeId },
-            ],
-            organizationId: params.organizationId,
-          },
-          select: { id: true },
-        });
-        if (emp) {
-          validEmployeeId = emp.id;
-        }
-      }
-
       // 3. Create immutable transaction record
       const transaction = await tx.aiCreditTransaction.create({
         data: {
-          organizationId: params.organizationId,
+          userId: params.userId,
           walletId: wallet.id,
-          employeeId: validEmployeeId,
+          employeeId: params.employeeId || null,
           creditPackId: params.creditPackId || null,
           transactionType: params.transactionType,
           credits: params.creditsToAdd,
@@ -287,6 +293,9 @@ export class AiStudioRepository {
           employee: {
             select: { id: true, firstName: true, lastName: true, employeeCode: true, avatarUrl: true },
           },
+          user: {
+            select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true },
+          },
         },
       });
 
@@ -295,19 +304,19 @@ export class AiStudioRepository {
   }
 
   /**
-   * Get transactions across organizations with pagination
+   * Get transactions across users with pagination
    */
   async findTransactionsPaginated(params: {
-    organizationId?: string;
+    userId?: string;
     page: number;
     limit: number;
     transactionType?: AiTransactionType;
   }) {
-    const { organizationId, page, limit, transactionType } = params;
+    const { userId, page, limit, transactionType } = params;
     const skip = (page - 1) * limit;
 
     const where: any = {
-      ...(organizationId && { organizationId }),
+      ...(userId && { userId }),
       ...(transactionType && { transactionType }),
     };
 
@@ -319,8 +328,8 @@ export class AiStudioRepository {
         take: limit,
         orderBy: { createdAt: "desc" },
         include: {
-          organization: {
-            select: { id: true, name: true, slug: true, logoUrl: true },
+          user: {
+            select: { id: true, firstName: true, lastName: true, email: true, avatarUrl: true },
           },
           creditPack: {
             select: { id: true, name: true, slug: true },

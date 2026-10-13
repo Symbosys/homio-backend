@@ -15,6 +15,7 @@ export const ImageTypeSchema = z.object({
  * Zod schema for room design generation request
  */
 export const GenerateRoomDesignSchema = z.object({
+  orgUserId: z.string().uuid("Invalid organization user ID").optional(),
   roomType: z.string().min(1, "Room type is required").max(100),
   designStyle: z.string().min(1, "Design style is required").max(100),
   colorPalette: z.array(z.string()).optional().default([]),
@@ -33,6 +34,7 @@ export type GenerateRoomDesignInput = z.infer<typeof GenerateRoomDesignSchema>;
  * Zod schema for querying past room design sessions
  */
 export const QueryRoomDesignSessionsSchema = z.object({
+  orgUserId: z.string().uuid("Invalid organization user ID").optional(),
   page: z.coerce.number().int().min(1).optional().default(1),
   limit: z.coerce.number().int().min(1).max(50).optional().default(12),
   search: z.string().optional(),

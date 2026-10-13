@@ -20,17 +20,17 @@ export class RoomDesignerRepository {
   }
 
   /**
-   * Find or create Organization AI Wallet
+   * Find or create User AI Wallet
    */
-  public async findOrCreateWallet(organizationId: string) {
+  public async findOrCreateWallet(userId: string) {
     let wallet = await prisma.aiWallet.findUnique({
-      where: { organizationId },
+      where: { userId },
     });
 
     if (!wallet) {
       wallet = await prisma.aiWallet.create({
         data: {
-          organizationId,
+          userId,
           currentBalance: 100,
           lifetimeCreditsCredited: 100,
           lifetimeCreditsConsumed: 0,
@@ -45,8 +45,9 @@ export class RoomDesignerRepository {
    * Create new Room Design Session with generated render and optional variations
    */
   public async createRoomDesignSession(data: {
-    organizationId: string;
-    employeeId: string | null;
+    userId: string;
+    createdById?: string | null;
+    employeeId?: string | null;
     roomType: string;
     designStyle: string;
     colorPalette?: any;
@@ -60,30 +61,13 @@ export class RoomDesignerRepository {
     executionDurationMs?: number;
   }) {
     return prisma.$transaction(async (tx: any) => {
-      // Safe check for valid employee FK
-      let validEmployeeId: string | null = null;
-      if (data.employeeId) {
-        const emp = await tx.employee.findFirst({
-          where: {
-            OR: [
-              { id: data.employeeId },
-              { userId: data.employeeId },
-            ],
-            organizationId: data.organizationId,
-          },
-          select: { id: true },
-        });
-        if (emp) {
-          validEmployeeId = emp.id;
-        }
-      }
-
       const promptSummary = `${data.designStyle} ${data.roomType} Render`;
 
       const aiSession = await tx.aiSession.create({
         data: {
-          organizationId: data.organizationId,
-          employeeId: validEmployeeId,
+          userId: data.userId,
+          createdById: data.createdById || null,
+          employeeId: data.employeeId || null,
           serviceType: AiServiceType.ROOM_DESIGN,
           status: AiSessionStatus.COMPLETED,
           creditsConsumed: 0,
@@ -111,7 +95,8 @@ export class RoomDesignerRepository {
           session: {
             select: {
               id: true,
-              organizationId: true,
+              userId: true,
+              createdById: true,
               employeeId: true,
               creditsConsumed: true,
               status: true,
@@ -130,7 +115,7 @@ export class RoomDesignerRepository {
    * List paginated room design sessions
    */
   public async listSessions(
-    organizationId: string,
+    userId: string,
     query: QueryRoomDesignSessionsInput
   ) {
     const { page = 1, limit = 12, search, roomType, designStyle } = query;
@@ -138,7 +123,7 @@ export class RoomDesignerRepository {
 
     const where: any = {
       session: {
-        organizationId,
+        userId,
         serviceType: AiServiceType.ROOM_DESIGN,
       },
     };
@@ -169,6 +154,9 @@ export class RoomDesignerRepository {
           session: {
             select: {
               id: true,
+              userId: true,
+              createdById: true,
+              employeeId: true,
               creditsConsumed: true,
               createdAt: true,
               updatedAt: true,
@@ -192,17 +180,18 @@ export class RoomDesignerRepository {
   /**
    * Get single room design session by ID
    */
-  public async getSessionById(sessionId: string, organizationId: string) {
+  public async getSessionById(sessionId: string, userId: string) {
     return prisma.aiRoomDesignSession.findFirst({
       where: {
         sessionId,
-        session: { organizationId },
+        session: { userId },
       },
       include: {
         session: {
           select: {
             id: true,
-            organizationId: true,
+            userId: true,
+            createdById: true,
             employeeId: true,
             creditsConsumed: true,
             status: true,
@@ -215,26 +204,26 @@ export class RoomDesignerRepository {
   }
 
   /**
-   * Atomically deduct credits from organization wallet and log ledger transaction
+   * Atomically deduct credits from user wallet and log ledger transaction
    */
   public async atomicDeductCredits(params: {
-    organizationId: string;
+    userId: string;
     employeeId: string | null;
     sessionId: string;
     cost: number;
     description: string;
   }) {
-    const { organizationId, employeeId, sessionId, cost, description } = params;
+    const { userId, employeeId, sessionId, cost, description } = params;
 
     return prisma.$transaction(async (tx: any) => {
       let wallet = await tx.aiWallet.findUnique({
-        where: { organizationId },
+        where: { userId },
       });
 
       if (!wallet) {
         wallet = await tx.aiWallet.create({
           data: {
-            organizationId,
+            userId,
             currentBalance: 100,
             lifetimeCreditsCredited: 100,
             lifetimeCreditsConsumed: 0,
@@ -266,29 +255,11 @@ export class RoomDesignerRepository {
         },
       });
 
-      // Safe check for valid employee FK
-      let validEmployeeId: string | null = null;
-      if (employeeId) {
-        const emp = await tx.employee.findFirst({
-          where: {
-            OR: [
-              { id: employeeId },
-              { userId: employeeId },
-            ],
-            organizationId,
-          },
-          select: { id: true },
-        });
-        if (emp) {
-          validEmployeeId = emp.id;
-        }
-      }
-
       const transaction = await tx.aiCreditTransaction.create({
         data: {
-          organizationId,
+          userId,
           walletId: wallet.id,
-          employeeId: validEmployeeId,
+          employeeId: employeeId || null,
           sessionId,
           transactionType: AiTransactionType.USAGE_DEBIT,
           credits: -cost,
@@ -309,13 +280,13 @@ export class RoomDesignerRepository {
    */
   public async updateSession(
     sessionId: string,
-    organizationId: string,
+    userId: string,
     data: UpdateRoomDesignSessionInput
   ) {
     const session = await prisma.aiRoomDesignSession.findFirst({
       where: {
         sessionId,
-        session: { organizationId },
+        session: { userId },
       },
     });
 
@@ -334,11 +305,11 @@ export class RoomDesignerRepository {
   /**
    * Delete room design session (returns deleted session for media cleanup)
    */
-  public async deleteSession(sessionId: string, organizationId: string) {
+  public async deleteSession(sessionId: string, userId: string) {
     const session = await prisma.aiRoomDesignSession.findFirst({
       where: {
         sessionId,
-        session: { organizationId },
+        session: { userId },
       },
     });
 

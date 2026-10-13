@@ -29,16 +29,18 @@ export class DoubtSolverService {
   /**
    * Create a new consultation session thread (with optional immediate first query)
    */
-  public async createSession(
-    organizationId: string,
-    employeeId: string | null,
-    input: CreateDoubtSolverSessionInput
-  ) {
+  public async createSession(params: {
+    userId: string;
+    createdById?: string | null;
+    employeeId?: string | null;
+    input: CreateDoubtSolverSessionInput;
+  }) {
+    const { userId, createdById, employeeId, input } = params;
     const cost = await this.getPerQuestionCost();
 
     // If an initial question is asked immediately upon creation, verify credit balance first
     if (input.initialQuestion) {
-      const wallet = await this.repo.findOrCreateWallet(organizationId);
+      const wallet = await this.repo.findOrCreateWallet(userId);
       if (wallet.currentBalance < cost) {
         const err: any = new Error(
           `Insufficient AI credits. You have ${wallet.currentBalance} credits, but asking a question requires ${cost} credits.`
@@ -50,11 +52,12 @@ export class DoubtSolverService {
     }
 
     // 1. Create session thread
-    const doubtSession = await this.repo.createSession(
-      organizationId,
-      employeeId,
-      input
-    );
+    const doubtSession = await this.repo.createSession({
+      userId,
+      createdById: createdById || null,
+      employeeId: employeeId || null,
+      input,
+    });
 
     // 2. If initial question provided, execute LangChain and deduct credits
     if (input.initialQuestion) {
@@ -83,8 +86,8 @@ export class DoubtSolverService {
 
       // Atomic credit deduction
       const { wallet } = await this.repo.atomicDeductCredits({
-        organizationId,
-        employeeId,
+        userId,
+        employeeId: employeeId || null,
         sessionId: doubtSession.sessionId,
         cost,
         description: `Doubt Solver initial query: "${input.initialQuestion.slice(0, 60)}"`,
@@ -101,7 +104,7 @@ export class DoubtSolverService {
     return {
       session: doubtSession,
       messages: [],
-      wallet: await this.repo.findOrCreateWallet(organizationId),
+      wallet: await this.repo.findOrCreateWallet(userId),
       creditsDeducted: 0,
     };
   }
@@ -109,14 +112,16 @@ export class DoubtSolverService {
   /**
    * Ask a question inside an existing consultation thread
    */
-  public async askQuestion(
-    sessionId: string,
-    organizationId: string,
-    employeeId: string | null,
-    input: AskDoubtSolverQuestionInput
-  ) {
+  public async askQuestion(params: {
+    sessionId: string;
+    userId: string;
+    employeeId?: string | null;
+    input: AskDoubtSolverQuestionInput;
+  }) {
+    const { sessionId, userId, employeeId, input } = params;
+
     // 1. Verify session ownership
-    const doubtSession = await this.repo.getSessionById(sessionId, organizationId);
+    const doubtSession = await this.repo.getSessionById(sessionId, userId);
     if (!doubtSession) {
       const err: any = new Error("Doubt consultation session not found");
       err.statusCode = 404;
@@ -125,7 +130,7 @@ export class DoubtSolverService {
 
     // 2. Verify wallet balance against active service rate
     const cost = await this.getPerQuestionCost();
-    const wallet = await this.repo.findOrCreateWallet(organizationId);
+    const wallet = await this.repo.findOrCreateWallet(userId);
 
     if (wallet.currentBalance < cost) {
       const err: any = new Error(
@@ -176,8 +181,8 @@ export class DoubtSolverService {
 
     // 7. Atomic Credit Deduction & Ledger Entry
     const { wallet: updatedWallet } = await this.repo.atomicDeductCredits({
-      organizationId,
-      employeeId,
+      userId,
+      employeeId: employeeId || null,
       sessionId,
       cost,
       description: `Doubt Solver query: "${input.question.slice(0, 60)}"`,
@@ -195,17 +200,17 @@ export class DoubtSolverService {
    * List paginated sessions
    */
   public async listSessions(
-    organizationId: string,
+    userId: string,
     query: QueryDoubtSolverSessionsInput
   ) {
-    return this.repo.listSessions(organizationId, query);
+    return this.repo.listSessions(userId, query);
   }
 
   /**
    * Get single session with full message thread
    */
-  public async getSessionById(sessionId: string, organizationId: string) {
-    const session = await this.repo.getSessionById(sessionId, organizationId);
+  public async getSessionById(sessionId: string, userId: string) {
+    const session = await this.repo.getSessionById(sessionId, userId);
     if (!session) {
       const err: any = new Error("Session not found");
       err.statusCode = 404;
@@ -220,12 +225,12 @@ export class DoubtSolverService {
   public async rateMessage(
     messageId: string,
     rating: number,
-    organizationId: string
+    userId: string
   ) {
     const result = await this.repo.rateMessage(
       messageId,
       rating,
-      organizationId
+      userId
     );
     if (!result) {
       const err: any = new Error("Message not found");
@@ -240,12 +245,12 @@ export class DoubtSolverService {
    */
   public async updateSession(
     sessionId: string,
-    organizationId: string,
+    userId: string,
     data: UpdateDoubtSolverSessionInput
   ) {
     const result = await this.repo.updateSession(
       sessionId,
-      organizationId,
+      userId,
       data
     );
     if (!result) {
@@ -259,8 +264,8 @@ export class DoubtSolverService {
   /**
    * Delete session
    */
-  public async deleteSession(sessionId: string, organizationId: string) {
-    const result = await this.repo.deleteSession(sessionId, organizationId);
+  public async deleteSession(sessionId: string, userId: string) {
+    const result = await this.repo.deleteSession(sessionId, userId);
     if (!result) {
       const err: any = new Error("Session not found");
       err.statusCode = 404;
@@ -269,3 +274,4 @@ export class DoubtSolverService {
     return result;
   }
 }
+

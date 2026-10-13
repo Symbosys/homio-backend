@@ -28,18 +28,20 @@ export class RoomDesignerService {
   /**
    * Generate AI Room Design Renders using LangChain & OpenAI Image Generation with multi-image output and credit calculation
    */
-  public async generateRoomDesign(
-    organizationId: string,
-    employeeId: string | null,
-    input: GenerateRoomDesignInput
-  ) {
+  public async generateRoomDesign(params: {
+    userId: string;
+    createdById?: string | null;
+    employeeId?: string | null;
+    input: GenerateRoomDesignInput;
+  }) {
+    const { userId, createdById, employeeId, input } = params;
     const startTime = Date.now();
     const perRenderCost = await this.getPerRenderCost();
     const imageCount = Math.max(1, Math.min(4, input.imageCount || 1));
     const totalCost = perRenderCost * imageCount;
 
-    // 1. Verify organization credit balance for total requested image outputs
-    const wallet = await this.repo.findOrCreateWallet(organizationId);
+    // 1. Verify user credit balance for total requested image outputs
+    const wallet = await this.repo.findOrCreateWallet(userId);
     if (wallet.currentBalance < totalCost) {
       const err: any = new Error(
         `Insufficient AI credits. You have ${wallet.currentBalance} credits, but generating ${imageCount} room render(s) requires ${totalCost} credits (${perRenderCost} credits × ${imageCount} images).`
@@ -87,8 +89,9 @@ export class RoomDesignerService {
 
     // 4. Save session and design satellite records in DB
     const roomSession = await this.repo.createRoomDesignSession({
-      organizationId,
-      employeeId,
+      userId,
+      createdById: createdById || null,
+      employeeId: employeeId || null,
       roomType: input.roomType,
       designStyle: input.designStyle,
       colorPalette: input.colorPalette,
@@ -110,8 +113,8 @@ export class RoomDesignerService {
 
     // 5. Atomic Credit Deduction & Ledger Entry for totalCost
     const { wallet: updatedWallet } = await this.repo.atomicDeductCredits({
-      organizationId,
-      employeeId,
+      userId,
+      employeeId: employeeId || null,
       sessionId: roomSession.sessionId,
       cost: totalCost,
       description: `AI Room Designer render (${imageCount} image${imageCount > 1 ? "s" : ""}): ${input.designStyle} ${input.roomType}`,
@@ -131,17 +134,17 @@ export class RoomDesignerService {
    * List paginated room design sessions
    */
   public async listSessions(
-    organizationId: string,
+    userId: string,
     query: QueryRoomDesignSessionsInput
   ) {
-    return this.repo.listSessions(organizationId, query);
+    return this.repo.listSessions(userId, query);
   }
 
   /**
    * Get single room design session by ID
    */
-  public async getSessionById(sessionId: string, organizationId: string) {
-    const session = await this.repo.getSessionById(sessionId, organizationId);
+  public async getSessionById(sessionId: string, userId: string) {
+    const session = await this.repo.getSessionById(sessionId, userId);
     if (!session) {
       const err: any = new Error("Room design session not found");
       err.statusCode = 404;
@@ -155,12 +158,12 @@ export class RoomDesignerService {
    */
   public async updateSession(
     sessionId: string,
-    organizationId: string,
+    userId: string,
     data: UpdateRoomDesignSessionInput
   ) {
     const result = await this.repo.updateSession(
       sessionId,
-      organizationId,
+      userId,
       data
     );
     if (!result) {
@@ -174,8 +177,8 @@ export class RoomDesignerService {
   /**
    * Delete room design session & auto-cleanup cloud storage media (Rule 4 Standard)
    */
-  public async deleteSession(sessionId: string, organizationId: string) {
-    const session = await this.repo.deleteSession(sessionId, organizationId);
+  public async deleteSession(sessionId: string, userId: string) {
+    const session = await this.repo.deleteSession(sessionId, userId);
     if (!session) {
       const err: any = new Error("Room design session not found");
       err.statusCode = 404;

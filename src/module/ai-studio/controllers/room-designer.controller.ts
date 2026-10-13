@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { RoomDesignerService } from "../services/room-designer.service.js";
 import { statusCode } from "../../../types/types.js";
+import { resolveAiTargetUser } from "../utils/ai-auth.util.js";
 import {
   GenerateRoomDesignSchema,
   QueryRoomDesignSessionsSchema,
@@ -13,7 +14,7 @@ const service = new RoomDesignerService();
  * @controller  getRoomDesignerRate
  * @desc        Retrieve active per-render credit rate for AI Room Designer
  * @route       GET /api/v1/ai-studio/room-designer/rate
- * @access      Authenticated Organization Users
+ * @access      Authenticated Users
  */
 export async function getRoomDesignerRate(
   req: Request,
@@ -38,7 +39,7 @@ export async function getRoomDesignerRate(
  * @controller  generateRoomDesign
  * @desc        Generate a photorealistic room render using LangChain prompt synthesis & OpenAI DALL-E, deduct credits
  * @route       POST /api/v1/ai-studio/room-designer/generate
- * @access      Authenticated Organization Users
+ * @access      Authenticated Users (Clients, Org Admins, and Employees)
  */
 export async function generateRoomDesign(
   req: Request,
@@ -46,22 +47,25 @@ export async function generateRoomDesign(
   next: NextFunction
 ) {
   try {
-    const organizationId = req.user?.organizationId;
-    const employeeId = (req.user as any)?.employeeId || null;
-
-    if (!organizationId) {
+    if (!req.user) {
       return res.status(statusCode.Unauthorized).json({
         success: false,
-        message: "Organization context is required",
+        message: "Authentication required",
       });
     }
 
     const validatedInput = GenerateRoomDesignSchema.parse(req.body);
-    const result = await service.generateRoomDesign(
-      organizationId,
-      employeeId,
-      validatedInput
+    const { targetUserId, actorEmployeeId, actorUserId } = await resolveAiTargetUser(
+      req.user,
+      validatedInput.orgUserId
     );
+
+    const result = await service.generateRoomDesign({
+      userId: targetUserId,
+      createdById: actorUserId,
+      employeeId: actorEmployeeId,
+      input: validatedInput,
+    });
 
     return res.status(statusCode.Created).json({
       success: true,
@@ -82,9 +86,9 @@ export async function generateRoomDesign(
 
 /**
  * @controller  listRoomDesignSessions
- * @desc        List paginated room design generations for the caller organization
+ * @desc        List paginated room design generations for the target user / organization
  * @route       GET /api/v1/ai-studio/room-designer/sessions
- * @access      Authenticated Organization Users
+ * @access      Authenticated Users
  */
 export async function listRoomDesignSessions(
   req: Request,
@@ -92,16 +96,20 @@ export async function listRoomDesignSessions(
   next: NextFunction
 ) {
   try {
-    const organizationId = req.user?.organizationId;
-    if (!organizationId) {
+    if (!req.user) {
       return res.status(statusCode.Unauthorized).json({
         success: false,
-        message: "Organization context is required",
+        message: "Authentication required",
       });
     }
 
     const query = QueryRoomDesignSessionsSchema.parse(req.query);
-    const result = await service.listSessions(organizationId, query);
+    const { targetUserId } = await resolveAiTargetUser(
+      req.user,
+      query.orgUserId
+    );
+
+    const result = await service.listSessions(targetUserId, query);
 
     return res.status(statusCode.OK).json({
       success: true,
@@ -118,7 +126,7 @@ export async function listRoomDesignSessions(
  * @controller  getRoomDesignSession
  * @desc        Retrieve single room design session details with high-res asset URLs
  * @route       GET /api/v1/ai-studio/room-designer/sessions/:sessionId
- * @access      Authenticated Organization Users
+ * @access      Authenticated Users
  */
 export async function getRoomDesignSession(
   req: Request,
@@ -126,17 +134,20 @@ export async function getRoomDesignSession(
   next: NextFunction
 ) {
   try {
-    const organizationId = req.user?.organizationId;
-    const sessionId = (req.params.sessionId || "") as string;
-
-    if (!organizationId) {
+    if (!req.user) {
       return res.status(statusCode.Unauthorized).json({
         success: false,
-        message: "Organization context is required",
+        message: "Authentication required",
       });
     }
 
-    const session = await service.getSessionById(sessionId, organizationId);
+    const sessionId = (req.params.sessionId || "") as string;
+    const { targetUserId } = await resolveAiTargetUser(
+      req.user,
+      req.query.orgUserId as string | undefined
+    );
+
+    const session = await service.getSessionById(sessionId, targetUserId);
 
     return res.status(statusCode.OK).json({
       success: true,
@@ -157,7 +168,7 @@ export async function getRoomDesignSession(
  * @controller  updateRoomDesignSession
  * @desc        Update room design session metadata
  * @route       PATCH /api/v1/ai-studio/room-designer/sessions/:sessionId
- * @access      Authenticated Organization Users
+ * @access      Authenticated Users
  */
 export async function updateRoomDesignSession(
   req: Request,
@@ -165,20 +176,23 @@ export async function updateRoomDesignSession(
   next: NextFunction
 ) {
   try {
-    const organizationId = req.user?.organizationId;
-    const sessionId = (req.params.sessionId || "") as string;
-
-    if (!organizationId) {
+    if (!req.user) {
       return res.status(statusCode.Unauthorized).json({
         success: false,
-        message: "Organization context is required",
+        message: "Authentication required",
       });
     }
+
+    const sessionId = (req.params.sessionId || "") as string;
+    const { targetUserId } = await resolveAiTargetUser(
+      req.user,
+      req.body.orgUserId as string | undefined
+    );
 
     const input = UpdateRoomDesignSessionSchema.parse(req.body);
     const result = await service.updateSession(
       sessionId,
-      organizationId,
+      targetUserId,
       input
     );
 
@@ -202,7 +216,7 @@ export async function updateRoomDesignSession(
  * @controller  deleteRoomDesignSession
  * @desc        Delete room design session and cleanup associated cloud storage assets
  * @route       DELETE /api/v1/ai-studio/room-designer/sessions/:sessionId
- * @access      Authenticated Organization Users
+ * @access      Authenticated Users
  */
 export async function deleteRoomDesignSession(
   req: Request,
@@ -210,17 +224,20 @@ export async function deleteRoomDesignSession(
   next: NextFunction
 ) {
   try {
-    const organizationId = req.user?.organizationId;
-    const sessionId = (req.params.sessionId || "") as string;
-
-    if (!organizationId) {
+    if (!req.user) {
       return res.status(statusCode.Unauthorized).json({
         success: false,
-        message: "Organization context is required",
+        message: "Authentication required",
       });
     }
 
-    await service.deleteSession(sessionId, organizationId);
+    const sessionId = (req.params.sessionId || "") as string;
+    const { targetUserId } = await resolveAiTargetUser(
+      req.user,
+      req.query.orgUserId as string | undefined
+    );
+
+    await service.deleteSession(sessionId, targetUserId);
 
     return res.status(statusCode.OK).json({
       success: true,

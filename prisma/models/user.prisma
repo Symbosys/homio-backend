@@ -101,6 +101,12 @@ model User {
   blacklistReason           String?                 @map("blacklist_reason")
   clientMarketplaceBookings LabourBooking[]         @relation("ClientMarketplaceBookings")
 
+  // AI Studio Relations (User-Centric Architecture)
+  aiWallet                  AiWallet?               @relation("UserAiWallet")
+  aiSessions                AiSession[]             @relation("UserAiSessions")
+  createdAiSessions         AiSession[]             @relation("UserAiSessionCreator")
+  aiTransactions            AiCreditTransaction[]   @relation("UserAiTransactions")
+
   @@index([organizationId])
   @@index([email])
   @@index([status])

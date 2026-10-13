@@ -1,3 +1,4 @@
+import { prisma } from "../../../lib/prisma.js";
 import { AiStudioRepository } from "../repos/ai-studio.repository.js";
 import {
   AiServiceType,
@@ -112,15 +113,35 @@ export class AiStudioPlatformService {
   }
 
   // ==========================================
-  // TENANT WALLETS & RECHARGE ENGINE
+  // USER WALLETS & RECHARGE ENGINE
   // ==========================================
 
   async getOrgWallets(query: GetOrgWalletsQuery) {
     return this.repo.findWalletsPaginated(query);
   }
 
-  async getOrgWalletDetails(organizationId: string) {
-    return this.repo.findOrCreateWallet(organizationId);
+  async getOrgWalletDetails(targetId: string) {
+    // Check if targetId is an organizationId or userId
+    const isUser = await prisma.user.findUnique({
+      where: { id: targetId },
+      select: { id: true },
+    });
+
+    if (isUser) {
+      return this.repo.findOrCreateWallet(isUser.id);
+    }
+
+    // Otherwise resolve primary admin user of the organization
+    const orgAdmin = await prisma.user.findFirst({
+      where: { organizationId: targetId, userType: "ADMIN" },
+      orderBy: { createdAt: "asc" },
+    });
+
+    if (!orgAdmin) {
+      throw new Error(`Target user or organization ${targetId} not found`);
+    }
+
+    return this.repo.findOrCreateWallet(orgAdmin.id);
   }
 
   async rechargeOrganizationWallet(input: RechargeOrgWalletInput) {
@@ -128,7 +149,24 @@ export class AiStudioPlatformService {
     let amountPaid: number | null | undefined = input.amountPaid;
     let description = input.description;
 
-    // 1. If pack ID provided, calculate total credits (base + bonus) & amount
+    // 1. Resolve targetUserId
+    let targetUserId = input.userId;
+    if (!targetUserId && input.organizationId) {
+      const orgAdmin = await prisma.user.findFirst({
+        where: { organizationId: input.organizationId, userType: "ADMIN" },
+        orderBy: { createdAt: "asc" },
+      });
+      if (!orgAdmin) {
+        throw new Error(`No primary admin user found for organization ${input.organizationId}`);
+      }
+      targetUserId = orgAdmin.id;
+    }
+
+    if (!targetUserId) {
+      throw new Error("Target user could not be resolved for wallet recharge");
+    }
+
+    // 2. If pack ID provided, calculate total credits (base + bonus) & amount
     if (input.creditPackId) {
       const pack = await this.repo.findCreditPackById(input.creditPackId);
       if (!pack) {
@@ -148,9 +186,9 @@ export class AiStudioPlatformService {
       throw new Error("Credits to add must be greater than zero");
     }
 
-    // 2. Execute atomic transaction
+    // 3. Execute atomic transaction
     return this.repo.executeRechargeTransaction({
-      organizationId: input.organizationId,
+      userId: targetUserId,
       creditsToAdd,
       amountPaid,
       currency: input.currency,
@@ -164,13 +202,25 @@ export class AiStudioPlatformService {
   }
 
   async getTransactions(params: {
+    userId?: string;
     organizationId?: string;
     page?: number;
     limit?: number;
     transactionType?: AiTransactionType;
   }) {
+    let targetUserId = params.userId;
+    if (!targetUserId && params.organizationId) {
+      const orgAdmin = await prisma.user.findFirst({
+        where: { organizationId: params.organizationId, userType: "ADMIN" },
+        orderBy: { createdAt: "asc" },
+      });
+      if (orgAdmin) {
+        targetUserId = orgAdmin.id;
+      }
+    }
+
     return this.repo.findTransactionsPaginated({
-      organizationId: params.organizationId,
+      userId: targetUserId,
       page: params.page || 1,
       limit: params.limit || 20,
       transactionType: params.transactionType,

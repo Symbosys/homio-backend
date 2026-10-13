@@ -25,16 +25,18 @@ export class VastuAuditService {
   /**
    * Generate AI Vastu Spatial Audit using LangChain Vedic Reasoning Engine
    */
-  public async generateVastuAudit(
-    organizationId: string,
-    employeeId: string | null,
-    input: GenerateVastuAuditInput
-  ) {
+  public async generateVastuAudit(params: {
+    userId: string;
+    createdById?: string | null;
+    employeeId?: string | null;
+    input: GenerateVastuAuditInput;
+  }) {
+    const { userId, createdById, employeeId, input } = params;
     const startTime = Date.now();
     const cost = await this.getAuditCost();
 
-    // 1. Verify organization credit balance
-    const wallet = await this.repo.findOrCreateWallet(organizationId);
+    // 1. Verify user credit balance
+    const wallet = await this.repo.findOrCreateWallet(userId);
     if (wallet.currentBalance < cost) {
       const err: any = new Error(
         `Insufficient AI credits. You have ${wallet.currentBalance} credits, but running a comprehensive Vastu spatial audit requires ${cost} credits.`
@@ -63,8 +65,9 @@ export class VastuAuditService {
 
     // 3. Save session and audit satellite records in database
     const vastuSession = await this.repo.createVastuAuditSession({
-      organizationId,
-      employeeId,
+      userId,
+      createdById: createdById || null,
+      employeeId: employeeId || null,
       propertyType: input.propertyType,
       facingDirection: input.facingDirection,
       totalAreaSqft: input.totalAreaSqft,
@@ -81,8 +84,8 @@ export class VastuAuditService {
 
     // 4. Atomic Credit Deduction & Ledger Entry
     const { wallet: updatedWallet } = await this.repo.atomicDeductCredits({
-      organizationId,
-      employeeId,
+      userId,
+      employeeId: employeeId || null,
       sessionId: vastuSession.sessionId,
       cost,
       description: `AI Vastu Spatial Audit: ${input.propertyType} (${input.facingDirection} Facing)`,
@@ -100,17 +103,17 @@ export class VastuAuditService {
    * List paginated Vastu audit sessions
    */
   public async listSessions(
-    organizationId: string,
+    userId: string,
     query: QueryVastuAuditsInput
   ) {
-    return this.repo.listSessions(organizationId, query);
+    return this.repo.listSessions(userId, query);
   }
 
   /**
    * Get single Vastu audit session by ID
    */
-  public async getSessionById(sessionId: string, organizationId: string) {
-    const session = await this.repo.getSessionById(sessionId, organizationId);
+  public async getSessionById(sessionId: string, userId: string) {
+    const session = await this.repo.getSessionById(sessionId, userId);
     if (!session) {
       const err: any = new Error("Vastu audit session not found");
       err.statusCode = 404;
@@ -124,12 +127,12 @@ export class VastuAuditService {
    */
   public async updateSession(
     sessionId: string,
-    organizationId: string,
+    userId: string,
     data: UpdateVastuAuditInput
   ) {
     const result = await this.repo.updateSession(
       sessionId,
-      organizationId,
+      userId,
       data
     );
     if (!result) {
@@ -143,8 +146,8 @@ export class VastuAuditService {
   /**
    * Delete Vastu audit session & auto-cleanup cloud storage media (Rule 4 Standard)
    */
-  public async deleteSession(sessionId: string, organizationId: string) {
-    const session = await this.repo.deleteSession(sessionId, organizationId);
+  public async deleteSession(sessionId: string, userId: string) {
+    const session = await this.repo.deleteSession(sessionId, userId);
     if (!session) {
       const err: any = new Error("Vastu audit session not found");
       err.statusCode = 404;

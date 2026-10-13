@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { DoubtSolverService } from "../services/doubt-solver.service.js";
 import { statusCode } from "../../../types/types.js";
+import { resolveAiTargetUser } from "../utils/ai-auth.util.js";
 import {
   CreateDoubtSolverSessionSchema,
   AskDoubtSolverQuestionSchema,
@@ -15,7 +16,7 @@ const service = new DoubtSolverService();
  * @controller  getDoubtSolverRate
  * @desc        Retrieve active per-question credit rate for Doubt Solver
  * @route       GET /api/v1/ai-studio/doubt-solver/rate
- * @access      Authenticated Organization Users
+ * @access      Authenticated Users
  */
 export async function getDoubtSolverRate(
   req: Request,
@@ -40,7 +41,7 @@ export async function getDoubtSolverRate(
  * @controller  createDoubtSolverSession
  * @desc        Create a new consultation session thread
  * @route       POST /api/v1/ai-studio/doubt-solver/sessions
- * @access      Authenticated Organization Users
+ * @access      Authenticated Users (Clients, Org Admins, and Employees)
  */
 export async function createDoubtSolverSession(
   req: Request,
@@ -48,22 +49,23 @@ export async function createDoubtSolverSession(
   next: NextFunction
 ) {
   try {
-    const organizationId = req.user?.organizationId;
-    const employeeId = (req.user as any)?.employeeId || null;
-
-    if (!organizationId) {
+    if (!req.user) {
       return res.status(statusCode.Unauthorized).json({
         success: false,
-        message: "Organization context is required",
+        message: "Authentication required",
       });
     }
 
     const validatedInput = CreateDoubtSolverSessionSchema.parse(req.body);
-    const result = await service.createSession(
-      organizationId,
-      employeeId,
-      validatedInput
-    );
+    const { targetUserId, actorUserId, actorEmployeeId } =
+      await resolveAiTargetUser(req.user, validatedInput.orgUserId);
+
+    const result = await service.createSession({
+      userId: targetUserId,
+      createdById: actorUserId,
+      employeeId: actorEmployeeId,
+      input: validatedInput,
+    });
 
     return res.status(statusCode.Created).json({
       success: true,
@@ -84,9 +86,9 @@ export async function createDoubtSolverSession(
 
 /**
  * @controller  listDoubtSolverSessions
- * @desc        List paginated consultation session history for the caller organization
+ * @desc        List paginated consultation session history for the user / organization
  * @route       GET /api/v1/ai-studio/doubt-solver/sessions
- * @access      Authenticated Organization Users
+ * @access      Authenticated Users
  */
 export async function listDoubtSolverSessions(
   req: Request,
@@ -94,16 +96,20 @@ export async function listDoubtSolverSessions(
   next: NextFunction
 ) {
   try {
-    const organizationId = req.user?.organizationId;
-    if (!organizationId) {
+    if (!req.user) {
       return res.status(statusCode.Unauthorized).json({
         success: false,
-        message: "Organization context is required",
+        message: "Authentication required",
       });
     }
 
     const query = QueryDoubtSolverSessionsSchema.parse(req.query);
-    const result = await service.listSessions(organizationId, query);
+    const { targetUserId } = await resolveAiTargetUser(
+      req.user,
+      query.orgUserId
+    );
+
+    const result = await service.listSessions(targetUserId, query);
 
     return res.status(statusCode.OK).json({
       success: true,
@@ -120,7 +126,7 @@ export async function listDoubtSolverSessions(
  * @controller  getDoubtSolverSession
  * @desc        Retrieve single consultation session with full chat history
  * @route       GET /api/v1/ai-studio/doubt-solver/sessions/:sessionId
- * @access      Authenticated Organization Users
+ * @access      Authenticated Users
  */
 export async function getDoubtSolverSession(
   req: Request,
@@ -128,17 +134,20 @@ export async function getDoubtSolverSession(
   next: NextFunction
 ) {
   try {
-    const organizationId = req.user?.organizationId;
-    const sessionId = (req.params.sessionId || "") as string;
-
-    if (!organizationId) {
+    if (!req.user) {
       return res.status(statusCode.Unauthorized).json({
         success: false,
-        message: "Organization context is required",
+        message: "Authentication required",
       });
     }
 
-    const session = await service.getSessionById(sessionId, organizationId);
+    const sessionId = (req.params.sessionId || "") as string;
+    const { targetUserId } = await resolveAiTargetUser(
+      req.user,
+      req.query.orgUserId as string | undefined
+    );
+
+    const session = await service.getSessionById(sessionId, targetUserId);
 
     return res.status(statusCode.OK).json({
       success: true,
@@ -159,7 +168,7 @@ export async function getDoubtSolverSession(
  * @controller  askDoubtSolverQuestion
  * @desc        Post a question to the AI Doubt Solver, invoke LangChain and atomically deduct credits
  * @route       POST /api/v1/ai-studio/doubt-solver/sessions/:sessionId/messages
- * @access      Authenticated Organization Users
+ * @access      Authenticated Users
  */
 export async function askDoubtSolverQuestion(
   req: Request,
@@ -167,24 +176,26 @@ export async function askDoubtSolverQuestion(
   next: NextFunction
 ) {
   try {
-    const organizationId = req.user?.organizationId;
-    const employeeId = (req.user as any)?.employeeId || null;
-    const sessionId = (req.params.sessionId || "") as string;
-
-    if (!organizationId) {
+    if (!req.user) {
       return res.status(statusCode.Unauthorized).json({
         success: false,
-        message: "Organization context is required",
+        message: "Authentication required",
       });
     }
 
+    const sessionId = (req.params.sessionId || "") as string;
     const validatedInput = AskDoubtSolverQuestionSchema.parse(req.body);
-    const result = await service.askQuestion(
-      sessionId,
-      organizationId,
-      employeeId,
-      validatedInput
+    const { targetUserId, actorEmployeeId } = await resolveAiTargetUser(
+      req.user,
+      validatedInput.orgUserId
     );
+
+    const result = await service.askQuestion({
+      sessionId,
+      userId: targetUserId,
+      employeeId: actorEmployeeId,
+      input: validatedInput,
+    });
 
     return res.status(statusCode.OK).json({
       success: true,
@@ -213,7 +224,7 @@ export async function askDoubtSolverQuestion(
  * @controller  rateDoubtSolverMessage
  * @desc        Rate helpfulness of an AI response (1 or 5)
  * @route       POST /api/v1/ai-studio/doubt-solver/messages/:messageId/rate
- * @access      Authenticated Organization Users
+ * @access      Authenticated Users
  */
 export async function rateDoubtSolverMessage(
   req: Request,
@@ -221,21 +232,24 @@ export async function rateDoubtSolverMessage(
   next: NextFunction
 ) {
   try {
-    const organizationId = req.user?.organizationId;
-    const messageId = (req.params.messageId || "") as string;
-
-    if (!organizationId) {
+    if (!req.user) {
       return res.status(statusCode.Unauthorized).json({
         success: false,
-        message: "Organization context is required",
+        message: "Authentication required",
       });
     }
 
-    const { rating } = RateDoubtSolverMessageSchema.parse(req.body);
+    const messageId = (req.params.messageId || "") as string;
+    const validatedInput = RateDoubtSolverMessageSchema.parse(req.body);
+    const { targetUserId } = await resolveAiTargetUser(
+      req.user,
+      validatedInput.orgUserId || (req.query.orgUserId as string | undefined)
+    );
+
     const result = await service.rateMessage(
       messageId,
-      rating,
-      organizationId
+      validatedInput.rating,
+      targetUserId
     );
 
     return res.status(statusCode.OK).json({
@@ -258,7 +272,7 @@ export async function rateDoubtSolverMessage(
  * @controller  updateDoubtSolverSession
  * @desc        Update session title or attributes
  * @route       PATCH /api/v1/ai-studio/doubt-solver/sessions/:sessionId
- * @access      Authenticated Organization Users
+ * @access      Authenticated Users
  */
 export async function updateDoubtSolverSession(
   req: Request,
@@ -266,20 +280,23 @@ export async function updateDoubtSolverSession(
   next: NextFunction
 ) {
   try {
-    const organizationId = req.user?.organizationId;
-    const sessionId = (req.params.sessionId || "") as string;
-
-    if (!organizationId) {
+    if (!req.user) {
       return res.status(statusCode.Unauthorized).json({
         success: false,
-        message: "Organization context is required",
+        message: "Authentication required",
       });
     }
 
+    const sessionId = (req.params.sessionId || "") as string;
     const input = UpdateDoubtSolverSessionSchema.parse(req.body);
+    const { targetUserId } = await resolveAiTargetUser(
+      req.user,
+      input.orgUserId || (req.query.orgUserId as string | undefined)
+    );
+
     const result = await service.updateSession(
       sessionId,
-      organizationId,
+      targetUserId,
       input
     );
 
@@ -303,7 +320,7 @@ export async function updateDoubtSolverSession(
  * @controller  deleteDoubtSolverSession
  * @desc        Delete consultation session and all associated messages
  * @route       DELETE /api/v1/ai-studio/doubt-solver/sessions/:sessionId
- * @access      Authenticated Organization Users
+ * @access      Authenticated Users
  */
 export async function deleteDoubtSolverSession(
   req: Request,
@@ -311,17 +328,20 @@ export async function deleteDoubtSolverSession(
   next: NextFunction
 ) {
   try {
-    const organizationId = req.user?.organizationId;
-    const sessionId = (req.params.sessionId || "") as string;
-
-    if (!organizationId) {
+    if (!req.user) {
       return res.status(statusCode.Unauthorized).json({
         success: false,
-        message: "Organization context is required",
+        message: "Authentication required",
       });
     }
 
-    await service.deleteSession(sessionId, organizationId);
+    const sessionId = (req.params.sessionId || "") as string;
+    const { targetUserId } = await resolveAiTargetUser(
+      req.user,
+      req.query.orgUserId as string | undefined
+    );
+
+    await service.deleteSession(sessionId, targetUserId);
 
     return res.status(statusCode.OK).json({
       success: true,
@@ -337,3 +357,4 @@ export async function deleteDoubtSolverSession(
     next(error);
   }
 }
+

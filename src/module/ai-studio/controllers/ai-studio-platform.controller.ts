@@ -233,12 +233,14 @@ export async function rechargeOrganizationWallet(req: Request, res: Response, ne
  */
 export async function getTransactions(req: Request, res: Response, next: NextFunction) {
   try {
+    const userId = req.query.userId ? String(req.query.userId) : undefined;
     const organizationId = req.query.organizationId ? String(req.query.organizationId) : undefined;
     const page = req.query.page ? Number(req.query.page) : 1;
     const limit = req.query.limit ? Number(req.query.limit) : 20;
     const transactionType = req.query.transactionType ? (String(req.query.transactionType) as AiTransactionType) : undefined;
 
     const result = await service.getTransactions({
+      userId,
       organizationId,
       page,
       limit,

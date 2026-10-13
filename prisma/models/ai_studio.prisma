@@ -83,12 +83,12 @@ model AiServiceRate {
 }
 
 // =======================================================
-// 3. ORGANIZATION AI WALLET
+// 3. USER AI WALLET (Directly User-Centric)
 // =======================================================
 
 model AiWallet {
   id                      String @id @default(uuid()) @db.Uuid
-  organizationId          String @unique @map("organization_id") @db.Uuid
+  userId                  String @unique @map("user_id") @db.Uuid
   currentBalance          Int    @default(0) @map("current_balance")
   lifetimeCreditsCredited Int    @default(0) @map("lifetime_credits_credited")
   lifetimeCreditsConsumed Int    @default(0) @map("lifetime_credits_consumed")
@@ -107,7 +107,7 @@ model AiWallet {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  organization Organization          @relation("OrganizationAiWallet", fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User                  @relation("UserAiWallet", fields: [userId], references: [id], onDelete: Cascade)
   transactions AiCreditTransaction[]
 
   @@map("ai_wallets")
@@ -119,7 +119,7 @@ model AiWallet {
 
 model AiCreditTransaction {
   id             String  @id @default(uuid()) @db.Uuid
-  organizationId String  @map("organization_id") @db.Uuid
+  userId         String  @map("user_id") @db.Uuid
   walletId       String  @map("wallet_id") @db.Uuid
   employeeId     String? @map("employee_id") @db.Uuid
   sessionId      String? @map("session_id") @db.Uuid
@@ -142,13 +142,13 @@ model AiCreditTransaction {
   createdAt DateTime @default(now()) @map("created_at")
 
   // Relations
-  organization Organization  @relation("OrganizationAiTransactions", fields: [organizationId], references: [id], onDelete: Cascade)
-  wallet       AiWallet      @relation(fields: [walletId], references: [id], onDelete: Cascade)
-  employee     Employee?     @relation("EmployeeAiTransactions", fields: [employeeId], references: [id], onDelete: SetNull)
-  session      AiSession?    @relation(fields: [sessionId], references: [id], onDelete: SetNull)
-  creditPack   AiCreditPack? @relation(fields: [creditPackId], references: [id], onDelete: SetNull)
+  user       User          @relation("UserAiTransactions", fields: [userId], references: [id], onDelete: Cascade)
+  wallet     AiWallet      @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  employee   Employee?     @relation("EmployeeAiTransactions", fields: [employeeId], references: [id], onDelete: SetNull)
+  session    AiSession?    @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  creditPack AiCreditPack? @relation(fields: [creditPackId], references: [id], onDelete: SetNull)
 
-  @@index([organizationId, createdAt])
+  @@index([userId, createdAt])
   @@index([walletId])
   @@index([employeeId])
   @@map("ai_credit_transactions")
@@ -160,7 +160,8 @@ model AiCreditTransaction {
 
 model AiSession {
   id                  String          @id @default(uuid()) @db.Uuid
-  organizationId      String          @map("organization_id") @db.Uuid
+  userId              String          @map("user_id") @db.Uuid
+  createdById         String?         @map("created_by_id") @db.Uuid
   employeeId          String?         @map("employee_id") @db.Uuid
   serviceType         AiServiceType   @map("service_type")
   status              AiSessionStatus @default(QUEUED) @map("status")
@@ -176,8 +177,9 @@ model AiSession {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  organization Organization @relation("OrganizationAiSessions", fields: [organizationId], references: [id], onDelete: Cascade)
-  employee     Employee?    @relation("EmployeeAiSessions", fields: [employeeId], references: [id], onDelete: SetNull)
+  user      User      @relation("UserAiSessions", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy User?     @relation("UserAiSessionCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  employee  Employee? @relation("EmployeeAiSessions", fields: [employeeId], references: [id], onDelete: SetNull)
 
   // 1-to-1 Sub-Session Satellite Relations
   roomDesignSession  AiRoomDesignSession?
@@ -188,7 +190,7 @@ model AiSession {
 
   transactions AiCreditTransaction[]
 
-  @@index([organizationId, serviceType, createdAt])
+  @@index([userId, serviceType, createdAt])
   @@index([employeeId])
   @@map("ai_sessions")
 }

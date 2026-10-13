@@ -45,10 +45,23 @@ export const UpdateServiceRateSchema = z.object({
 export type UpdateServiceRateInput = z.infer<typeof UpdateServiceRateSchema>;
 
 /**
- * Zod Schema for Organization Wallet Recharge by Platform Admin
+ * Zod Schema for Target User Delegation Query (Optional orgUserId)
+ */
+export const AiStudioTargetUserQuerySchema = z.object({
+  orgUserId: z.string().uuid("Invalid organization user ID").optional(),
+  transactionType: z.nativeEnum(AiTransactionType).optional(),
+  page: z.coerce.number().int().positive().optional().default(1),
+  limit: z.coerce.number().int().positive().max(100).optional().default(20),
+});
+
+export type AiStudioTargetUserQuery = z.infer<typeof AiStudioTargetUserQuerySchema>;
+
+/**
+ * Zod Schema for User / Organization Wallet Recharge by Platform Admin
  */
 export const RechargeOrgWalletSchema = z.object({
-  organizationId: z.string().uuid("Invalid organization ID"),
+  userId: z.string().uuid("Invalid user ID").optional().nullable(),
+  organizationId: z.string().uuid("Invalid organization ID").optional().nullable(),
   creditPackId: z.string().uuid("Invalid credit pack ID").optional().nullable(),
   customCredits: z.number().int().positive("Custom credits must be positive").optional().nullable(),
   transactionType: z.nativeEnum(AiTransactionType).default(AiTransactionType.PACK_PURCHASE),
@@ -58,10 +71,15 @@ export const RechargeOrgWalletSchema = z.object({
   invoiceNumber: z.string().optional().nullable(),
   description: z.string().min(3, "Description must have at least 3 characters").max(255),
   additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
-}).refine((data) => data.creditPackId || data.customCredits, {
-  message: "Either a creditPackId or customCredits must be provided to recharge wallet",
-  path: ["creditPackId"],
-});
+})
+  .refine((data) => data.userId || data.organizationId, {
+    message: "Either userId or organizationId must be provided to identify the target wallet",
+    path: ["userId"],
+  })
+  .refine((data) => data.creditPackId || data.customCredits, {
+    message: "Either a creditPackId or customCredits must be provided to recharge wallet",
+    path: ["creditPackId"],
+  });
 
 export type RechargeOrgWalletInput = z.infer<typeof RechargeOrgWalletSchema>;
 
@@ -72,7 +90,7 @@ export const GetOrgWalletsQuerySchema = z.object({
   search: z.string().optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(20),
-  sortBy: z.enum(["name", "currentBalance", "lifetimeCreditsConsumed", "createdAt"]).default("createdAt"),
+  sortBy: z.enum(["name", "email", "currentBalance", "lifetimeCreditsConsumed", "createdAt"]).default("createdAt"),
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
 });
 

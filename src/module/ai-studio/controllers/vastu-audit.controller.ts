@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { VastuAuditService } from "../services/vastu-audit.service.js";
+import { resolveAiTargetUser } from "../utils/ai-auth.util.js";
 import {
   GenerateVastuAuditSchema,
   QueryVastuAuditsSchema,
@@ -15,7 +16,7 @@ export class VastuAuditController {
   /**
    * @route   GET /api/v1/ai-studio/vastu/rate
    * @desc    Get active credit cost per Vastu spatial audit
-   * @access  Private (Tenant)
+   * @access  Private (Authenticated Users)
    */
   public static async getRate(req: Request, res: Response) {
     try {
@@ -38,27 +39,27 @@ export class VastuAuditController {
   /**
    * @route   POST /api/v1/ai-studio/vastu/audit
    * @desc    Execute deep 16-zone Vedic Vastu spatial audit & non-demolition remedies
-   * @access  Private (Tenant)
+   * @access  Private (Authenticated Users)
    */
   public static async generateAudit(req: Request, res: Response) {
     try {
-      const organizationId = req.user?.organizationId;
-      const employeeId = (req.user as any)?.employeeId || req.user?.id || null;
-
-      if (!organizationId) {
+      if (!req.user) {
         return res.status(401).json({
           success: false,
-          message: "Organization context is required",
+          message: "Authentication required",
         });
       }
 
       const validatedData = GenerateVastuAuditSchema.parse(req.body);
+      const { targetUserId, actorUserId, actorEmployeeId } =
+        await resolveAiTargetUser(req.user, validatedData.orgUserId);
 
-      const result = await vastuService.generateVastuAudit(
-        organizationId,
-        employeeId,
-        validatedData
-      );
+      const result = await vastuService.generateVastuAudit({
+        userId: targetUserId,
+        createdById: actorUserId,
+        employeeId: actorEmployeeId,
+        input: validatedData,
+      });
 
       res.status(201).json({
         success: true,
@@ -73,6 +74,14 @@ export class VastuAuditController {
         });
       }
 
+      if (error?.code === "INSUFFICIENT_CREDITS" || error?.statusCode === 402) {
+        return res.status(402).json({
+          success: false,
+          code: "INSUFFICIENT_CREDITS",
+          message: error.message,
+        });
+      }
+
       res.status(error.statusCode || 500).json({
         success: false,
         code: error.code || "VASTU_AUDIT_ERROR",
@@ -84,21 +93,24 @@ export class VastuAuditController {
   /**
    * @route   GET /api/v1/ai-studio/vastu/sessions
    * @desc    List paginated Vastu audit history
-   * @access  Private (Tenant)
+   * @access  Private (Authenticated Users)
    */
   public static async listAudits(req: Request, res: Response) {
     try {
-      const organizationId = req.user?.organizationId;
-
-      if (!organizationId) {
+      if (!req.user) {
         return res.status(401).json({
           success: false,
-          message: "Organization context is required",
+          message: "Authentication required",
         });
       }
 
       const query = QueryVastuAuditsSchema.parse(req.query);
-      const result = await vastuService.listSessions(organizationId, query);
+      const { targetUserId } = await resolveAiTargetUser(
+        req.user,
+        query.orgUserId
+      );
+
+      const result = await vastuService.listSessions(targetUserId, query);
 
       res.status(200).json({
         success: true,
@@ -116,20 +128,18 @@ export class VastuAuditController {
   /**
    * @route   GET /api/v1/ai-studio/vastu/sessions/:id
    * @desc    Get single Vastu audit session details
-   * @access  Private (Tenant)
+   * @access  Private (Authenticated Users)
    */
   public static async getAuditById(req: Request, res: Response) {
     try {
-      const organizationId = req.user?.organizationId;
-      const id = req.params.id as string;
-
-      if (!organizationId) {
+      if (!req.user) {
         return res.status(401).json({
           success: false,
-          message: "Organization context is required",
+          message: "Authentication required",
         });
       }
 
+      const id = req.params.id as string;
       if (!id) {
         return res.status(400).json({
           success: false,
@@ -137,7 +147,12 @@ export class VastuAuditController {
         });
       }
 
-      const session = await vastuService.getSessionById(id, organizationId);
+      const { targetUserId } = await resolveAiTargetUser(
+        req.user,
+        req.query.orgUserId as string | undefined
+      );
+
+      const session = await vastuService.getSessionById(id, targetUserId);
 
       res.status(200).json({
         success: true,
@@ -154,20 +169,18 @@ export class VastuAuditController {
   /**
    * @route   PUT /api/v1/ai-studio/vastu/sessions/:id
    * @desc    Update Vastu audit metadata
-   * @access  Private (Tenant)
+   * @access  Private (Authenticated Users)
    */
   public static async updateAudit(req: Request, res: Response) {
     try {
-      const organizationId = req.user?.organizationId;
-      const id = req.params.id as string;
-
-      if (!organizationId) {
+      if (!req.user) {
         return res.status(401).json({
           success: false,
-          message: "Organization context is required",
+          message: "Authentication required",
         });
       }
 
+      const id = req.params.id as string;
       if (!id) {
         return res.status(400).json({
           success: false,
@@ -175,10 +188,15 @@ export class VastuAuditController {
         });
       }
 
+      const { targetUserId } = await resolveAiTargetUser(
+        req.user,
+        (req.body as any)?.orgUserId || (req.query as any)?.orgUserId
+      );
+
       const validatedData = UpdateVastuAuditSchema.parse(req.body);
       const updated = await vastuService.updateSession(
         id,
-        organizationId,
+        targetUserId,
         validatedData
       );
 
@@ -197,20 +215,18 @@ export class VastuAuditController {
   /**
    * @route   DELETE /api/v1/ai-studio/vastu/sessions/:id
    * @desc    Delete Vastu audit session & clean up cloud assets (Rule 4 Standard)
-   * @access  Private (Tenant)
+   * @access  Private (Authenticated Users)
    */
   public static async deleteAudit(req: Request, res: Response) {
     try {
-      const organizationId = req.user?.organizationId;
-      const id = req.params.id as string;
-
-      if (!organizationId) {
+      if (!req.user) {
         return res.status(401).json({
           success: false,
-          message: "Organization context is required",
+          message: "Authentication required",
         });
       }
 
+      const id = req.params.id as string;
       if (!id) {
         return res.status(400).json({
           success: false,
@@ -218,7 +234,12 @@ export class VastuAuditController {
         });
       }
 
-      const deleted = await vastuService.deleteSession(id, organizationId);
+      const { targetUserId } = await resolveAiTargetUser(
+        req.user,
+        req.query.orgUserId as string | undefined
+      );
+
+      const deleted = await vastuService.deleteSession(id, targetUserId);
 
       res.status(200).json({
         success: true,

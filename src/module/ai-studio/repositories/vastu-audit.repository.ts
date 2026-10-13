@@ -20,17 +20,17 @@ export class VastuAuditRepository {
   }
 
   /**
-   * Find or initialize organization AI wallet
+   * Find or initialize user AI wallet
    */
-  public async findOrCreateWallet(organizationId: string) {
+  public async findOrCreateWallet(userId: string) {
     let wallet = await prisma.aiWallet.findUnique({
-      where: { organizationId },
+      where: { userId },
     });
 
     if (!wallet) {
       wallet = await prisma.aiWallet.create({
         data: {
-          organizationId,
+          userId,
           currentBalance: 100,
           lifetimeCreditsCredited: 100,
           lifetimeCreditsConsumed: 0,
@@ -45,8 +45,9 @@ export class VastuAuditRepository {
    * Create AiSession and associated AiVastuAuditSession satellite record
    */
   public async createVastuAuditSession(data: {
-    organizationId: string;
-    employeeId: string | null;
+    userId: string;
+    createdById?: string | null;
+    employeeId?: string | null;
     propertyType: string;
     facingDirection: string;
     totalAreaSqft?: number | null;
@@ -62,29 +63,12 @@ export class VastuAuditRepository {
     executionDurationMs?: number;
   }) {
     return prisma.$transaction(async (tx) => {
-      // Safe check for valid employee FK
-      let validEmployeeId: string | null = null;
-      if (data.employeeId) {
-        const emp = await tx.employee.findFirst({
-          where: {
-            OR: [
-              { id: data.employeeId },
-              { userId: data.employeeId },
-            ],
-            organizationId: data.organizationId,
-          },
-          select: { id: true },
-        });
-        if (emp) {
-          validEmployeeId = emp.id;
-        }
-      }
-
       // 1. Create root AI Session
       const session = await tx.aiSession.create({
         data: {
-          organizationId: data.organizationId,
-          employeeId: validEmployeeId,
+          userId: data.userId,
+          createdById: data.createdById || null,
+          employeeId: data.employeeId || null,
           serviceType: AiServiceType.VASTU_CONSULTATION,
           status: AiSessionStatus.COMPLETED,
           creditsConsumed: 0,
@@ -129,41 +113,23 @@ export class VastuAuditRepository {
    * Atomic Credit Deduction & Ledger Transaction
    */
   public async atomicDeductCredits(data: {
-    organizationId: string;
+    userId: string;
     employeeId: string | null;
     sessionId: string;
     cost: number;
     description: string;
   }) {
-    const { organizationId, employeeId, sessionId, cost, description } = data;
+    const { userId, employeeId, sessionId, cost, description } = data;
 
     return prisma.$transaction(async (tx) => {
-      // Safe check for valid employee FK
-      let validEmployeeId: string | null = null;
-      if (employeeId) {
-        const emp = await tx.employee.findFirst({
-          where: {
-            OR: [
-              { id: employeeId },
-              { userId: employeeId },
-            ],
-            organizationId,
-          },
-          select: { id: true },
-        });
-        if (emp) {
-          validEmployeeId = emp.id;
-        }
-      }
-
       const wallet = await tx.aiWallet.findUniqueOrThrow({
-        where: { organizationId },
+        where: { userId },
       });
 
       const balanceAfter = wallet.currentBalance - cost;
 
       const updatedWallet = await tx.aiWallet.update({
-        where: { organizationId },
+        where: { userId },
         data: {
           currentBalance: { decrement: cost },
           lifetimeCreditsConsumed: { increment: cost },
@@ -172,9 +138,9 @@ export class VastuAuditRepository {
 
       const transaction = await tx.aiCreditTransaction.create({
         data: {
-          organizationId,
+          userId,
           walletId: wallet.id,
-          employeeId: validEmployeeId,
+          employeeId: employeeId || null,
           sessionId,
           transactionType: AiTransactionType.USAGE_DEBIT,
           credits: -cost,
@@ -198,7 +164,7 @@ export class VastuAuditRepository {
    * Query paginated Vastu audits
    */
   public async listSessions(
-    organizationId: string,
+    userId: string,
     query: QueryVastuAuditsInput
   ) {
     const page = query.page || 1;
@@ -207,7 +173,7 @@ export class VastuAuditRepository {
 
     const where: any = {
       session: {
-        organizationId,
+        userId,
         serviceType: AiServiceType.VASTU_CONSULTATION,
       },
     };
@@ -260,12 +226,12 @@ export class VastuAuditRepository {
   /**
    * Get single Vastu audit by session ID
    */
-  public async getSessionById(sessionId: string, organizationId: string) {
+  public async getSessionById(sessionId: string, userId: string) {
     return prisma.aiVastuAuditSession.findFirst({
       where: {
         sessionId,
         session: {
-          organizationId,
+          userId,
         },
       },
       include: {
@@ -279,10 +245,10 @@ export class VastuAuditRepository {
    */
   public async updateSession(
     sessionId: string,
-    organizationId: string,
+    userId: string,
     data: UpdateVastuAuditInput
   ) {
-    const existing = await this.getSessionById(sessionId, organizationId);
+    const existing = await this.getSessionById(sessionId, userId);
     if (!existing) return null;
 
     return prisma.aiVastuAuditSession.update({
@@ -301,8 +267,8 @@ export class VastuAuditRepository {
   /**
    * Delete Vastu audit session
    */
-  public async deleteSession(sessionId: string, organizationId: string) {
-    const existing = await this.getSessionById(sessionId, organizationId);
+  public async deleteSession(sessionId: string, userId: string) {
+    const existing = await this.getSessionById(sessionId, userId);
     if (!existing) return null;
 
     await prisma.aiSession.delete({

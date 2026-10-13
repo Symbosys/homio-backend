@@ -2,49 +2,58 @@ import type { Request, Response, NextFunction } from "express";
 import { AiStudioRepository } from "../repos/ai-studio.repository.js";
 import { prisma } from "../../../lib/prisma.js";
 import { statusCode, AiTransactionType } from "../../../types/types.js";
+import { resolveAiTargetUser } from "../utils/ai-auth.util.js";
 
 const repo = new AiStudioRepository();
 
 /**
  * @controller  getOrgAiWallet
- * @desc        Retrieve or initialize the active tenant organization's AI credit wallet and subscription plan
+ * @desc        Retrieve or initialize the active user/organization AI credit wallet and subscription plan
  * @route       GET /api/v1/ai-studio/wallet
- * @access      Organization Authenticated Users
+ * @access      Authenticated Users (Client Users, Org Admins, and Authorized Employees)
  */
 export async function getOrgAiWallet(req: Request, res: Response, next: NextFunction) {
   try {
-    const organizationId = req.user?.organizationId;
-    if (!organizationId) {
+    if (!req.user) {
       return res.status(statusCode.Unauthorized).json({
         success: false,
-        message: "Organization ID not found in session",
+        message: "Authentication required",
       });
     }
 
+    const { targetUserId } = await resolveAiTargetUser(
+      req.user,
+      req.query.orgUserId as string | undefined
+    );
+
+    const organizationId = req.user.organizationId;
+
     const [wallet, activeSubscription] = await Promise.all([
-      repo.findOrCreateWallet(organizationId),
-      prisma.subscription.findFirst({
-        where: { organizationId, status: "ACTIVE" },
-        include: {
-          plan: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-              description: true,
-              priceMonthly: true,
-              priceYearly: true,
-              features: true,
+      repo.findOrCreateWallet(targetUserId),
+      organizationId
+        ? prisma.subscription.findFirst({
+            where: { organizationId, status: "ACTIVE" },
+            include: {
+              plan: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                  description: true,
+                  priceMonthly: true,
+                  priceYearly: true,
+                  features: true,
+                },
+              },
             },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-      }),
+            orderBy: { createdAt: "desc" },
+          })
+        : null,
     ]);
 
     return res.status(statusCode.OK).json({
       success: true,
-      message: "Organization AI wallet retrieved successfully",
+      message: "AI wallet retrieved successfully",
       data: {
         wallet,
         subscription: activeSubscription || null,
@@ -57,26 +66,30 @@ export async function getOrgAiWallet(req: Request, res: Response, next: NextFunc
 
 /**
  * @controller  getOrgAiTransactions
- * @desc        Fetch paginated AI credit transaction history scoped to the caller organization
+ * @desc        Fetch paginated AI credit transaction history scoped to target user
  * @route       GET /api/v1/ai-studio/transactions
- * @access      Organization Authenticated Users
+ * @access      Authenticated Users
  */
 export async function getOrgAiTransactions(req: Request, res: Response, next: NextFunction) {
   try {
-    const organizationId = req.user?.organizationId;
-    if (!organizationId) {
+    if (!req.user) {
       return res.status(statusCode.Unauthorized).json({
         success: false,
-        message: "Organization ID not found in session",
+        message: "Authentication required",
       });
     }
+
+    const { targetUserId } = await resolveAiTargetUser(
+      req.user,
+      req.query.orgUserId as string | undefined
+    );
 
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 15));
     const transactionType = req.query.transactionType as AiTransactionType | undefined;
 
     const result = await repo.findTransactionsPaginated({
-      organizationId,
+      userId: targetUserId,
       page,
       limit,
       transactionType,

@@ -5,6 +5,7 @@ import { AiChatMessageSender } from "../../../types/types.js";
  * Zod validation for creating a new Doubt Solver chat session
  */
 export const CreateDoubtSolverSessionSchema = z.object({
+  orgUserId: z.string().uuid("Invalid organization user ID").optional(),
   title: z.string().min(1).max(150).optional().default("Technical Doubt Consultation"),
   topicCategory: z.string().min(1).max(100).optional().default("Interior Design"),
   intelligenceMode: z.string().min(1).max(50).optional().default("smart"),
@@ -20,6 +21,7 @@ export type CreateDoubtSolverSessionInput = z.infer<
  * Zod validation for asking a question within an active session
  */
 export const AskDoubtSolverQuestionSchema = z.object({
+  orgUserId: z.string().uuid("Invalid organization user ID").optional(),
   question: z.string().min(1, "Question cannot be empty").max(5000, "Question is too long"),
   topicCategory: z.string().max(100).optional(),
   intelligenceMode: z.string().max(50).optional(),
@@ -34,6 +36,7 @@ export type AskDoubtSolverQuestionInput = z.infer<
  * Zod validation for rating a message
  */
 export const RateDoubtSolverMessageSchema = z.object({
+  orgUserId: z.string().uuid("Invalid organization user ID").optional(),
   rating: z.union([z.literal(1), z.literal(5)]),
 });
 
@@ -45,6 +48,7 @@ export type RateDoubtSolverMessageInput = z.infer<
  * Zod validation for updating a session
  */
 export const UpdateDoubtSolverSessionSchema = z.object({
+  orgUserId: z.string().uuid("Invalid organization user ID").optional(),
   title: z.string().min(1).max(150).optional(),
   topicCategory: z.string().max(100).optional(),
   intelligenceMode: z.string().max(50).optional(),
@@ -59,6 +63,7 @@ export type UpdateDoubtSolverSessionInput = z.infer<
  * Zod validation for querying sessions
  */
 export const QueryDoubtSolverSessionsSchema = z.object({
+  orgUserId: z.string().uuid("Invalid organization user ID").optional(),
   page: z.coerce.number().int().min(1).optional().default(1),
   limit: z.coerce.number().int().min(1).max(50).optional().default(20),
   search: z.string().optional(),

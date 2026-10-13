@@ -22,17 +22,17 @@ export class DoubtSolverRepository {
   }
 
   /**
-   * Find or create Organization AI Wallet
+   * Find or create User AI Wallet
    */
-  public async findOrCreateWallet(organizationId: string) {
+  public async findOrCreateWallet(userId: string) {
     let wallet = await prisma.aiWallet.findUnique({
-      where: { organizationId },
+      where: { userId },
     });
 
     if (!wallet) {
       wallet = await prisma.aiWallet.create({
         data: {
-          organizationId,
+          userId,
           currentBalance: 100, // Initial promotional allocation
           lifetimeCreditsCredited: 100,
           lifetimeCreditsConsumed: 0,
@@ -46,34 +46,20 @@ export class DoubtSolverRepository {
   /**
    * Create new AI Doubt Solver Session thread
    */
-  public async createSession(
-    organizationId: string,
-    employeeId: string | null,
-    input: CreateDoubtSolverSessionInput
-  ) {
-    return prisma.$transaction(async (tx: any) => {
-      // Safe check for valid employee FK
-      let validEmployeeId: string | null = null;
-      if (employeeId) {
-        const emp = await tx.employee.findFirst({
-          where: {
-            OR: [
-              { id: employeeId },
-              { userId: employeeId },
-            ],
-            organizationId,
-          },
-          select: { id: true },
-        });
-        if (emp) {
-          validEmployeeId = emp.id;
-        }
-      }
+  public async createSession(data: {
+    userId: string;
+    createdById?: string | null;
+    employeeId?: string | null;
+    input: CreateDoubtSolverSessionInput;
+  }) {
+    const { userId, createdById, employeeId, input } = data;
 
+    return prisma.$transaction(async (tx: any) => {
       const aiSession = await tx.aiSession.create({
         data: {
-          organizationId,
-          employeeId: validEmployeeId,
+          userId,
+          createdById: createdById || null,
+          employeeId: employeeId || null,
           serviceType: AiServiceType.DOUBT_SOLVER,
           status: AiSessionStatus.COMPLETED,
           creditsConsumed: 0,
@@ -94,7 +80,8 @@ export class DoubtSolverRepository {
           session: {
             select: {
               id: true,
-              organizationId: true,
+              userId: true,
+              createdById: true,
               employeeId: true,
               creditsConsumed: true,
               createdAt: true,
@@ -112,10 +99,10 @@ export class DoubtSolverRepository {
   }
 
   /**
-   * List paginated sessions for an organization
+   * List paginated sessions for a user
    */
   public async listSessions(
-    organizationId: string,
+    userId: string,
     query: QueryDoubtSolverSessionsInput
   ) {
     const { page = 1, limit = 20, search, topicCategory } = query;
@@ -123,7 +110,7 @@ export class DoubtSolverRepository {
 
     const where: any = {
       session: {
-        organizationId,
+        userId,
         serviceType: AiServiceType.DOUBT_SOLVER,
       },
     };
@@ -150,6 +137,9 @@ export class DoubtSolverRepository {
           session: {
             select: {
               id: true,
+              userId: true,
+              createdById: true,
+              employeeId: true,
               creditsConsumed: true,
               createdAt: true,
               updatedAt: true,
@@ -180,17 +170,18 @@ export class DoubtSolverRepository {
   /**
    * Get single Doubt Solver Session by ID with full message thread
    */
-  public async getSessionById(sessionId: string, organizationId: string) {
+  public async getSessionById(sessionId: string, userId: string) {
     return prisma.aiDoubtSolverSession.findFirst({
       where: {
         sessionId,
-        session: { organizationId },
+        session: { userId },
       },
       include: {
         session: {
           select: {
             id: true,
-            organizationId: true,
+            userId: true,
+            createdById: true,
             employeeId: true,
             creditsConsumed: true,
             status: true,
@@ -233,27 +224,27 @@ export class DoubtSolverRepository {
   }
 
   /**
-   * Atomically deduct credits from organization wallet and log ledger transaction
+   * Atomically deduct credits from user wallet and log ledger transaction
    */
   public async atomicDeductCredits(params: {
-    organizationId: string;
+    userId: string;
     employeeId: string | null;
     sessionId: string;
     cost: number;
     description: string;
   }) {
-    const { organizationId, employeeId, sessionId, cost, description } = params;
+    const { userId, employeeId, sessionId, cost, description } = params;
 
     return prisma.$transaction(async (tx: any) => {
       // 1. Fetch wallet with lock/verification
       let wallet = await tx.aiWallet.findUnique({
-        where: { organizationId },
+        where: { userId },
       });
 
       if (!wallet) {
         wallet = await tx.aiWallet.create({
           data: {
-            organizationId,
+            userId,
             currentBalance: 100,
             lifetimeCreditsCredited: 100,
             lifetimeCreditsConsumed: 0,
@@ -287,30 +278,12 @@ export class DoubtSolverRepository {
         },
       });
 
-      // Safe check for valid employee FK
-      let validEmployeeId: string | null = null;
-      if (employeeId) {
-        const emp = await tx.employee.findFirst({
-          where: {
-            OR: [
-              { id: employeeId },
-              { userId: employeeId },
-            ],
-            organizationId,
-          },
-          select: { id: true },
-        });
-        if (emp) {
-          validEmployeeId = emp.id;
-        }
-      }
-
       // 4. Record transaction ledger entry
       const transaction = await tx.aiCreditTransaction.create({
         data: {
-          organizationId,
+          userId,
           walletId: wallet.id,
-          employeeId: validEmployeeId,
+          employeeId: employeeId || null,
           sessionId,
           transactionType: AiTransactionType.USAGE_DEBIT,
           credits: -cost,
@@ -332,13 +305,13 @@ export class DoubtSolverRepository {
   public async rateMessage(
     messageId: string,
     rating: number,
-    organizationId: string
+    userId: string
   ) {
     const message = await prisma.aiDoubtSolverChatMessage.findFirst({
       where: {
         id: messageId,
         doubtSolverSession: {
-          session: { organizationId },
+          session: { userId },
         },
       },
     });
@@ -358,13 +331,13 @@ export class DoubtSolverRepository {
    */
   public async updateSession(
     sessionId: string,
-    organizationId: string,
+    userId: string,
     data: UpdateDoubtSolverSessionInput
   ) {
     const session = await prisma.aiDoubtSolverSession.findFirst({
       where: {
         sessionId,
-        session: { organizationId },
+        session: { userId },
       },
     });
 
@@ -384,9 +357,9 @@ export class DoubtSolverRepository {
   /**
    * Delete session and all related records
    */
-  public async deleteSession(sessionId: string, organizationId: string) {
+  public async deleteSession(sessionId: string, userId: string) {
     const session = await prisma.aiSession.findFirst({
-      where: { id: sessionId, organizationId },
+      where: { id: sessionId, userId },
     });
 
     if (!session) return null;
@@ -396,3 +369,4 @@ export class DoubtSolverRepository {
     });
   }
 }
+
