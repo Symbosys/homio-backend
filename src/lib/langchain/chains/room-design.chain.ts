@@ -9,6 +9,7 @@ export interface RoomDesignPromptInput {
   lightingMode?: string;
   customInstructions?: string;
   hasBeforeImage?: boolean;
+  customSystemPrompt?: string;
 }
 
 /**
@@ -31,11 +32,12 @@ export class RoomDesignChain {
       lightingMode = "Day Natural Sunlight",
       customInstructions = "",
       hasBeforeImage = false,
+      customSystemPrompt,
     } = input;
 
-    const llm = LlmFactory.getProvider();
+    const llm = LlmFactory.getProvider("openai");
 
-    const systemPrompt = `
+    const defaultSystemPrompt = `
 You are an elite interior architect, spatial renovation director, and 3D architectural visualizer.
 Your mission is to generate a single, highly precise image generation prompt for a complete "Before-to-After" interior makeover photograph.
 
@@ -45,6 +47,11 @@ Your mission is to generate a single, highly precise image generation prompt for
 3. Transform all surfaces, materials, cabinetry, lighting, ceiling treatment, flooring, and furniture to match the requested design style and luxury aesthetic.
 4. Output MUST be a single raw photographic prompt without preamble, conversational text, quotes, or markdown. Keep strictly under 900 characters.
 `.trim();
+
+    // If platform admin defined a custom system prompt/guide in AiServiceRate, inject it with priority
+    const systemPrompt = customSystemPrompt?.trim()
+      ? `${customSystemPrompt.trim()}\n\n### ARCHITECTURAL RULES & STRUCTURAL PRESERVATION:\n${defaultSystemPrompt}`
+      : defaultSystemPrompt;
 
     const paletteStr =
       colorPalette.length > 0 ? colorPalette.join(", ") : "Warm neutral luxury palette";
@@ -57,6 +64,10 @@ Your mission is to generate a single, highly precise image generation prompt for
       ? "Renovation makeover of existing room space: strictly maintain the original physical room dimensions, window placements, wall boundaries, and camera angle."
       : "Balanced architectural interior perspective with realistic room layout and structural integrity.";
 
+    const platformDirectiveNote = customSystemPrompt?.trim()
+      ? `Platform System Directives: ${customSystemPrompt.trim()}\n`
+      : "";
+
     const userMessage: LlmMessage = {
       role: "user",
       content: `
@@ -67,7 +78,7 @@ Selected Materials & Finishes: ${materialsStr}
 Lighting Atmosphere: ${lightingMode}
 Structural Context: ${structuralInstruction}
 Custom Designer Notes: ${customInstructions || "None"}
-
+${platformDirectiveNote}
 Please synthesize this into an ultra-realistic 8K architectural interior photograph prompt of the finished space with crisp textures, ray-traced lighting, and Architectural Digest editorial aesthetics.
 `.trim(),
     };
@@ -92,6 +103,9 @@ Please synthesize this into an ultra-realistic 8K architectural interior photogr
     }
 
     // High-fidelity fallback template preserving room structure
-    return `Ultra-realistic 8k architectural interior photograph of a renovated ${designStyle} ${roomType}. Maintaining exact structural layout, wall boundaries, and window placement. Featuring ${materialsStr}, harmonized with ${paletteStr}. Illuminated by ${lightingMode} with realistic ambient occlusion, soft cove lighting, crisp reflections, 24mm wide angle perspective, Architectural Digest editorial quality. ${customInstructions ? customInstructions + "." : ""}`.trim();
+    const fallbackPrefix = customSystemPrompt?.trim()
+      ? `${customSystemPrompt.trim()}. `
+      : "";
+    return `${fallbackPrefix}Ultra-realistic 8k architectural interior photograph of a renovated ${designStyle} ${roomType}. Maintaining exact structural layout, wall boundaries, and window placement. Featuring ${materialsStr}, harmonized with ${paletteStr}. Illuminated by ${lightingMode} with realistic ambient occlusion, soft cove lighting, crisp reflections, 24mm wide angle perspective, Architectural Digest editorial quality. ${customInstructions ? customInstructions + "." : ""}`.trim();
   }
 }

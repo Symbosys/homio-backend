@@ -56,6 +56,10 @@ export class RoomDesignerService {
       input.beforeImage || (input.beforeImages && input.beforeImages.length > 0)
     );
 
+    // Fetch platform service rate for custom system prompt/guide
+    const rate = await this.repo.getRoomDesignerServiceRate();
+    const customSystemPrompt = rate?.description?.trim() || undefined;
+
     const synthesizedPrompt = await RoomDesignChain.synthesizePrompt({
       roomType: input.roomType,
       designStyle: input.designStyle,
@@ -64,6 +68,7 @@ export class RoomDesignerService {
       lightingMode: input.lightingMode,
       customInstructions: input.customInstructions,
       hasBeforeImage,
+      customSystemPrompt,
     });
 
     const imageModel = (process.env.OPENAI_IMAGE_MODEL as any) || "gpt-image-1";

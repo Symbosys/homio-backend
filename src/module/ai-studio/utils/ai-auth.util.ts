@@ -77,11 +77,11 @@ export async function resolveAiTargetUser(
     };
   }
 
-  // 2. Retail Client (No organization linkage)
-  if (!caller.organizationId) {
+  // 2. Retail Client / Client Portal User (Directly client user-centric)
+  if (!caller.organizationId || caller.userType === "USER") {
     if (requestedOrgUserId && requestedOrgUserId !== caller.id) {
       throw new ErrorResponse(
-        "Forbidden: Retail client accounts cannot access other user credit pools",
+        "Forbidden: Retail and client accounts cannot access other user credit pools",
         statusCode.Forbidden
       );
     }

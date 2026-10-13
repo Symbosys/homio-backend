@@ -183,7 +183,7 @@ export class RoomDesignerRepository {
   public async getSessionById(sessionId: string, userId: string) {
     return prisma.aiRoomDesignSession.findFirst({
       where: {
-        sessionId,
+        OR: [{ sessionId }, { id: sessionId }],
         session: { userId },
       },
       include: {
@@ -308,7 +308,7 @@ export class RoomDesignerRepository {
   public async deleteSession(sessionId: string, userId: string) {
     const session = await prisma.aiRoomDesignSession.findFirst({
       where: {
-        sessionId,
+        OR: [{ sessionId }, { id: sessionId }],
         session: { userId },
       },
     });
@@ -316,7 +316,7 @@ export class RoomDesignerRepository {
     if (!session) return null;
 
     await prisma.aiSession.delete({
-      where: { id: sessionId },
+      where: { id: session.sessionId },
     });
 
     return session;

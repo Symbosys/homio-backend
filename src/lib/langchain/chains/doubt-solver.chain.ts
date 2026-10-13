@@ -15,6 +15,7 @@ export interface DoubtSolverChainInput {
     messageText: string;
   }>;
   provider?: string;
+  customSystemPrompt?: string;
 }
 
 /**
@@ -34,13 +35,19 @@ export class DoubtSolverChain {
       intelligenceMode = "smart",
       history = [],
       provider,
+      customSystemPrompt,
     } = input;
 
-    const llm = LlmFactory.getProvider(provider);
-    const systemPrompt = getDoubtSolverSystemPrompt(
+    const llm = LlmFactory.getProvider(provider || "openai");
+    const baseSystemPrompt = getDoubtSolverSystemPrompt(
       intelligenceMode,
       topicCategory
     );
+
+    // If platform admin defined a custom system prompt/guide in AiServiceRate, inject it with priority
+    const systemPrompt = customSystemPrompt?.trim()
+      ? `${customSystemPrompt.trim()}\n\n### DOMAIN PROTOCOLS & ARCHITECTURAL GUIDELINES:\n${baseSystemPrompt}`
+      : baseSystemPrompt;
 
     // Build message thread context
     const messages: LlmMessage[] = [];

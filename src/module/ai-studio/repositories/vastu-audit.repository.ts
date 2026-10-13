@@ -229,7 +229,7 @@ export class VastuAuditRepository {
   public async getSessionById(sessionId: string, userId: string) {
     return prisma.aiVastuAuditSession.findFirst({
       where: {
-        sessionId,
+        OR: [{ sessionId }, { id: sessionId }],
         session: {
           userId,
         },
@@ -272,7 +272,7 @@ export class VastuAuditRepository {
     if (!existing) return null;
 
     await prisma.aiSession.delete({
-      where: { id: sessionId },
+      where: { id: existing.sessionId },
     });
 
     return existing;

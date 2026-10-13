@@ -40,9 +40,13 @@ export class OpenAiLlmProvider implements ILlmProvider {
         modelName: options?.model || this.defaultModel,
         temperature: options?.temperature ?? 0.3,
         maxTokens: options?.maxTokens ?? 3500,
-        modelKwargs: {
-          response_format: { type: "json_object" },
-        },
+        ...(options?.jsonMode
+          ? {
+              modelKwargs: {
+                response_format: { type: "json_object" },
+              },
+            }
+          : {}),
       });
 
       const langchainMessages = [];

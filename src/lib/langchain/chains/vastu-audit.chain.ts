@@ -13,6 +13,7 @@ export interface VastuAuditInput {
   sitePhotos?: any[] | null;
   hasFloorPlan?: boolean;
   hasSitePhotos?: boolean;
+  customSystemPrompt?: string;
 }
 
 export interface ZoneEvaluation {
@@ -109,7 +110,7 @@ export class VastuAuditChain {
       }
     }
 
-    const systemPrompt = `
+    const defaultSystemPrompt = `
 You are Homio AI Vedic Vastu Master & Senior Architectural Spatial Auditor.
 You conduct authoritative 16-zone Vastu Shastra audits for residential and commercial construction in India and globally.
 
@@ -124,6 +125,11 @@ You conduct authoritative 16-zone Vastu Shastra audits for residential and comme
 5. Provide realistic BOQ (Bill of Quantities) items with accurate Indian market rates (INR ₹).
 6. Output MUST be valid, parsable JSON matching the required schema. Do NOT include markdown code blocks (\`\`\`json) or conversational text.
 `.trim();
+
+    // If platform admin defined a custom system prompt/guide in AiServiceRate, inject it with priority
+    const systemPrompt = input.customSystemPrompt?.trim()
+      ? `${input.customSystemPrompt.trim()}\n\n### MANDATORY AUDIT PROTOCOLS & SCHEMA REQUIREMENTS:\n${defaultSystemPrompt}`
+      : defaultSystemPrompt;
 
     const userMessage: LlmMessage = {
       role: "user",
@@ -207,6 +213,7 @@ Return a valid JSON object matching this exact structure:
         systemPrompt,
         temperature: 0.3,
         maxTokens: 3500,
+        jsonMode: true,
       });
 
       const cleanJson = response

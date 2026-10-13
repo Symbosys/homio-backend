@@ -16,6 +16,7 @@ export interface LlmGenerateOptions {
   maxTokens?: number;
   systemPrompt?: string;
   model?: string;
+  jsonMode?: boolean;
 }
 
 export interface StructuredPoint {

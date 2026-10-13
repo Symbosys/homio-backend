@@ -67,12 +67,17 @@ export class DoubtSolverService {
         messageText: input.initialQuestion,
       });
 
+      // Fetch platform service rate for custom system prompt/guide
+      const rate = await this.repo.getDoubtSolverServiceRate();
+      const customSystemPrompt = rate?.description?.trim() || undefined;
+
       // Run LangChain AI generation
       const aiResult = await DoubtSolverChain.execute({
         question: input.initialQuestion,
         topicCategory: doubtSession.topicCategory,
         intelligenceMode: doubtSession.intelligenceMode,
         history: [],
+        customSystemPrompt,
       });
 
       // Add AI response message
@@ -129,7 +134,9 @@ export class DoubtSolverService {
     }
 
     // 2. Verify wallet balance against active service rate
-    const cost = await this.getPerQuestionCost();
+    const rate = await this.repo.getDoubtSolverServiceRate();
+    const cost = rate?.defaultCreditCost ?? 10;
+    const customSystemPrompt = rate?.description?.trim() || undefined;
     const wallet = await this.repo.findOrCreateWallet(userId);
 
     if (wallet.currentBalance < cost) {
@@ -154,7 +161,7 @@ export class DoubtSolverService {
       messageText: m.messageText,
     }));
 
-    // 5. Execute LangChain AI Generation
+    // 5. Execute LangChain AI Generation with platform injected system prompt
     const intelligenceMode =
       input.intelligenceMode || doubtSession.intelligenceMode || "smart";
     const topicCategory =
@@ -165,6 +172,7 @@ export class DoubtSolverService {
       topicCategory,
       intelligenceMode,
       history,
+      customSystemPrompt,
     });
 
     // 6. Record AI Response Message

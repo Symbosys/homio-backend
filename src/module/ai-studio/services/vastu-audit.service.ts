@@ -46,7 +46,11 @@ export class VastuAuditService {
       throw err;
     }
 
-    // 2. Execute deep 16-zone Vedic analysis via LangChain
+    // 2. Fetch platform service rate for custom system prompt/guide and credit cost
+    const rate = await this.repo.getVastuServiceRate();
+    const customSystemPrompt = rate?.description?.trim() || undefined;
+
+    // 3. Execute deep 16-zone Vedic analysis via LangChain
     const auditResult = await VastuAuditChain.executeAudit({
       propertyType: input.propertyType,
       facingDirection: input.facingDirection,
@@ -59,6 +63,7 @@ export class VastuAuditService {
       sitePhotos: input.sitePhotos,
       hasFloorPlan: Boolean(input.floorPlanUrl),
       hasSitePhotos: Boolean(input.sitePhotos && input.sitePhotos.length > 0),
+      customSystemPrompt,
     });
 
     const executionDurationMs = Date.now() - startTime;

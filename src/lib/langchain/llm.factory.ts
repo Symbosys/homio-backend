@@ -14,22 +14,22 @@ export class LlmFactory {
     const activeProvider = (
       providerName ||
       process.env.AI_DEFAULT_PROVIDER ||
-      "gemini"
+      "openai"
     ).toLowerCase();
 
     switch (activeProvider) {
-      case "openai":
-        if (!this.openaiInstance) {
-          this.openaiInstance = new OpenAiLlmProvider();
-        }
-        return this.openaiInstance;
-
       case "gemini":
-      default:
         if (!this.geminiInstance) {
           this.geminiInstance = new GeminiLlmProvider();
         }
         return this.geminiInstance;
+
+      case "openai":
+      default:
+        if (!this.openaiInstance) {
+          this.openaiInstance = new OpenAiLlmProvider();
+        }
+        return this.openaiInstance;
     }
   }
 }

@@ -173,7 +173,7 @@ export class DoubtSolverRepository {
   public async getSessionById(sessionId: string, userId: string) {
     return prisma.aiDoubtSolverSession.findFirst({
       where: {
-        sessionId,
+        OR: [{ sessionId }, { id: sessionId }],
         session: { userId },
       },
       include: {
@@ -359,13 +359,16 @@ export class DoubtSolverRepository {
    */
   public async deleteSession(sessionId: string, userId: string) {
     const session = await prisma.aiSession.findFirst({
-      where: { id: sessionId, userId },
+      where: {
+        OR: [{ id: sessionId }, { doubtSolverSession: { id: sessionId } }],
+        userId,
+      },
     });
 
     if (!session) return null;
 
     return prisma.aiSession.delete({
-      where: { id: sessionId },
+      where: { id: session.id },
     });
   }
 }
