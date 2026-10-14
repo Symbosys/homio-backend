@@ -75,6 +75,15 @@ export const updateLeadDetailsSchema = z.object({
     .string()
     .optional()
     .describe("Possession readiness (e.g. 'READY_TO_MOVE', 'UNDER_CONSTRUCTION', 'RENOVATION')."),
+  qualificationScore: z
+    .number()
+    .int()
+    .min(0)
+    .max(100)
+    .optional()
+    .describe(
+      "Internal lead qualification score (0 to 100) evaluated based on requirement clarity (up to 30 pts), realistic budget (up to 35 pts), and location/address with state & city (up to 35 pts). Stored securely in DB, never shown to customer.",
+    ),
   notes: z
     .string()
     .optional()
@@ -241,15 +250,41 @@ export function createUpdateLeadDetailsTool(context: LeadToolContext) {
           : input.notes;
       }
 
-      // Automatically advance status to CONTACTED / QUALIFIED if requirements were captured
-      if (existingLead.status === LeadStatus.NEW) {
-        leadDataToUpdate.status = LeadStatus.CONTACTED;
+      // Calculate or update qualification score (0 to 100)
+      let finalScore = input.qualificationScore;
+      if (finalScore === undefined) {
+        // Automated fallback scoring if AI extracted details but omitted explicit score
+        let calculatedScore = existingLead.qualificationScore || 0;
+        const req = input.purposeOrGoal || existingLead.workDescription;
+        const budget =
+          input.budgetInLakh ||
+          existingLead.budgetInLakh ||
+          (input.estimatedBudgetInr ? input.estimatedBudgetInr / 100000 : 0);
+        const city = input.propertyCity || existingLead.propertyCity;
+        const state = input.propertyState || existingLead.propertyState;
+        const address = input.propertyAddress || existingLead.propertyAddress;
+
+        let score = 0;
+        if (req && req.trim().length > 3) score += 30;
+        if (budget && budget > 0) score += 35;
+        if (city || state || address) {
+          if (city && (state || address)) score += 35;
+          else score += 20;
+        }
+        finalScore = Math.max(calculatedScore, score);
       }
+
+      leadDataToUpdate.qualificationScore = finalScore;
+
+      // Automatically advance status to CONTACTED / QUALIFIED if requirements were captured
       if (
-        (input.budgetInLakh || input.estimatedBudgetInr) &&
-        (input.purposeOrGoal || input.propertyCity)
+        finalScore >= 60 ||
+        ((input.budgetInLakh || input.estimatedBudgetInr) &&
+          (input.purposeOrGoal || input.propertyCity))
       ) {
         leadDataToUpdate.status = LeadStatus.QUALIFIED;
+      } else if (existingLead.status === LeadStatus.NEW) {
+        leadDataToUpdate.status = LeadStatus.CONTACTED;
       }
 
       // 3. Merge additionalInformation safely (Rule 18)
@@ -294,10 +329,11 @@ export function createUpdateLeadDetailsTool(context: LeadToolContext) {
             description: `AI conversational assistant extracted requirements: ${
               input.purposeOrGoal ? `Goal: "${input.purposeOrGoal}", ` : ""
             }${input.budgetDisplay || input.budgetInLakh ? `Budget: "${input.budgetDisplay || input.budgetInLakh + ' Lakhs'}", ` : ""}${
-              input.propertyCity ? `City: "${input.propertyCity}"` : ""
-            }`,
+              input.propertyCity ? `City: "${input.propertyCity}", ` : ""
+            }Qualification Score: ${updatedLead.qualificationScore}/100`,
             metadata: {
               updatedFields: Object.keys(input),
+              qualificationScore: updatedLead.qualificationScore,
               source: "AI_WHATSAPP_ASSISTANT",
             } as any,
           },
@@ -312,13 +348,14 @@ export function createUpdateLeadDetailsTool(context: LeadToolContext) {
         leadId: updatedLead.id,
         leadCode: updatedLead.leadCode,
         status: updatedLead.status,
+        qualificationScore: updatedLead.qualificationScore,
         updatedFields: Object.keys(input),
       };
     },
     {
       name: "update_lead_details",
       description:
-        "Updates the customer and lead profile in the database with their requirements, purpose/goal, budget, name, property details, and location. Call this tool as soon as the client mentions or answers their requirements or details.",
+        "Updates the customer and lead profile in the database with their requirements, purpose/goal, budget, name, property details, location (address, city, state), and computed qualification score. Call this tool as soon as the client mentions or answers their requirements or details.",
       schema: updateLeadDetailsSchema,
     },
   );

@@ -19,6 +19,8 @@ import { metaWhatsAppService } from "../../src/module/communication/services/met
 import { chatMessageRepo } from "../../src/module/communication/repos/chat-message.repo.js";
 import { conversationRepo } from "../../src/module/communication/repos/conversation.repo.js";
 import { ragService } from "../../src/ai/rag.service.js";
+import { buildRagSystemPrompt } from "../../src/ai/prompt/index.js";
+import { createUpdateLeadDetailsTool } from "../../src/ai/tools/leads/update-lead-details.tool.js";
 import { wsService } from "../../src/lib/websocket/ws.service.js";
 import { WebSocketEventType } from "../../src/lib/websocket/ws.types.js";
 import {
@@ -417,6 +419,137 @@ describe("Autonomous AI WhatsApp Reply Queue & Worker Test Suite", () => {
 
       expect(aiJobEnqueued).toBe(false);
     });
+  });
 
+  // =========================================================================
+  // 5. Discovery-First & Confidential Lead Qualification Scoring Tests
+  // =========================================================================
+  describe("Discovery-First AI Rules & Qualification Scoring", () => {
+    it("should build system prompt enforcing discovery first, qualification score confidentiality, and conditional meeting scheduling", () => {
+      const prompt = buildRagSystemPrompt({
+        organizationName: "Homio Luxury Living",
+        senderName: "Vikram Malhotra",
+        toonContext: "lead:\n  code: LD-101\n  status: NEW",
+      });
+
+      // 1. Must forbid immediate meeting request on initial conversation
+      expect(prompt).toContain("MANDATORY DISCOVERY & LEAD INFORMATION GATHERING");
+      expect(prompt).toContain("NEVER immediately ask to schedule a meeting or consultation!");
+
+      // 2. Must mandate collecting requirements, budget, and address with city and state
+      expect(prompt).toContain("WHAT THEY WANT / REQUIREMENT");
+      expect(prompt).toContain("ESTIMATED BUDGET");
+      expect(prompt).toContain("PROPERTY ADDRESS & LOCATION");
+      expect(prompt).toContain("CITY and STATE");
+
+      // 3. Must mandate qualification score confidentiality (never show to customer)
+      expect(prompt).toContain("LEAD QUALIFICATION SCORING");
+      expect(prompt).toContain("STRICT CONFIDENTIALITY MANDATE");
+      expect(prompt).toContain("NEVER mention, print, hint at, or show the qualification score");
+
+      // 4. Must enforce prerequisite: only ask for meeting AFTER details collected
+      expect(prompt).toContain("CONSULTATION & MEETING SCHEDULING");
+      expect(prompt).toContain("STRICT PREREQUISITE");
+      expect(prompt).toContain("AFTER the customer's basic details (what they want / requirement, their budget, and their property address along with state and city) have been collected");
+    });
+
+    it("should save qualificationScore and advance lead status in createUpdateLeadDetailsTool", async () => {
+      let updatedData: any = null;
+
+      (prisma as any).lead.findFirst = mock(async () => ({
+        id: TEST_LEAD_ID,
+        organizationId: TEST_ORG_ID,
+        leadCode: "LD-2026-0001",
+        status: "NEW",
+        workDescription: null,
+        budgetInLakh: null,
+        propertyCity: null,
+        propertyState: null,
+        propertyAddress: null,
+        qualificationScore: 0,
+        customerId: "cust-1",
+      } as any));
+
+      (prisma as any).customer.update = mock(async () => ({} as any));
+      (prisma as any).lead.update = mock(async (args: any) => {
+        updatedData = args.data;
+        return {
+          id: TEST_LEAD_ID,
+          leadCode: "LD-2026-0001",
+          status: args.data.status,
+          qualificationScore: args.data.qualificationScore,
+        };
+      });
+      (prisma as any).leadActivity.create = mock(async () => ({} as any));
+
+      const tool = createUpdateLeadDetailsTool({
+        organizationId: TEST_ORG_ID,
+        leadId: TEST_LEAD_ID,
+      });
+
+      // Test with explicit qualificationScore from AI
+      const result = await tool.invoke({
+        purposeOrGoal: "Complete 3BHK interior renovation",
+        budgetInLakh: 25,
+        propertyAddress: "Palm Meadows, Whitefield",
+        propertyCity: "Bangalore",
+        propertyState: "Karnataka",
+        qualificationScore: 95,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.qualificationScore).toBe(95);
+      expect(updatedData.qualificationScore).toBe(95);
+      expect(updatedData.status).toBe("QUALIFIED");
+      expect(updatedData.workDescription).toBe("Complete 3BHK interior renovation");
+      expect(updatedData.propertyCity).toBe("Bangalore");
+      expect(updatedData.propertyState).toBe("Karnataka");
+    });
+
+    it("should automatically compute fallback qualificationScore when AI extracts details without explicit score", async () => {
+      let updatedData: any = null;
+
+      (prisma as any).lead.findFirst = mock(async () => ({
+        id: TEST_LEAD_ID,
+        organizationId: TEST_ORG_ID,
+        leadCode: "LD-2026-0001",
+        status: "NEW",
+        workDescription: null,
+        budgetInLakh: null,
+        propertyCity: null,
+        propertyState: null,
+        propertyAddress: null,
+        qualificationScore: 0,
+      } as any));
+
+      (prisma as any).lead.update = mock(async (args: any) => {
+        updatedData = args.data;
+        return {
+          id: TEST_LEAD_ID,
+          leadCode: "LD-2026-0001",
+          status: args.data.status,
+          qualificationScore: args.data.qualificationScore,
+        };
+      });
+      (prisma as any).leadActivity.create = mock(async () => ({} as any));
+
+      const tool = createUpdateLeadDetailsTool({
+        organizationId: TEST_ORG_ID,
+        leadId: TEST_LEAD_ID,
+      });
+
+      // Requirement (30) + Budget (35) + City & State (35) = 100
+      const result = await tool.invoke({
+        purposeOrGoal: "Modular kitchen and master bedroom interior",
+        budgetInLakh: 8,
+        propertyCity: "Pune",
+        propertyState: "Maharashtra",
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.qualificationScore).toBe(100);
+      expect(updatedData.qualificationScore).toBe(100);
+      expect(updatedData.status).toBe("QUALIFIED");
+    });
   });
 });

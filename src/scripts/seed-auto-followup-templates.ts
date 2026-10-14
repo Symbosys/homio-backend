@@ -10,7 +10,7 @@ import {
   FollowUpIntervalUnit,
 } from "../types/types.js";
 
-const TARGET_ORG_ID = "05c35313-038c-4cc3-aed8-304a702fbf55";
+const TARGET_ORG_ID = "281b8d99-af89-4ed6-9b90-381c2928f6cc";
 
 /**
  * Seed script to create WhatsApp Message Templates and configure

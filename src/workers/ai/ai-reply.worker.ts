@@ -135,13 +135,16 @@ export async function processAiReplyJob(job: Job<AiReplyJobData>): Promise<void>
           code: conversation.lead.leadCode,
           status: conversation.lead.status,
           priority: conversation.lead.priority,
+          requirement: conversation.lead.workDescription || undefined,
           projectType: conversation.lead.projectType,
           budget: conversation.lead.budgetInLakh
             ? `${conversation.lead.budgetInLakh} Lakhs`
             : conversation.lead.budgetDisplay || undefined,
-          property: conversation.lead.propertyName
-            ? `${conversation.lead.propertyName}${conversation.lead.propertyCity ? ` (${conversation.lead.propertyCity})` : ""}`
-            : undefined,
+          propertyName: conversation.lead.propertyName || undefined,
+          propertyAddress: conversation.lead.propertyAddress || undefined,
+          propertyCity: conversation.lead.propertyCity || undefined,
+          propertyState: conversation.lead.propertyState || undefined,
+          qualificationScore: conversation.lead.qualificationScore || 0,
           funnel: conversation.lead.funnel?.name,
         }
       : undefined,
