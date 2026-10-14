@@ -5,6 +5,7 @@
 enum FollowUpConfigType {
   LEAD_NO_RESPONSE
   MEETING_REMINDER
+  PAYMENT_REMINDER
 }
 
 enum FollowUpIntervalUnit {
@@ -64,6 +65,7 @@ model OrgFollowUpConfig {
   // Relations
   leadSteps      LeadFollowUpStep[]    @relation("ConfigLeadFollowUpSteps")
   meetingSteps   MeetingFollowUpStep[] @relation("ConfigMeetingFollowUpSteps")
+  paymentSteps   PaymentFollowUpStep[] @relation("ConfigPaymentFollowUpSteps")
   enrollments    FollowUpEnrollment[]  @relation("ConfigFollowUpEnrollments")
 
   @@index([organizationId, type])
@@ -158,6 +160,47 @@ model MeetingFollowUpStep {
 }
 
 // ==========================================
+// PAYMENT FOLLOW-UP STEP MODEL
+// ==========================================
+
+model PaymentFollowUpStep {
+  id                    String                   @id @default(uuid()) @db.Uuid
+  configId              String                   @map("config_id") @db.Uuid
+  config                OrgFollowUpConfig        @relation("ConfigPaymentFollowUpSteps", fields: [configId], references: [id], onDelete: Cascade)
+
+  organizationId        String                   @map("organization_id") @db.Uuid
+  organization          Organization             @relation("OrganizationPaymentFollowUpSteps", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  stepOrder             Int                      @map("step_order") // 1, 2, 3...
+  dayOffset             Int                      @map("day_offset") // 1 (Day 1 post-handover), 3 (Day 3), 7 (Day 7)...
+  channel               CommunicationChannel     @default(WHATSAPP) @map("channel")
+
+  // Template Link
+  templateId            String?                  @map("template_id") @db.Uuid
+  template              WhatsAppMessageTemplate? @relation("TemplatePaymentFollowUpSteps", fields: [templateId], references: [id], onDelete: SetNull)
+
+  // Custom Variable Overrides / Extra mappings
+  customVariables       Json?                    @map("custom_variables")
+
+  isFinalStep           Boolean                  @default(false) @map("is_final_step")
+  isActive              Boolean                  @default(true) @map("is_active")
+
+  // Universal Additional Information (Rule 18)
+  additionalInformation Json?                    @map("additional_information")
+
+  createdAt             DateTime                 @default(now()) @map("created_at")
+  updatedAt             DateTime                 @updatedAt @map("updated_at")
+
+  // Relations
+  executionLogs         FollowUpExecutionLog[]   @relation("PaymentStepExecutionLogs")
+
+  @@unique([configId, stepOrder])
+  @@index([organizationId])
+  @@index([configId, dayOffset])
+  @@map("payment_follow_up_steps")
+}
+
+// ==========================================
 // FOLLOW-UP ENROLLMENT MODEL
 // ==========================================
 
@@ -169,12 +212,18 @@ model FollowUpEnrollment {
   configId         String                   @map("config_id") @db.Uuid
   config           OrgFollowUpConfig        @relation("ConfigFollowUpEnrollments", fields: [configId], references: [id], onDelete: Cascade)
 
-  // Target Association (Lead or Meeting)
+  // Target Association (Lead, Meeting, Project, Handover)
   leadId           String?                  @map("lead_id") @db.Uuid
   lead             Lead?                    @relation("LeadFollowUpEnrollments", fields: [leadId], references: [id], onDelete: Cascade)
 
   meetingId        String?                  @map("meeting_id") @db.Uuid
   meeting          Meeting?                 @relation("MeetingFollowUpEnrollments", fields: [meetingId], references: [id], onDelete: Cascade)
+
+  projectId        String?                  @map("project_id") @db.Uuid
+  project          Project?                 @relation("ProjectFollowUpEnrollments", fields: [projectId], references: [id], onDelete: Cascade)
+
+  handoverId       String?                  @map("handover_id") @db.Uuid
+  handover         ProjectHandover?         @relation("HandoverFollowUpEnrollments", fields: [handoverId], references: [id], onDelete: Cascade)
 
   status           FollowUpEnrollmentStatus @default(ACTIVE) @map("status")
   currentStepIndex Int                      @default(0) @map("current_step_index")
@@ -200,6 +249,8 @@ model FollowUpEnrollment {
   @@index([organizationId, status])
   @@index([organizationId, leadId])
   @@index([organizationId, meetingId])
+  @@index([organizationId, projectId])
+  @@index([organizationId, handoverId])
   @@index([status, nextExecutionAt])
   @@map("follow_up_enrollments")
 }
@@ -222,11 +273,20 @@ model FollowUpExecutionLog {
   meetingStepId         String?                 @map("meeting_step_id") @db.Uuid
   meetingStep           MeetingFollowUpStep?    @relation("MeetingStepExecutionLogs", fields: [meetingStepId], references: [id], onDelete: SetNull)
 
+  paymentStepId         String?                 @map("payment_step_id") @db.Uuid
+  paymentStep           PaymentFollowUpStep?    @relation("PaymentStepExecutionLogs", fields: [paymentStepId], references: [id], onDelete: SetNull)
+
   leadId                String?                 @map("lead_id") @db.Uuid
   lead                  Lead?                   @relation("LeadFollowUpExecutions", fields: [leadId], references: [id], onDelete: SetNull)
 
   meetingId             String?                 @map("meeting_id") @db.Uuid
   meeting               Meeting?                @relation("MeetingFollowUpExecutions", fields: [meetingId], references: [id], onDelete: SetNull)
+
+  projectId             String?                 @map("project_id") @db.Uuid
+  project               Project?                @relation("ProjectFollowUpExecutions", fields: [projectId], references: [id], onDelete: SetNull)
+
+  handoverId            String?                 @map("handover_id") @db.Uuid
+  handover              ProjectHandover?        @relation("HandoverFollowUpExecutions", fields: [handoverId], references: [id], onDelete: SetNull)
 
   templateId            String?                 @map("template_id") @db.Uuid
   template              WhatsAppMessageTemplate? @relation("TemplateFollowUpExecutionLogs", fields: [templateId], references: [id], onDelete: SetNull)
@@ -253,5 +313,7 @@ model FollowUpExecutionLog {
   @@index([scheduledFor, status])
   @@index([leadId])
   @@index([meetingId])
+  @@index([projectId])
+  @@index([handoverId])
   @@map("follow_up_execution_logs")
 }

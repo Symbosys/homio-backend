@@ -13,6 +13,7 @@ import {
   cancelFollowUpEnrollment,
   enrollLeadManually,
   enrollMeetingManually,
+  enrollHandoverManually,
   triggerBatchExecution,
 } from "../controllers/auto-followup.controller.js";
 
@@ -100,6 +101,13 @@ autoFollowUpRoutes.post("/enrollments/lead", enrollLeadManually);
  */
 autoFollowUpRoutes.post("/enroll/meeting", enrollMeetingManually);
 autoFollowUpRoutes.post("/enrollments/meeting", enrollMeetingManually);
+
+/**
+ * @route   POST /api/v1/auto-followup/enroll/payment
+ * @desc    Manually enroll a Project Handover into payment reminder sequence
+ */
+autoFollowUpRoutes.post("/enroll/payment", enrollHandoverManually);
+autoFollowUpRoutes.post("/enrollments/payment", enrollHandoverManually);
 
 /**
  * @route   POST /api/v1/auto-followup/process-due

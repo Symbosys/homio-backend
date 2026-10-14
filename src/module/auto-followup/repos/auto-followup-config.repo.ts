@@ -13,6 +13,9 @@ export type OrgFollowUpConfigWithSteps = Prisma.OrgFollowUpConfigGetPayload<{
     meetingSteps: {
       include: { template: { include: { variables: true } } };
     };
+    paymentSteps: {
+      include: { template: { include: { variables: true } } };
+    };
     createdBy?: {
       select: { id: true; firstName: true; lastName: true; email: true };
     };
@@ -106,6 +109,25 @@ export class AutoFollowUpConfigRepository {
                 })),
               }
             : undefined,
+        paymentSteps:
+          data.type === FollowUpConfigType.PAYMENT_REMINDER && data.paymentSteps?.length
+            ? {
+                create: data.paymentSteps.map((step, idx) => ({
+                  organizationId,
+                  stepOrder: step.stepOrder ?? idx + 1,
+                  dayOffset: Number(step.dayOffset) || 1,
+                  channel: step.channel,
+                  templateId:
+                    step.templateId && typeof step.templateId === "string" && step.templateId.trim()
+                      ? step.templateId.trim()
+                      : null,
+                  customVariables: step.customVariables as Prisma.InputJsonValue,
+                  isFinalStep: step.isFinalStep ?? idx === data.paymentSteps!.length - 1,
+                  isActive: step.isActive ?? true,
+                  additionalInformation: step.additionalInformation as Prisma.InputJsonValue,
+                })),
+              }
+            : undefined,
       },
       include: {
         leadSteps: {
@@ -113,6 +135,10 @@ export class AutoFollowUpConfigRepository {
           include: { template: true },
         },
         meetingSteps: {
+          orderBy: { stepOrder: "asc" },
+          include: { template: true },
+        },
+        paymentSteps: {
           orderBy: { stepOrder: "asc" },
           include: { template: true },
         },
@@ -210,7 +236,34 @@ export class AutoFollowUpConfigRepository {
         }
       }
 
-      const { leadSteps, meetingSteps, ...directUpdates } = data;
+      // If paymentSteps are explicitly supplied, replace existing steps
+      if (data.paymentSteps !== undefined) {
+        await tx.paymentFollowUpStep.deleteMany({
+          where: { configId: id, organizationId },
+        });
+
+        if (data.paymentSteps.length > 0) {
+          await tx.paymentFollowUpStep.createMany({
+            data: data.paymentSteps.map((step, idx) => ({
+              configId: id,
+              organizationId,
+              stepOrder: step.stepOrder ?? idx + 1,
+              dayOffset: Number(step.dayOffset) || 1,
+              channel: step.channel,
+              templateId:
+                step.templateId && typeof step.templateId === "string" && step.templateId.trim()
+                  ? step.templateId.trim()
+                  : null,
+              customVariables: step.customVariables as Prisma.InputJsonValue,
+              isFinalStep: step.isFinalStep ?? idx === data.paymentSteps!.length - 1,
+              isActive: step.isActive ?? true,
+              additionalInformation: step.additionalInformation as Prisma.InputJsonValue,
+            })),
+          });
+        }
+      }
+
+      const { leadSteps, meetingSteps, paymentSteps, ...directUpdates } = data;
 
       return tx.orgFollowUpConfig.update({
         where: { id },
@@ -224,6 +277,10 @@ export class AutoFollowUpConfigRepository {
             include: { template: true },
           },
           meetingSteps: {
+            orderBy: { stepOrder: "asc" },
+            include: { template: true },
+          },
+          paymentSteps: {
             orderBy: { stepOrder: "asc" },
             include: { template: true },
           },
@@ -251,6 +308,10 @@ export class AutoFollowUpConfigRepository {
           include: { template: { include: { variables: true } } },
         },
         meetingSteps: {
+          orderBy: { stepOrder: "asc" },
+          include: { template: { include: { variables: true } } },
+        },
+        paymentSteps: {
           orderBy: { stepOrder: "asc" },
           include: { template: { include: { variables: true } } },
         },
@@ -290,6 +351,11 @@ export class AutoFollowUpConfigRepository {
           orderBy: { stepOrder: "asc" },
           include: { template: { include: { variables: true } } },
         },
+        paymentSteps: {
+          where: { isActive: true },
+          orderBy: { stepOrder: "asc" },
+          include: { template: { include: { variables: true } } },
+        },
       },
     });
 
@@ -309,6 +375,11 @@ export class AutoFollowUpConfigRepository {
           include: { template: { include: { variables: true } } },
         },
         meetingSteps: {
+          where: { isActive: true },
+          orderBy: { stepOrder: "asc" },
+          include: { template: { include: { variables: true } } },
+        },
+        paymentSteps: {
           where: { isActive: true },
           orderBy: { stepOrder: "asc" },
           include: { template: { include: { variables: true } } },

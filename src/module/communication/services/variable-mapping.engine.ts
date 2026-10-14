@@ -60,8 +60,8 @@ export const CRM_VARIABLE_DICTIONARY: EntityVariableDictionary[] = [
   },
   {
     entity: CrmMappingEntity.PROJECT,
-    label: "Project",
-    description: "Active interior/construction project details",
+    label: "Project & Handover Commercials",
+    description: "Active interior/construction project details, site location, and handover settlement balances",
     fields: [
       { key: "name", label: "Project Name", type: "STRING", sampleValue: "Emerald Heights Penthouse", description: "Title of the project contract" },
       { key: "code", label: "Project Code", type: "STRING", sampleValue: "PRJ-9042", description: "Unique project tracking identifier" },
@@ -70,6 +70,12 @@ export const CRM_VARIABLE_DICTIONARY: EntityVariableDictionary[] = [
       { key: "city", label: "Site City", type: "STRING", sampleValue: "Gurugram", description: "City of the project site" },
       { key: "startDate", label: "Start Date", type: "DATE", sampleValue: "15 Oct 2026", description: "Execution commencement date" },
       { key: "targetHandoverDate", label: "Target Handover Date", type: "DATE", sampleValue: "30 Dec 2026", description: "Committed project completion date" },
+      { key: "pendingBalance", label: "Pending Balance (₹)", type: "CURRENCY", sampleValue: "₹1,50,000", description: "Outstanding pending balance amount to be cleared on project handover" },
+      { key: "pendingAmount", label: "Pending Amount (₹)", type: "CURRENCY", sampleValue: "₹1,50,000", description: "Pending handover balance amount" },
+      { key: "finalSettlement", label: "Final Settlement (₹)", type: "CURRENCY", sampleValue: "₹4,50,000", description: "Agreed final settlement value for project handover" },
+      { key: "finalSettlementAmount", label: "Final Settlement Amount (₹)", type: "CURRENCY", sampleValue: "₹4,50,000", description: "Final agreed settlement value for project handover" },
+      { key: "handoverNumber", label: "Handover Number", type: "STRING", sampleValue: "HND-2026-0001", description: "Official project handover reference code" },
+      { key: "handoverDate", label: "Handover Date", type: "DATE", sampleValue: "25 Oct 2026", description: "Actual or scheduled possession handover date" },
     ],
   },
   {
@@ -132,6 +138,7 @@ export interface VariableResolutionContext {
   leadId?: string | null;
   customerId?: string | null;
   projectId?: string | null;
+  handoverId?: string | null;
   quotationId?: string | null;
   meetingId?: string | null;
   employeeId?: string | null;
@@ -248,76 +255,120 @@ export class VariableMappingEngine {
     const variableMeta: Array<{ parameter: string; value: string; resolved: boolean }> = [];
 
     // 2. Parallel fetch of contextual DB records with relations
-    const [org, leadInit, customerInit, projectInit, quotationInit, meetingInit, employeeInit] =
-      await Promise.all([
-        prisma.organization.findUnique({ where: { id: context.organizationId } }),
-        context.leadId
-          ? prisma.lead.findUnique({
-              where: { id: context.leadId },
-              include: { customer: true, assignedTo: true },
-            })
-          : null,
-        context.customerId
-          ? prisma.customer.findUnique({
-              where: { id: context.customerId },
-              include: {
-                leads: {
-                  where: { isDeleted: false },
-                  orderBy: { createdAt: "desc" },
-                  take: 1,
-                  include: { customer: true, assignedTo: true },
+    const [
+      org,
+      leadInit,
+      customerInit,
+      projectInit,
+      quotationInit,
+      meetingInit,
+      employeeInit,
+      handoverInit,
+    ] = await Promise.all([
+      prisma.organization.findUnique({ where: { id: context.organizationId } }),
+      context.leadId
+        ? prisma.lead.findUnique({
+            where: { id: context.leadId },
+            include: { customer: true, assignedTo: true },
+          })
+        : null,
+      context.customerId
+        ? prisma.customer.findUnique({
+            where: { id: context.customerId },
+            include: {
+              leads: {
+                where: { isDeleted: false },
+                orderBy: { createdAt: "desc" },
+                take: 1,
+                include: { customer: true, assignedTo: true },
+              },
+              projects: {
+                where: { isDeleted: false },
+                orderBy: { createdAt: "desc" },
+                take: 1,
+                include: {
+                  site: true,
+                  schedule: true,
+                  handovers: {
+                    where: { isDeleted: false },
+                    orderBy: { createdAt: "desc" },
+                    take: 1,
+                  },
                 },
-                projects: {
-                  where: { isDeleted: false },
-                  orderBy: { createdAt: "desc" },
-                  take: 1,
-                  include: { site: true, schedule: true },
+              },
+            },
+          })
+        : null,
+      context.projectId
+        ? prisma.project.findUnique({
+            where: { id: context.projectId },
+            include: {
+              site: true,
+              schedule: true,
+              customer: true,
+              lead: { include: { customer: true, assignedTo: true } },
+              handovers: {
+                where: { isDeleted: false },
+                orderBy: { createdAt: "desc" },
+                take: 1,
+              },
+            },
+          })
+        : null,
+      context.quotationId
+        ? prisma.quotation.findUnique({
+            where: { id: context.quotationId },
+            include: {
+              customer: true,
+              lead: { include: { customer: true, assignedTo: true } },
+            },
+          })
+        : null,
+      context.meetingId
+        ? prisma.meeting.findUnique({
+            where: { id: context.meetingId },
+            include: {
+              customer: true,
+              lead: { include: { customer: true, assignedTo: true } },
+              organizer: true,
+            },
+          })
+        : null,
+      context.employeeId
+        ? prisma.employee.findUnique({ where: { id: context.employeeId } })
+        : null,
+      context.handoverId
+        ? prisma.projectHandover.findUnique({
+            where: { id: context.handoverId },
+            include: {
+              project: {
+                include: {
+                  site: true,
+                  schedule: true,
+                  customer: true,
+                  lead: { include: { customer: true, assignedTo: true } },
                 },
               },
-            })
-          : null,
-        context.projectId
-          ? prisma.project.findUnique({
-              where: { id: context.projectId },
-              include: {
-                site: true,
-                schedule: true,
-                customer: true,
-                lead: { include: { customer: true, assignedTo: true } },
-              },
-            })
-          : null,
-        context.quotationId
-          ? prisma.quotation.findUnique({
-              where: { id: context.quotationId },
-              include: {
-                customer: true,
-                lead: { include: { customer: true, assignedTo: true } },
-              },
-            })
-          : null,
-        context.meetingId
-          ? prisma.meeting.findUnique({
-              where: { id: context.meetingId },
-              include: {
-                customer: true,
-                lead: { include: { customer: true, assignedTo: true } },
-                organizer: true,
-              },
-            })
-          : null,
-        context.employeeId
-          ? prisma.employee.findUnique({ where: { id: context.employeeId } })
-          : null,
-      ]);
+              customer: true,
+            },
+          })
+        : null,
+    ]);
 
     // 3. Bidirectional interlinking: initialize records with fallback chain
+    let handover =
+      handoverInit ||
+      projectInit?.handovers?.[0] ||
+      customerInit?.projects?.[0]?.handovers?.[0] ||
+      null;
+
     let lead =
       leadInit ||
       customerInit?.leads?.[0] ||
       projectInit?.lead ||
       quotationInit?.lead ||
       meetingInit?.lead ||
+      handoverInit?.project?.lead ||
       null;
 
     let customer =
@@ -326,10 +377,15 @@ export class VariableMappingEngine {
       projectInit?.customer ||
       quotationInit?.customer ||
       meetingInit?.customer ||
+      handoverInit?.customer ||
       lead?.customer ||
       null;
 
-    let project = projectInit || customerInit?.projects?.[0] || null;
+    let project =
+      projectInit ||
+      customerInit?.projects?.[0] ||
+      handoverInit?.project ||
+      null;
     let quotation = quotationInit;
     let meeting = meetingInit;
     let employee =
@@ -366,7 +422,15 @@ export class VariableMappingEngine {
             where: { isDeleted: false },
             orderBy: { createdAt: "desc" },
             take: 1,
-            include: { site: true, schedule: true },
+            include: {
+              site: true,
+              schedule: true,
+              handovers: {
+                where: { isDeleted: false },
+                orderBy: { createdAt: "desc" },
+                take: 1,
+              },
+            },
           },
         },
       });
@@ -374,6 +438,9 @@ export class VariableMappingEngine {
         customer = matchedCustomer;
         if (!lead && matchedCustomer.leads?.[0]) lead = matchedCustomer.leads[0];
         if (!project && matchedCustomer.projects?.[0]) project = matchedCustomer.projects[0];
+        if (!handover && matchedCustomer.projects?.[0]?.handovers?.[0]) {
+          handover = matchedCustomer.projects[0].handovers[0];
+        }
       }
     }
 
@@ -488,6 +555,23 @@ export class VariableMappingEngine {
             ) {
               const targetDate = project.schedule.siteHandoverDate || project.schedule.plannedEndDate;
               val = new Date(targetDate!).toLocaleDateString("en-IN", { dateStyle: "medium" });
+            } else if (mappingField === "pendingBalance" || mappingField === "pendingAmount") {
+              const rawPending = handover?.pendingAmount;
+              if (rawPending !== undefined && rawPending !== null) {
+                val = `₹${Number(rawPending).toLocaleString("en-IN")}`;
+              }
+            } else if (mappingField === "finalSettlement" || mappingField === "finalSettlementAmount") {
+              const rawSettlement = handover?.finalSettlementAmount;
+              if (rawSettlement !== undefined && rawSettlement !== null) {
+                val = `₹${Number(rawSettlement).toLocaleString("en-IN")}`;
+              }
+            } else if (mappingField === "handoverNumber") {
+              val = handover?.handoverNumber;
+            } else if (mappingField === "handoverDate") {
+              const hDate = handover?.handoverDate || handover?.scheduledDate;
+              if (hDate) {
+                val = new Date(hDate).toLocaleDateString("en-IN", { dateStyle: "medium" });
+              }
             } else if (project) {
               val = extractFieldValue(project, mappingField);
             }

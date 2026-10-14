@@ -159,6 +159,7 @@ export const createHandoverSchema = z.object({
   isCommercialCleared: stringToBoolean(false),
   finalSettlementAmount: stringToNullableNumber,
   pendingAmount: stringToNullableNumber,
+  sendPaymentReminderFollowUp: stringToBoolean(false),
   commercialRemarks: z.string().optional().nullable(),
   // Warranty & Defect Liability Period (DLP)
   issueWarranty: stringToBoolean(false),

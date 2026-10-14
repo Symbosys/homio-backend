@@ -1,6 +1,7 @@
 import { prisma } from "../../../lib/prisma.js";
 import {
   Prisma,
+  FollowUpConfigType,
   FollowUpEnrollmentStatus,
 } from "../../../types/types.js";
 
@@ -23,6 +24,8 @@ export class FollowUpEnrollmentRepository {
       configId: string;
       leadId?: string;
       meetingId?: string;
+      projectId?: string;
+      handoverId?: string;
       status?: FollowUpEnrollmentStatus;
       currentStepIndex?: number;
       totalSteps: number;
@@ -40,6 +43,8 @@ export class FollowUpEnrollmentRepository {
         configId: data.configId,
         leadId: data.leadId,
         meetingId: data.meetingId,
+        projectId: data.projectId,
+        handoverId: data.handoverId,
         status: data.status ?? FollowUpEnrollmentStatus.ACTIVE,
         currentStepIndex: data.currentStepIndex ?? 0,
         totalSteps: data.totalSteps,
@@ -52,6 +57,7 @@ export class FollowUpEnrollmentRepository {
           include: {
             leadSteps: { orderBy: { stepOrder: "asc" } },
             meetingSteps: { orderBy: { stepOrder: "asc" } },
+            paymentSteps: { orderBy: { stepOrder: "asc" } },
           },
         },
         lead: {
@@ -59,6 +65,12 @@ export class FollowUpEnrollmentRepository {
         },
         meeting: {
           include: { lead: { include: { customer: true } }, customer: true },
+        },
+        project: {
+          select: { id: true, projectCode: true, name: true },
+        },
+        handover: {
+          include: { customer: true },
         },
       },
     });
@@ -84,6 +96,10 @@ export class FollowUpEnrollmentRepository {
               orderBy: { stepOrder: "asc" },
               include: { template: true },
             },
+            paymentSteps: {
+              orderBy: { stepOrder: "asc" },
+              include: { template: true },
+            },
           },
         },
         lead: {
@@ -91,6 +107,12 @@ export class FollowUpEnrollmentRepository {
         },
         meeting: {
           include: { lead: { include: { customer: true } }, customer: true },
+        },
+        project: {
+          select: { id: true, projectCode: true, name: true, currentStage: true },
+        },
+        handover: {
+          include: { customer: true },
         },
         executionLogs: {
           orderBy: { scheduledFor: "asc" },
@@ -161,6 +183,70 @@ export class FollowUpEnrollmentRepository {
   }
 
   /**
+   * Find active payment reminder enrollment for a specific handover.
+   *
+   * @param organizationId - Tenant organization UUID
+   * @param handoverId - Handover UUID
+   */
+  async getActiveEnrollmentForHandover(organizationId: string, handoverId: string) {
+    return prisma.followUpEnrollment.findFirst({
+      where: {
+        organizationId,
+        handoverId,
+        status: FollowUpEnrollmentStatus.ACTIVE,
+      },
+      include: {
+        config: {
+          include: {
+            paymentSteps: {
+              where: { isActive: true },
+              orderBy: { stepOrder: "asc" },
+              include: { template: { include: { variables: true } } },
+            },
+          },
+        },
+        handover: {
+          include: { customer: true, project: true },
+        },
+        project: true,
+      },
+    });
+  }
+
+  /**
+   * Stop all active payment reminder enrollments for a project handover.
+   *
+   * @param organizationId - Tenant organization UUID
+   * @param handoverId - Handover UUID
+   * @param reason - Stop reason string
+   * @param status - Terminal status
+   * @param tx - Optional transaction client
+   */
+  async stopHandoverPaymentFollowUp(
+    organizationId: string,
+    handoverId: string,
+    reason: string = "Payment settled in full",
+    status: FollowUpEnrollmentStatus = FollowUpEnrollmentStatus.COMPLETED,
+    tx?: Prisma.TransactionClient,
+  ) {
+    const db = tx || prisma;
+
+    return db.followUpEnrollment.updateMany({
+      where: {
+        organizationId,
+        handoverId,
+        status: FollowUpEnrollmentStatus.ACTIVE,
+      },
+      data: {
+        status,
+        stopReason: reason,
+        stoppedAt: new Date(),
+        nextExecutionAt: null,
+      },
+    });
+  }
+
+  /**
    * Update enrollment state and timestamps.
    *
    * @param organizationId - Tenant organization UUID
@@ -174,6 +260,7 @@ export class FollowUpEnrollmentRepository {
     data: {
       status?: FollowUpEnrollmentStatus;
       currentStepIndex?: number;
+      totalSteps?: number;
       nextExecutionAt?: Date | null;
       lastExecutedAt?: Date | null;
       stopReason?: string | null;
@@ -190,6 +277,7 @@ export class FollowUpEnrollmentRepository {
       data: {
         status: data.status,
         currentStepIndex: data.currentStepIndex,
+        totalSteps: data.totalSteps,
         nextExecutionAt: data.nextExecutionAt,
         lastExecutedAt: data.lastExecutedAt,
         stopReason: data.stopReason,
@@ -298,6 +386,11 @@ export class FollowUpEnrollmentRepository {
               orderBy: { stepOrder: "asc" },
               include: { template: { include: { variables: true } } },
             },
+            paymentSteps: {
+              where: { isActive: true },
+              orderBy: { stepOrder: "asc" },
+              include: { template: { include: { variables: true } } },
+            },
           },
         },
         lead: {
@@ -305,6 +398,12 @@ export class FollowUpEnrollmentRepository {
         },
         meeting: {
           include: { lead: { include: { customer: true } }, customer: true },
+        },
+        project: {
+          include: { customer: true },
+        },
+        handover: {
+          include: { customer: true, project: true },
         },
       },
     });
@@ -319,8 +418,11 @@ export class FollowUpEnrollmentRepository {
   async listEnrollments(
     organizationId: string,
     params: {
+      configType?: FollowUpConfigType;
       leadId?: string;
       meetingId?: string;
+      projectId?: string;
+      handoverId?: string;
       status?: FollowUpEnrollmentStatus;
       page?: number;
       limit?: number;
@@ -332,8 +434,11 @@ export class FollowUpEnrollmentRepository {
 
     const where: Prisma.FollowUpEnrollmentWhereInput = {
       organizationId,
+      ...(params.configType ? { config: { type: params.configType } } : {}),
       ...(params.leadId ? { leadId: params.leadId } : {}),
       ...(params.meetingId ? { meetingId: params.meetingId } : {}),
+      ...(params.projectId ? { projectId: params.projectId } : {}),
+      ...(params.handoverId ? { handoverId: params.handoverId } : {}),
       ...(params.status ? { status: params.status } : {}),
     };
 
@@ -364,6 +469,26 @@ export class FollowUpEnrollmentRepository {
               meetingDate: true,
               startTime: true,
               status: true,
+            },
+          },
+          project: {
+            select: {
+              id: true,
+              projectCode: true,
+              name: true,
+              currentStage: true,
+            },
+          },
+          handover: {
+            select: {
+              id: true,
+              handoverNumber: true,
+              title: true,
+              status: true,
+              finalSettlementAmount: true,
+              pendingAmount: true,
+              isCommercialCleared: true,
+              customer: { select: { id: true, firstName: true, lastName: true, phone: true } },
             },
           },
         },

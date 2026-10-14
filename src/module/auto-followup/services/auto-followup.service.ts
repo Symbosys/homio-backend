@@ -7,6 +7,7 @@ import { followUpEnrollmentRepo } from "../repos/followup-enrollment.repo.js";
 import { followUpExecutionRepo } from "../repos/followup-execution.repo.js";
 import { leadFollowUpService } from "./lead-followup.service.js";
 import { meetingFollowUpService } from "./meeting-followup.service.js";
+import { paymentFollowUpService } from "./payment-followup.service.js";
 import type {
   CreateFollowUpConfigInput,
   UpdateFollowUpConfigInput,
@@ -18,14 +19,15 @@ import type {
  */
 export class AutoFollowUpService {
   /**
-   * Get unified follow-up configuration for an organization (combines Lead and Meeting configs).
+   * Get unified follow-up configuration for an organization (combines Lead, Meeting, and Payment configs).
    *
    * @param organizationId - Tenant organization UUID
    */
   async getUnifiedConfig(organizationId: string) {
-    const [leadConfig, meetingConfig] = await Promise.all([
+    const [leadConfig, meetingConfig, paymentConfig] = await Promise.all([
       autoFollowUpConfigRepo.getDefaultConfig(organizationId, FollowUpConfigType.LEAD_NO_RESPONSE),
       autoFollowUpConfigRepo.getDefaultConfig(organizationId, FollowUpConfigType.MEETING_REMINDER),
+      autoFollowUpConfigRepo.getDefaultConfig(organizationId, FollowUpConfigType.PAYMENT_REMINDER),
     ]);
 
     const leadSteps = (leadConfig?.leadSteps || []).map((step) => ({
@@ -71,20 +73,45 @@ export class AutoFollowUpService {
         : null,
     }));
 
+    const paymentSteps = (paymentConfig?.paymentSteps || []).map((step) => ({
+      id: step.id,
+      configId: step.configId,
+      stepOrder: step.stepOrder,
+      dayOffset: step.dayOffset,
+      preferredSendTime: paymentConfig?.preferredSendTime || "11:00",
+      channel: step.channel,
+      whatsappTemplateId: step.templateId,
+      description: null,
+      isActive: step.isActive,
+      isFinalStep: step.isFinalStep,
+      additionalInformation: step.additionalInformation,
+      whatsappTemplate: step.template
+        ? {
+            id: step.template.id,
+            name: step.template.name,
+            category: step.template.category,
+            language: step.template.language,
+          }
+        : null,
+    }));
+
     return {
-      id: leadConfig?.id || meetingConfig?.id || "default",
+      id: leadConfig?.id || meetingConfig?.id || paymentConfig?.id || "default",
       organizationId,
       isLeadFollowUpActive: leadConfig?.isActive ?? true,
       isMeetingReminderActive: meetingConfig?.isActive ?? true,
+      isPaymentReminderActive: paymentConfig?.isActive ?? true,
       defaultChannel: "WHATSAPP",
       additionalInformation: {
         ...(typeof leadConfig?.additionalInformation === "object" && leadConfig.additionalInformation ? leadConfig.additionalInformation : {}),
         ...(typeof meetingConfig?.additionalInformation === "object" && meetingConfig.additionalInformation ? meetingConfig.additionalInformation : {}),
+        ...(typeof paymentConfig?.additionalInformation === "object" && paymentConfig.additionalInformation ? paymentConfig.additionalInformation : {}),
       },
       leadFollowUpSteps: leadSteps,
       meetingFollowUpSteps: meetingSteps,
-      createdAt: leadConfig?.createdAt || meetingConfig?.createdAt || new Date(),
-      updatedAt: leadConfig?.updatedAt || meetingConfig?.updatedAt || new Date(),
+      paymentFollowUpSteps: paymentSteps,
+      createdAt: leadConfig?.createdAt || meetingConfig?.createdAt || paymentConfig?.createdAt || new Date(),
+      updatedAt: leadConfig?.updatedAt || meetingConfig?.updatedAt || paymentConfig?.updatedAt || new Date(),
     };
   }
 
@@ -145,6 +172,7 @@ export class AutoFollowUpService {
             meetingTypes: [],
             leadSteps: leadStepsData || [],
             meetingSteps: [],
+            paymentSteps: [],
           },
           userId,
         );
@@ -200,6 +228,7 @@ export class AutoFollowUpService {
             meetingTypes: [],
             leadSteps: [],
             meetingSteps: meetingStepsData || [],
+            paymentSteps: [],
           },
           userId,
         );
@@ -209,6 +238,63 @@ export class AutoFollowUpService {
         await meetingFollowUpService.resyncActiveEnrollmentsForConfig(
           organizationId,
           savedMeetingConfig.id,
+        );
+      }
+    }
+
+    // 3. Handle Project Handover Payment Reminder Sequence
+    if (data.isPaymentReminderActive !== undefined || data.paymentFollowUpSteps !== undefined) {
+      const existingPaymentConfig = await autoFollowUpConfigRepo.getDefaultConfig(
+        organizationId,
+        FollowUpConfigType.PAYMENT_REMINDER,
+      );
+
+      const paymentStepsData = data.paymentFollowUpSteps?.map((s: any, idx: number) => {
+        const rawTplId = s.whatsappTemplateId || s.templateId;
+        const validTplId =
+          typeof rawTplId === "string" && rawTplId.trim() ? rawTplId.trim() : null;
+        return {
+          id: s.id && typeof s.id === "string" && !s.id.startsWith("temp-") ? s.id : undefined,
+          stepOrder: s.stepOrder ?? idx + 1,
+          dayOffset: Number(s.dayOffset) || 0,
+          channel: s.channel || "WHATSAPP",
+          templateId: validTplId,
+          customVariables: s.customVariables || null,
+          isFinalStep: s.isFinalStep ?? false,
+          isActive: s.isActive ?? true,
+          additionalInformation: s.additionalInformation || null,
+        };
+      });
+
+      let savedPaymentConfig;
+      if (existingPaymentConfig) {
+        savedPaymentConfig = await autoFollowUpConfigRepo.updateConfig(organizationId, existingPaymentConfig.id, {
+          isActive: data.isPaymentReminderActive !== undefined ? data.isPaymentReminderActive : existingPaymentConfig.isActive,
+          paymentSteps: paymentStepsData,
+        });
+      } else {
+        savedPaymentConfig = await autoFollowUpConfigRepo.createConfig(
+          organizationId,
+          {
+            type: FollowUpConfigType.PAYMENT_REMINDER,
+            name: "Default Project Handover Payment Reminders",
+            description: "Automated WhatsApp payment reminders following project handover settlement",
+            isActive: data.isPaymentReminderActive ?? true,
+            isDefault: true,
+            preferredSendTime: "11:00",
+            meetingTypes: [],
+            leadSteps: [],
+            meetingSteps: [],
+            paymentSteps: paymentStepsData || [],
+          },
+          userId,
+        );
+      }
+
+      if (savedPaymentConfig) {
+        await paymentFollowUpService.resyncActiveEnrollmentsForConfig(
+          organizationId,
+          savedPaymentConfig.id,
         );
       }
     }
@@ -355,6 +441,7 @@ export class AutoFollowUpService {
       processed: dueEnrollments.length,
       leadExecutions: 0,
       meetingExecutions: 0,
+      paymentExecutions: 0,
       errors: [] as string[],
     };
 
@@ -366,6 +453,9 @@ export class AutoFollowUpService {
         } else if (enrollment.config.type === FollowUpConfigType.MEETING_REMINDER) {
           await meetingFollowUpService.executeStep(enrollment.id);
           results.meetingExecutions++;
+        } else if (enrollment.config.type === FollowUpConfigType.PAYMENT_REMINDER) {
+          await paymentFollowUpService.executeStep(enrollment.id);
+          results.paymentExecutions++;
         }
       } catch (err: any) {
         results.errors.push(

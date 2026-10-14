@@ -86,6 +86,7 @@ model WhatsAppMessageTemplate {
   chatMessages          ChatMessage[]              @relation("TemplateChatMessages")
   leadFollowUpSteps     LeadFollowUpStep[]         @relation("TemplateLeadFollowUpSteps")
   meetingFollowUpSteps  MeetingFollowUpStep[]      @relation("TemplateMeetingFollowUpSteps")
+  paymentFollowUpSteps  PaymentFollowUpStep[]      @relation("TemplatePaymentFollowUpSteps")
   followUpExecutionLogs FollowUpExecutionLog[]     @relation("TemplateFollowUpExecutionLogs")
 
   // Meta Quality & Diagnostics

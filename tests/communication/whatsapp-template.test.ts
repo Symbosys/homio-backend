@@ -153,6 +153,10 @@ describe("Enterprise WhatsApp Template Management API Tests (Strict 7 APIs)", ()
       const projectEntity = dictionary.entities.find((e) => e.entity === CrmMappingEntity.PROJECT);
       expect(projectEntity).toBeDefined();
       expect(projectEntity?.fields.some((f) => f.key === "name")).toBe(true);
+      expect(projectEntity?.fields.some((f) => f.key === "pendingBalance")).toBe(true);
+      expect(projectEntity?.fields.some((f) => f.key === "finalSettlement")).toBe(true);
+      expect(projectEntity?.fields.some((f) => f.key === "handoverNumber")).toBe(true);
+      expect(projectEntity?.fields.some((f) => f.key === "handoverDate")).toBe(true);
     });
 
     it("should validate and allow whitelisted fields", () => {
@@ -162,6 +166,14 @@ describe("Enterprise WhatsApp Template Management API Tests (Strict 7 APIs)", ()
 
       expect(() => {
         variableMappingEngine.validateMapping(CrmMappingEntity.PROJECT, "siteAddress");
+      }).not.toThrow();
+
+      expect(() => {
+        variableMappingEngine.validateMapping(CrmMappingEntity.PROJECT, "pendingBalance");
+      }).not.toThrow();
+
+      expect(() => {
+        variableMappingEngine.validateMapping(CrmMappingEntity.PROJECT, "finalSettlement");
       }).not.toThrow();
     });
 
@@ -364,6 +376,56 @@ describe("Enterprise WhatsApp Template Management API Tests (Strict 7 APIs)", ()
       expect(result.body).toContain("Ananya Sharma");
       expect(result.variables[0]?.value).toBe("Ananya Sharma");
       expect(result.variables[1]?.value).toBe("details");
+    });
+
+    it("should resolve project handover settlement and pending balance variables", async () => {
+      const mockHandoverTemplate = {
+        bodyText: "Settlement: {{1}}, Pending: {{2}}",
+        variables: [
+          {
+            id: "vh1",
+            templateId: MOCK_TEMPLATE_ID,
+            component: WhatsAppVariableComponent.BODY,
+            position: 1,
+            parameter: "{{1}}",
+            mappingEntity: CrmMappingEntity.PROJECT,
+            mappingField: "finalSettlement",
+            fallbackValue: "₹4,50,000",
+            label: "Final Settlement",
+            isRequired: true,
+            isMapped: true,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+          {
+            id: "vh2",
+            templateId: MOCK_TEMPLATE_ID,
+            component: WhatsAppVariableComponent.BODY,
+            position: 2,
+            parameter: "{{2}}",
+            mappingEntity: CrmMappingEntity.PROJECT,
+            mappingField: "pendingBalance",
+            fallbackValue: "₹1,50,000",
+            label: "Pending Balance",
+            isRequired: true,
+            isMapped: true,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ],
+      };
+
+      const result = await variableMappingEngine.resolveTemplate(mockHandoverTemplate, {
+        organizationId: MOCK_ORG_A,
+        customOverrides: {
+          "{{1}}": "₹4,50,000",
+          "{{2}}": "₹1,50,000",
+        },
+      });
+
+      expect(result.body).toBe("Settlement: ₹4,50,000, Pending: ₹1,50,000");
+      expect(result.variables[0]?.value).toBe("₹4,50,000");
+      expect(result.variables[1]?.value).toBe("₹1,50,000");
     });
   });
 

@@ -24,6 +24,7 @@ export const messageVariableContextSchema = z
     leadId: z.string().uuid("leadId must be a valid UUID").optional().nullable(),
     customerId: z.string().uuid("customerId must be a valid UUID").optional().nullable(),
     projectId: z.string().uuid("projectId must be a valid UUID").optional().nullable(),
+    handoverId: z.string().uuid("handoverId must be a valid UUID").optional().nullable(),
     quotationId: z.string().uuid("quotationId must be a valid UUID").optional().nullable(),
     meetingId: z.string().uuid("meetingId must be a valid UUID").optional().nullable(),
     employeeId: z.string().uuid("employeeId must be a valid UUID").optional().nullable(),

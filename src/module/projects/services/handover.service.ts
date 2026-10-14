@@ -4,6 +4,7 @@ import { statusCode, type ImageType, Prisma } from "../../../types/types.js";
 import { storageService } from "../../../lib/storage/storage.service.js";
 import { handoverRepository, HandoverRepository } from "../repos/handover.repo.js";
 import { warrantyRepository } from "../../after-sales/repos/warranty.repo.js";
+import { paymentFollowUpService } from "../../auto-followup/services/payment-followup.service.js";
 import type {
   CreateHandoverInput,
   UpdateHandoverInput,
@@ -280,6 +281,19 @@ export class HandoverService {
       })
       .catch(() => {});
 
+    // Auto-enroll into Payment Reminder Follow-Up if opted in and balance pending
+    if (
+      input.sendPaymentReminderFollowUp &&
+      !input.isCommercialCleared &&
+      Number(input.pendingAmount ?? 0) > 0
+    ) {
+      try {
+        await paymentFollowUpService.enrollHandover(organizationId, createdHandover.id);
+      } catch (err) {
+        console.error("Failed to auto-enroll handover into payment reminder follow-up:", err);
+      }
+    }
+
     return createdHandover;
   }
 
@@ -519,7 +533,7 @@ export class HandoverService {
   ) {
     await this.getHandoverById(id, organizationId);
 
-    return this.repo.updateHandover(id, organizationId, {
+    const updated = await this.repo.updateHandover(id, organizationId, {
       isCommercialCleared: input.isCommercialCleared,
       ...(input.finalSettlementAmount !== undefined && {
         finalSettlementAmount: new Prisma.Decimal(input.finalSettlementAmount),
@@ -531,6 +545,21 @@ export class HandoverService {
         commercialRemarks: input.commercialRemarks,
       }),
     });
+
+    // If commercials cleared or pending amount <= 0, automatically stop active payment reminder follow-up
+    if (input.isCommercialCleared || (input.pendingAmount !== undefined && Number(input.pendingAmount) <= 0)) {
+      try {
+        await paymentFollowUpService.stopHandoverPaymentFollowUp(
+          organizationId,
+          id,
+          "Commercial settlement cleared / pending balance is zero",
+        );
+      } catch (err) {
+        console.error("Failed to stop handover payment reminder follow-up on commercial clearance:", err);
+      }
+    }
+
+    return updated;
   }
 
   /**

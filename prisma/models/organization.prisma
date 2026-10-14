@@ -131,6 +131,7 @@ model Organization {
   followUpConfigs            OrgFollowUpConfig[]              @relation("OrganizationFollowUpConfigs")
   leadFollowUpSteps          LeadFollowUpStep[]               @relation("OrganizationLeadFollowUpSteps")
   meetingFollowUpSteps       MeetingFollowUpStep[]            @relation("OrganizationMeetingFollowUpSteps")
+  paymentFollowUpSteps       PaymentFollowUpStep[]            @relation("OrganizationPaymentFollowUpSteps")
   followUpEnrollments        FollowUpEnrollment[]             @relation("OrganizationFollowUpEnrollments")
   followUpExecutionLogs      FollowUpExecutionLog[]           @relation("OrganizationFollowUpExecutionLogs")
 

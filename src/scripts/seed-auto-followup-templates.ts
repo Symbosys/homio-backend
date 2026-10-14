@@ -410,6 +410,56 @@ async function main() {
         },
       ],
     },
+    // --- PROJECT HANDOVER PAYMENT REMINDER TEMPLATE ---
+    {
+      name: "project_handover_payment_reminder",
+      category: WhatsAppTemplateCategory.UTILITY,
+      status: WhatsAppTemplateStatus.APPROVED,
+      language: "en_US",
+      headerType: WhatsAppHeaderType.TEXT,
+      headerText: "Project Handover Settlement",
+      bodyText:
+        "Dear {{1}},\n\nCongratulations on the handover of your project, {{2}}! We hope you love your newly designed spaces.\n\nAs part of the final handover closure, here is your settlement summary:\n• Final Settlement: {{3}}\n• Pending Balance: {{4}}\n\nKindly arrange to clear the pending balance of {{4}} to complete your formal handover sign-off and activate your warranty.\n\nIf you have already processed this payment, please disregard this reminder.",
+      footerText: "Homio Accounts & Delivery Team",
+      variables: [
+        {
+          position: 1,
+          parameter: "{{1}}",
+          component: WhatsAppVariableComponent.BODY,
+          mappingEntity: CrmMappingEntity.CUSTOMER,
+          mappingField: "name",
+          fallbackValue: "Valued Client",
+          label: "Client Name",
+        },
+        {
+          position: 2,
+          parameter: "{{2}}",
+          component: WhatsAppVariableComponent.BODY,
+          mappingEntity: CrmMappingEntity.PROJECT,
+          mappingField: "name",
+          fallbackValue: "your project",
+          label: "Project Name",
+        },
+        {
+          position: 3,
+          parameter: "{{3}}",
+          component: WhatsAppVariableComponent.BODY,
+          mappingEntity: CrmMappingEntity.PROJECT,
+          mappingField: "finalSettlement",
+          fallbackValue: "₹0",
+          label: "Final Settlement (₹)",
+        },
+        {
+          position: 4,
+          parameter: "{{4}}",
+          component: WhatsAppVariableComponent.BODY,
+          mappingEntity: CrmMappingEntity.PROJECT,
+          mappingField: "pendingBalance",
+          fallbackValue: "₹0",
+          label: "Pending Balance (₹)",
+        },
+      ],
+    },
   ];
 
   // Map to store created template IDs by name

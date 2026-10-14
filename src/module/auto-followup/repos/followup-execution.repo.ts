@@ -22,8 +22,11 @@ export class FollowUpExecutionRepository {
       enrollmentId: string;
       leadStepId?: string | null;
       meetingStepId?: string | null;
+      paymentStepId?: string | null;
       leadId?: string | null;
       meetingId?: string | null;
+      projectId?: string | null;
+      handoverId?: string | null;
       templateId?: string | null;
       chatMessageId?: string | null;
       status?: FollowUpExecutionStatus;
@@ -42,8 +45,11 @@ export class FollowUpExecutionRepository {
         enrollmentId: data.enrollmentId,
         leadStepId: data.leadStepId,
         meetingStepId: data.meetingStepId,
+        paymentStepId: data.paymentStepId,
         leadId: data.leadId,
         meetingId: data.meetingId,
+        projectId: data.projectId,
+        handoverId: data.handoverId,
         templateId: data.templateId,
         chatMessageId: data.chatMessageId,
         status: data.status ?? FollowUpExecutionStatus.SCHEDULED,

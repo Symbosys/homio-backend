@@ -48,6 +48,18 @@ export const createMeetingFollowUpStepSchema = z.object({
   additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
 });
 
+export const createPaymentFollowUpStepSchema = z.object({
+  id: z.string().uuid().optional(),
+  stepOrder: z.number().int().min(1, "Step order must be at least 1"),
+  dayOffset: z.number().int().min(0, "Day offset must be at least 0"),
+  channel: CommunicationChannelEnum.optional().default(CommunicationChannel.WHATSAPP),
+  templateId: z.string().uuid("Invalid template ID").optional().nullable(),
+  customVariables: z.record(z.string(), z.any()).optional().nullable(),
+  isFinalStep: z.boolean().optional().default(false),
+  isActive: z.boolean().optional().default(true),
+  additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
+});
+
 // ============================================================================
 // CONFIG CRUD SCHEMAS
 // ============================================================================
@@ -67,6 +79,7 @@ export const createFollowUpConfigSchema = z.object({
     meetingTypes: z.array(MeetingTypeEnum).optional().default([]),
     leadSteps: z.array(createLeadFollowUpStepSchema).optional().default([]),
     meetingSteps: z.array(createMeetingFollowUpStepSchema).optional().default([]),
+    paymentSteps: z.array(createPaymentFollowUpStepSchema).optional().default([]),
     additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
   }),
 });
@@ -88,6 +101,7 @@ export const updateFollowUpConfigSchema = z.object({
     meetingTypes: z.array(MeetingTypeEnum).optional(),
     leadSteps: z.array(createLeadFollowUpStepSchema).optional(),
     meetingSteps: z.array(createMeetingFollowUpStepSchema).optional(),
+    paymentSteps: z.array(createPaymentFollowUpStepSchema).optional(),
     additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
   }),
 });
@@ -137,6 +151,14 @@ export const enrollMeetingSchema = z.object({
   }),
 });
 
+export const enrollPaymentSchema = z.object({
+  body: z.object({
+    handoverId: z.string().uuid("Invalid handover ID"),
+    projectId: z.string().uuid("Invalid project ID").optional(),
+    configId: z.string().uuid("Invalid config ID").optional(),
+  }),
+});
+
 export const enrollmentIdParamSchema = z.object({
   params: z.object({
     id: z.string().uuid("Invalid enrollment ID"),
@@ -154,8 +176,11 @@ export const cancelEnrollmentSchema = z.object({
 
 export const queryEnrollmentsSchema = z.object({
   query: z.object({
+    configType: FollowUpConfigTypeEnum.optional(),
     leadId: z.string().uuid().optional(),
     meetingId: z.string().uuid().optional(),
+    projectId: z.string().uuid().optional(),
+    handoverId: z.string().uuid().optional(),
     status: FollowUpEnrollmentStatusEnum.optional(),
     page: z
       .string()
@@ -174,3 +199,5 @@ export type CreateFollowUpConfigInput = z.infer<typeof createFollowUpConfigSchem
 export type UpdateFollowUpConfigInput = z.infer<typeof updateFollowUpConfigSchema>["body"];
 export type CreateLeadFollowUpStepInput = z.infer<typeof createLeadFollowUpStepSchema>;
 export type CreateMeetingFollowUpStepInput = z.infer<typeof createMeetingFollowUpStepSchema>;
+export type CreatePaymentFollowUpStepInput = z.infer<typeof createPaymentFollowUpStepSchema>;
+export type EnrollPaymentInput = z.infer<typeof enrollPaymentSchema>["body"];

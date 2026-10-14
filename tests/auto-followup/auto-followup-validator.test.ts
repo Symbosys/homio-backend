@@ -4,6 +4,7 @@ import {
   updateFollowUpConfigSchema,
   enrollLeadSchema,
   enrollMeetingSchema,
+  enrollPaymentSchema,
   cancelEnrollmentSchema,
   queryFollowUpConfigsSchema,
   queryEnrollmentsSchema,
@@ -196,6 +197,64 @@ describe("Auto Follow-Up Validator Suite", () => {
       if (res.success) {
         expect(res.data.query.page).toBe(2);
         expect(res.data.query.limit).toBe(10);
+      }
+    });
+
+    it("should validate manual payment reminder enrollment payload", () => {
+      const mockHandoverId = "d3b07384-d113-4672-8820-21758e578fa0";
+      const res = enrollPaymentSchema.safeParse({
+        body: {
+          handoverId: mockHandoverId,
+          configId: mockConfigId,
+        },
+      });
+      expect(res.success).toBe(true);
+    });
+  });
+
+  describe("Payment Reminder Config Validation", () => {
+    it("should accept valid Payment Reminder configuration with day-offset steps", () => {
+      const payload = {
+        body: {
+          type: FollowUpConfigType.PAYMENT_REMINDER,
+          name: "Project Handover Outstanding Balance Reminders",
+          description: "Follow-up sequence dispatched on Handover Day 0, Day 3, Day 7, and Day 14",
+          isActive: true,
+          isDefault: true,
+          preferredSendTime: "11:00",
+          paymentSteps: [
+            { stepOrder: 1, dayOffset: 0, channel: CommunicationChannel.WHATSAPP, templateId: mockTemplateId },
+            { stepOrder: 2, dayOffset: 3, channel: CommunicationChannel.WHATSAPP, templateId: mockTemplateId },
+            { stepOrder: 3, dayOffset: 7, channel: CommunicationChannel.WHATSAPP, templateId: mockTemplateId },
+            { stepOrder: 4, dayOffset: 14, channel: CommunicationChannel.WHATSAPP, templateId: mockTemplateId, isFinalStep: true },
+          ],
+          additionalInformation: { module: "PROJECT_HANDOVER", reminderType: "FINAL_SETTLEMENT" },
+        },
+      };
+
+      const res = createFollowUpConfigSchema.safeParse(payload);
+      expect(res.success).toBe(true);
+      if (res.success) {
+        expect(res.data.body.type).toBe(FollowUpConfigType.PAYMENT_REMINDER);
+        expect(res.data.body.paymentSteps?.length).toBe(4);
+        expect(res.data.body.paymentSteps?.[0]?.dayOffset).toBe(0);
+        expect(res.data.body.paymentSteps?.[3]?.isFinalStep).toBe(true);
+      }
+    });
+
+    it("should validate query enrollments with configType PAYMENT_REMINDER and handoverId", () => {
+      const mockHandoverId = "d3b07384-d113-4672-8820-21758e578fa0";
+      const res = queryEnrollmentsSchema.safeParse({
+        query: {
+          configType: FollowUpConfigType.PAYMENT_REMINDER,
+          handoverId: mockHandoverId,
+          status: FollowUpEnrollmentStatus.ACTIVE,
+        },
+      });
+      expect(res.success).toBe(true);
+      if (res.success) {
+        expect(res.data.query.configType).toBe(FollowUpConfigType.PAYMENT_REMINDER);
+        expect(res.data.query.handoverId).toBe(mockHandoverId);
       }
     });
   });

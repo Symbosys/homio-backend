@@ -4,6 +4,7 @@ import { statusCode } from "../../../types/types.js";
 import { autoFollowUpService } from "../services/auto-followup.service.js";
 import { leadFollowUpService } from "../services/lead-followup.service.js";
 import { meetingFollowUpService } from "../services/meeting-followup.service.js";
+import { paymentFollowUpService } from "../services/payment-followup.service.js";
 import {
   createFollowUpConfigSchema,
   updateFollowUpConfigSchema,
@@ -14,6 +15,7 @@ import {
   cancelEnrollmentSchema,
   enrollLeadSchema,
   enrollMeetingSchema,
+  enrollPaymentSchema,
 } from "../validators/auto-followup.validator.js";
 
 /**
@@ -260,6 +262,37 @@ export const enrollMeetingManually = asyncHandler(async (req, res) => {
 });
 
 /**
+ * Controller: Manually enroll a Project Handover into payment reminder sequence
+ */
+export const enrollHandoverManually = asyncHandler(async (req, res) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+  }
+
+  const parsed = enrollPaymentSchema.parse({ body: req.body });
+  const result = await paymentFollowUpService.enrollHandover(
+    organizationId,
+    parsed.body.handoverId,
+    parsed.body.configId,
+  );
+
+  if (!result) {
+    throw new ErrorResponse(
+      "Failed to enroll project handover. Verify handover existence, pending balance > 0, customer phone number, and active payment reminder config.",
+      statusCode.Bad_Request,
+    );
+  }
+
+  return SuccessResponse(
+    res,
+    "Project handover enrolled in payment reminders successfully",
+    result,
+    statusCode.Created,
+  );
+});
+
+/**
  * Controller: Trigger execution batch for due follow-up enrollments manually
  */
 export const triggerBatchExecution = asyncHandler(async (req, res) => {
@@ -271,3 +304,4 @@ export const triggerBatchExecution = asyncHandler(async (req, res) => {
   const result = await autoFollowUpService.processDueEnrollments(50);
   return SuccessResponse(res, "Due follow-up enrollments processed", result, statusCode.OK);
 });
+

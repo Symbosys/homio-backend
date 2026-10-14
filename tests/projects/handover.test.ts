@@ -120,10 +120,43 @@ describe("Project Handover & Possession Management Tests", () => {
       expect(parsed.projectId).toBe(MOCK_PROJECT_ID);
       expect(parsed.title).toBe("Penthouse 1401 Handover");
       expect(parsed.status).toBe("DRAFT");
-      expect(parsed.warrantyPeriodMonths).toBe(12);
+      expect(parsed.warrantyPeriodMonths).toBe(0);
       expect(parsed.isCommercialCleared).toBe(false);
+      expect(parsed.sendPaymentReminderFollowUp).toBe(false);
       expect(parsed.items).toEqual([]);
       expect(parsed.snags).toEqual([]);
+    });
+
+    it("should correctly parse sendPaymentReminderFollowUp boolean and string flags", () => {
+      const payloadTrue = {
+        projectId: MOCK_PROJECT_ID,
+        title: "Villa 501 Handover",
+        pendingAmount: 50000,
+        sendPaymentReminderFollowUp: true,
+      };
+      expect(createHandoverSchema.parse(payloadTrue).sendPaymentReminderFollowUp).toBe(true);
+
+      const payloadStringTrue = {
+        projectId: MOCK_PROJECT_ID,
+        title: "Villa 501 Handover",
+        pendingAmount: 50000,
+        sendPaymentReminderFollowUp: "true",
+      };
+      expect(createHandoverSchema.parse(payloadStringTrue).sendPaymentReminderFollowUp).toBe(true);
+
+      const payloadFalse = {
+        projectId: MOCK_PROJECT_ID,
+        title: "Villa 501 Handover",
+        pendingAmount: 50000,
+        sendPaymentReminderFollowUp: false,
+      };
+      expect(createHandoverSchema.parse(payloadFalse).sendPaymentReminderFollowUp).toBe(false);
+
+      const payloadOmitted = {
+        projectId: MOCK_PROJECT_ID,
+        title: "Villa 501 Handover",
+      };
+      expect(createHandoverSchema.parse(payloadOmitted).sendPaymentReminderFollowUp).toBe(false);
     });
 
     it("should reject creation when required projectId or title is missing", () => {

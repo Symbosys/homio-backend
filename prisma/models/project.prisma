@@ -429,6 +429,8 @@ model Project {
   vendorQuotations          VendorQuotation[]          @relation("ProjectVendorQuotations")
   materialDispatches        MaterialDispatch[]         @relation("ProjectMaterialDispatches")
   handovers                 ProjectHandover[]          @relation("ProjectHandovers")
+  followUpEnrollments       FollowUpEnrollment[]       @relation("ProjectFollowUpEnrollments")
+  followUpExecutionLogs     FollowUpExecutionLog[]     @relation("ProjectFollowUpExecutions")
   projectWarranties         ProjectWarranty[]          @relation("ProjectWarranties")
   afterSalesServiceRequests AfterSalesServiceRequest[] @relation("ProjectAfterSalesServiceRequests")
   afterSalesServiceVisits   AfterSalesServiceVisit[]   @relation("ProjectAfterSalesServiceVisits")
@@ -1471,9 +1473,11 @@ model ProjectHandover {
   updatedAt DateTime  @updatedAt @map("updated_at")
 
   // Child Relations
-  items      ProjectHandoverItem[] @relation("HandoverItems")
-  snags      ProjectHandoverSnag[] @relation("HandoverSnags")
-  warranties ProjectWarranty[]     @relation("HandoverWarranties")
+  items                 ProjectHandoverItem[]  @relation("HandoverItems")
+  snags                 ProjectHandoverSnag[]  @relation("HandoverSnags")
+  warranties            ProjectWarranty[]      @relation("HandoverWarranties")
+  followUpEnrollments   FollowUpEnrollment[]   @relation("HandoverFollowUpEnrollments")
+  followUpExecutionLogs FollowUpExecutionLog[] @relation("HandoverFollowUpExecutions")
 
   @@unique([organizationId, handoverNumber])
   @@index([organizationId])
