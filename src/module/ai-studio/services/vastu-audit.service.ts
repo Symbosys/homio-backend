@@ -84,25 +84,35 @@ export class VastuAuditService {
       overallScore: auditResult.overallScore,
       zoneBreakdown: auditResult.zoneBreakdown,
       remedialSolutions: auditResult.remedialSolutions,
-      boqEstimations: auditResult.boqEstimations,
-      additionalInformation: input.additionalInformation,
+      boqEstimations: null,
+      additionalInformation: {
+        ...(input.additionalInformation || {}),
+        isFloorPlanDetected: auditResult.isFloorPlanDetected,
+      },
       executionDurationMs,
     });
 
-    // 4. Atomic Credit Deduction & Ledger Entry
-    const { wallet: updatedWallet } = await this.repo.atomicDeductCredits({
-      userId,
-      employeeId: employeeId || null,
-      sessionId: vastuSession.sessionId,
-      cost,
-      description: `AI Vastu Spatial Audit: ${input.propertyType} (${input.facingDirection} Facing)`,
-    });
+    // 4. Atomic Credit Deduction & Ledger Entry (Only if valid floor plan was analyzed)
+    let updatedWallet = wallet;
+    let creditsDeducted = 0;
+
+    if (auditResult.isFloorPlanDetected !== false && auditResult.overallScore > 0) {
+      const deduction = await this.repo.atomicDeductCredits({
+        userId,
+        employeeId: employeeId || null,
+        sessionId: vastuSession.sessionId,
+        cost,
+        description: `AI Vastu Spatial Audit: ${input.propertyType} (${input.facingDirection} Facing)`,
+      });
+      updatedWallet = deduction.wallet;
+      creditsDeducted = cost;
+    }
 
     return {
       session: vastuSession,
       audit: auditResult,
       wallet: updatedWallet,
-      creditsDeducted: cost,
+      creditsDeducted,
     };
   }
 

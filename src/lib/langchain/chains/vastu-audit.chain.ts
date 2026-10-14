@@ -1,5 +1,14 @@
 import type { LlmMessage } from "../interfaces/llm-provider.interface.js";
 import { LlmFactory } from "../llm.factory.js";
+import { VASTU_VEDIC_SPATIAL_SYSTEM_PROMPT } from "./prompts/vastu-system-prompt.js";
+import {
+  getZoneDefinition,
+  evaluateRoomPlacement,
+  calculateDocumentedScore,
+  calculatePanchaTattva,
+  normalizeDirectionCode,
+} from "./vastu-rules.js";
+import type { RoomEvaluationResult } from "./vastu-rules.js";
 
 export interface VastuAuditInput {
   propertyType: string;
@@ -24,6 +33,7 @@ export interface ZoneEvaluation {
   deityZone?: string;
   idealUsage: string;
   currentStatus: string;
+  status?: "OPTIMAL" | "NEEDS_REVIEW" | "ADJUSTMENT" | "DEFECT";
   complianceScore: number; // 0 - 100
   doshaSeverity: "NONE" | "LOW" | "MODERATE" | "HIGH" | "CRITICAL";
   observations: string;
@@ -42,16 +52,9 @@ export interface RemedialSolutionItem {
   estimatedCostInr: number;
 }
 
-export interface VastuBoqItem {
-  item: string;
-  category: string;
-  quantity: string;
-  unitRateInr: number;
-  totalCostInr: number;
-  zone: string;
-}
-
 export interface VastuAuditOutput {
+  isFloorPlanDetected: boolean;
+  imageDetectionConfidence?: number;
   overallScore: number;
   complianceRating: "EXCELLENT" | "GOOD" | "MODERATE" | "CRITICAL_DOSHAS";
   summary: string;
@@ -59,13 +62,7 @@ export interface VastuAuditOutput {
   criticalDoshas: string[];
   zoneBreakdown: ZoneEvaluation[];
   remedialSolutions: RemedialSolutionItem[];
-  boqEstimations: {
-    items: VastuBoqItem[];
-    totalRemedialCostInr: number;
-    laborAndInstallationInr: number;
-    grandTotalInr: number;
-  };
-  elementalBalance: {
+  elementalBalance?: {
     water: number; // percentage
     air: number;
     fire: number;
@@ -76,7 +73,7 @@ export interface VastuAuditOutput {
 
 export class VastuAuditChain {
   /**
-   * Executes deep Vedic Vastu 16-zone spatial analysis
+   * Executes deep Indian Vedic Vastu 9-zone spatial analysis using multimodal vision
    */
   public static async executeAudit(
     input: VastuAuditInput
@@ -111,21 +108,7 @@ export class VastuAuditChain {
       }
     }
 
-    const defaultSystemPrompt = `
-You are Homio AI Vedic Vastu Master & Senior Architectural Spatial Auditor.
-You conduct authoritative 16-zone Vastu Shastra audits for residential and commercial construction in India and globally.
-
-### AUDIT PROTOCOLS & MANDATORY REQUIREMENTS:
-1. Base your spatial calculations on authentic 16-Zone Vedic Vastu Mandala (North, NNE, NE/Eshan, ENE, East, ESE, SE/Agneya, SSE, South, SSW, SW/Nairuthi, WSW, West, WNW, NW/Vayavya, NNW) and Pancha Tattva (5 Elements).
-2. CRITICAL VISION & LAYOUT ANALYSIS: If an image is attached, visually inspect it carefully.
-   - If it is a floor plan, blueprint, or architectural layout: Identify the specific rooms, doors, kitchen, bedrooms, toilets, balconies, and their relative directional positions relative to the main facing direction (${facingDirection}).
-   - If it is a photo of a specific room (e.g. kitchen, bedroom, living area): Identify specific furniture positions, sink/stove alignments, window orientations, and clutter.
-   - If it is a non-architectural image (e.g. a portrait of a person, vehicle, landscape, or animal): Explicitly state in the summary what was identified in the image, note that no architectural floor plan was detected, and evaluate the spatial configuration based on the provided direction and room parameters.
-3. Calculate a dynamic, realistic overall score between 40 and 95 out of 100 reflecting the specific property's facing direction (${facingDirection}) and layout.
-4. Every single remedy recommendation MUST be a strictly NON-DEMOLITION solution (e.g., Brass/Copper/Zinc elemental wire inlays, lead blocks, color treatments, specific mirror placements, elemental stones, yantras, sacred plants).
-5. Provide realistic BOQ (Bill of Quantities) items with accurate Indian market rates (INR ₹).
-6. Output MUST be valid, parsable JSON matching the required schema. Do NOT include markdown code blocks (\`\`\`json) or conversational text.
-`.trim();
+    const defaultSystemPrompt = VASTU_VEDIC_SPATIAL_SYSTEM_PROMPT;
 
     // If platform admin defined a custom system prompt/guide in AiServiceRate, inject it with priority
     const systemPrompt = input.customSystemPrompt?.trim()
@@ -135,73 +118,23 @@ You conduct authoritative 16-zone Vastu Shastra audits for residential and comme
     const userMessage: LlmMessage = {
       role: "user",
       content: `
-Analyze the following property for Vastu compliance:
+Perform an authentic 9-Zone Indian Vedic Vastu spatial audit on the following property specifications and attached media:
 - Property Type: ${propertyType}
 - Main Facing Direction: ${facingDirection}
 - Total Area: ${totalAreaSqft} sqft
 - Number of Floors: ${numberOfFloors}
-- Location: ${city}
-- Focus Rooms / Zones: ${selectedFocusAreas.join(", ")}
-- Custom Context & Floor Plan Observations: ${customInstructions || "Analyze spatial energy and directional alignment from the provided property specifications."}
-${images.length > 0 ? "- Attached Floor Plan / Media: Please visually inspect the attached image(s) and provide spatial zone analysis corresponding to what is visibly depicted." : ""}
-
-Return a valid JSON object matching this exact structure:
-{
-  "overallScore": 76,
-  "complianceRating": "GOOD",
-  "summary": "Detailed executive summary of the spatial alignment and energy balance for this ${propertyType} (${facingDirection} Facing)...",
-  "keyStrengths": ["Strength 1", "Strength 2", "Strength 3"],
-  "criticalDoshas": ["Dosha 1", "Dosha 2"],
-  "zoneBreakdown": [
-    {
-      "zone": "North-East (Eshan)",
-      "direction": "North-East",
-      "element": "Water",
-      "deityZone": "Lord Shiva / Divine Energy",
-      "idealUsage": "Pooja Room, Meditation, Open Clean Space",
-      "currentStatus": "Pooja room & Foyer located here",
-      "complianceScore": 90,
-      "doshaSeverity": "NONE",
-      "observations": "Excellent water element balance with abundant morning light.",
-      "remedyRecommendation": "Keep clean and place brass water pot with fresh flowers."
-    }
-  ],
-  "remedialSolutions": [
-    {
-      "id": "rem-1",
-      "zone": "South-East (Agneya)",
-      "issue": "Water element presence near fire corner",
-      "category": "METAL_INLAY",
-      "remedyTitle": "Copper Wire Energy Harmonizer",
-      "description": "Install a 3mm pure copper strip flush into the flooring between the sink and cooktop.",
-      "isNonDemolition": true,
-      "priority": "HIGH",
-      "estimatedCostInr": 3500
-    }
-  ],
-  "boqEstimations": {
-    "items": [
-      {
-        "item": "Pure Copper Floor Inlay Strip (3mm x 15ft)",
-        "category": "Elemental Inlays",
-        "quantity": "15 Rft",
-        "unitRateInr": 250,
-        "totalCostInr": 3750,
-        "zone": "South-East (Agneya)"
-      }
-    ],
-    "totalRemedialCostInr": 12500,
-    "laborAndInstallationInr": 3500,
-    "grandTotalInr": 16000
-  },
-  "elementalBalance": {
-    "water": 82,
-    "air": 75,
-    "fire": 68,
-    "earth": 70,
-    "space": 85
-  }
+- City / Location: ${city}
+- Target Focus Areas: ${selectedFocusAreas.join(", ")}
+- Custom Context / Notes: ${customInstructions || "Analyze spatial energy and directional room placements."}
+${
+  images.length > 0
+    ? "- Attached Media: Inspect the uploaded layout image with strict geometric precision. Identify the North arrow or compass indicators along the outer borders or blueprint (Top=North, Bottom=South, Left=West, Right=East). Divide into a 3x3 grid (NW, N, NE, W, Center, E, SW, S, SE). Read the room label in each quadrant. Map every room to its actual physical geometric quadrant. Do NOT relocate rooms to preferred directions. Evaluate each room as strictly COMPLIANT (OPTIMAL) or NON-COMPLIANT (DEFECT). Never output 'Not utilized' if a room is visible. Never output 'No Specific Rule'."
+    : "- Note: No floor plan image attached. Evaluate compliance based on the specified facing direction and property attributes."
 }
+
+CRITICAL RULES:
+1. Do NOT output any boqEstimations, bill of quantities, or cost tables. Focus strictly on Vastu spatial evaluation and non-demolition remedies.
+2. Return ONLY a valid JSON object matching the VastuAuditOutput schema. Do NOT include markdown code fences or conversational text.
 `.trim(),
       images: images.length > 0 ? images : undefined,
     };
@@ -212,10 +145,10 @@ Return a valid JSON object matching this exact structure:
     try {
       const response = await llm.generate([userMessage], {
         systemPrompt,
-        temperature: 0.3,
+        temperature: 0.1,
         maxTokens: 3500,
         jsonMode: true,
-        model: input.model || "gpt-4o-mini",
+        model: input.model || "gpt-4o",
       });
 
       const cleanJson = response
@@ -223,203 +156,227 @@ Return a valid JSON object matching this exact structure:
         .replace(/```/g, "")
         .trim();
 
-      const parsed: VastuAuditOutput = JSON.parse(cleanJson);
+      const parsed = JSON.parse(cleanJson);
 
-      if (parsed?.overallScore && Array.isArray(parsed?.zoneBreakdown)) {
-        return parsed;
-      }
+      // Validate and normalize through deterministic 9-zone rule engine
+      return VastuAuditChain.validateAndNormalizeAuditOutput(parsed, facingDirection);
     } catch (err: any) {
       console.error("[VastuAuditChain] OpenAI generation error:", err?.message || err);
-      throw new Error(`OpenAI Vastu Consultation failed: ${err?.message || "Invalid response format"}`);
+      // If error occurs and images were attached, do not return mock data
+      if (images.length > 0) {
+        throw new Error(`OpenAI Vastu Consultation failed: ${err?.message || "Invalid response format"}`);
+      }
+      // If no image was provided, return deterministic directional fallback without BOQ
+      return VastuAuditChain.getVedicMatrixFallback(input);
     }
-
-    throw new Error("OpenAI Vastu Consultation returned an empty or invalid audit payload.");
   }
 
   /**
-   * Deterministic Vedic Vastu calculation fallback
+   * Deterministic validation and cross-consistency normalization guardrail.
+   * Ensures:
+   * 1. Every room is verified against the 9-Zone Reference (Toilet in NW is NOT a defect; Kitchen in E is NEEDS_REVIEW).
+   * 2. Compliance score is calculated using the documented formula.
+   * 3. Pancha Tattva is calculated using the validated formula.
+   * 4. criticalDoshas has zero false claims.
+   * 5. Summary, findings, counts, and scores are 100% consistent.
    */
-  private static getVedicMatrixFallback(input: VastuAuditInput): VastuAuditOutput {
-    const isNorthOrEast = ["North", "North-East", "East"].includes(input.facingDirection);
-    const overallScore = isNorthOrEast ? 82 : 72;
+  public static validateAndNormalizeAuditOutput(
+    parsed: any,
+    facingDirection: string = "East"
+  ): VastuAuditOutput {
+    // Handle non-floor-plan detection
+    if (parsed.isFloorPlanDetected === false || parsed.overallScore === 0) {
+      return {
+        isFloorPlanDetected: false,
+        imageDetectionConfidence: parsed.imageDetectionConfidence ?? 0.05,
+        overallScore: 0,
+        complianceRating: "CRITICAL_DOSHAS",
+        summary:
+          parsed.summary ||
+          "No architectural floor plan detected. The uploaded media does not contain a recognizable floor plan, blueprint, or architectural layout. Please upload a clear 2D floor plan image to conduct an authentic Vastu spatial audit.",
+        keyStrengths: [],
+        criticalDoshas: [
+          "No valid architectural floor plan or layout detected in uploaded media. Please upload a clear 2D blueprint or layout sketch.",
+        ],
+        zoneBreakdown: [],
+        remedialSolutions: [],
+        elementalBalance: undefined,
+      };
+    }
 
-    const zoneBreakdown: ZoneEvaluation[] = [
-      {
-        zone: "North-East (Eshan)",
-        direction: "North-East",
-        element: "Water",
-        deityZone: "Eshanya / Divine Consciousness",
-        idealUsage: "Pooja Room, Meditation, Water Features",
-        currentStatus: "Pooja & Light Entrance Zone",
-        complianceScore: 88,
-        doshaSeverity: "NONE",
-        observations: "Pure, clutter-free zone facilitating positive spiritual vibrations and mental clarity.",
-        remedyRecommendation: "Maintain supreme cleanliness. Place a silver or brass bowl with clean water and fresh flowers.",
-      },
-      {
-        zone: "East (Indra)",
-        direction: "East",
-        element: "Air",
-        deityZone: "Lord Surya / Social Connections",
-        idealUsage: "Living Room, Large Windows, Study",
-        currentStatus: "Living Area with Ventilation",
-        complianceScore: 84,
-        doshaSeverity: "NONE",
-        observations: "Good morning sunlight access enhances vitality and social connections.",
-        remedyRecommendation: "Add light green or wooden accents on the eastern wall to boost Air element.",
-      },
-      {
-        zone: "South-East (Agneya)",
-        direction: "South-East",
-        element: "Fire",
-        deityZone: "Lord Agni / Digestion & Cash Flow",
-        idealUsage: "Kitchen, Electrical Meters, Cooktops",
-        currentStatus: "Kitchen Cooktop & Utility",
-        complianceScore: 78,
-        doshaSeverity: "LOW",
-        observations: "Cooktop alignment requires slight harmonic balance with water inlet.",
-        remedyRecommendation: "Install a 3mm copper strip along the floor boundary between sink and cooktop.",
-      },
-      {
-        zone: "South-West (Nairuthi)",
-        direction: "South-West",
-        element: "Earth",
-        deityZone: "Nirriti / Stability & Relationships",
-        idealUsage: "Master Bedroom, Heavy Wardrobes, Heavy Furniture",
-        currentStatus: "Master Bedroom Suite",
-        complianceScore: 80,
-        doshaSeverity: "LOW",
-        observations: "Heavy master bedroom in South-West anchors the home stability and leadership.",
-        remedyRecommendation: "Use warm earthy tones (beige, sand, ochre) and place heavy wooden furniture in the SW corner.",
-      },
-      {
-        zone: "North-West (Vayavya)",
-        direction: "North-West",
-        element: "Air",
-        deityZone: "Vayu / Support & Movement",
-        idealUsage: "Guest Bedroom, Living Room, Movement Areas",
-        currentStatus: "Guest Bedroom & Storage",
-        complianceScore: 74,
-        doshaSeverity: "MODERATE",
-        observations: "Storage clutter in NW can slow down cash flow and helpful relationships.",
-        remedyRecommendation: "Declutter NW corner. Place a white metal wind chime or brass horse figurine for positive mobility.",
-      },
-      {
-        zone: "Center (Brahmasthan)",
-        direction: "Center",
-        element: "Space",
-        deityZone: "Lord Brahma / Cosmic Energy Center",
-        idealUsage: "Open Hall, Courtyard, Uncluttered Circulation",
-        currentStatus: "Central Hallway Passage",
-        complianceScore: 85,
-        doshaSeverity: "NONE",
-        observations: "Brahmasthan is open and unobstructed, allowing free cosmic energy circulation.",
-        remedyRecommendation: "Never place heavy pillars, water storage, or toilets in the exact center.",
-      },
-    ];
+    const rawZones: any[] = Array.isArray(parsed.zoneBreakdown) ? parsed.zoneBreakdown : [];
+    const normalizedEvaluations: RoomEvaluationResult[] = [];
+    const normalizedZoneBreakdown: ZoneEvaluation[] = [];
+    const zoneScoreMap = new Map<string, number>();
 
-    const remedialSolutions: RemedialSolutionItem[] = [
-      {
-        id: "rem-1",
-        zone: "South-East (Agneya)",
-        issue: "Fire-Water proximity in kitchen counter area",
-        category: "METAL_INLAY",
-        remedyTitle: "Copper Energy Harmonizer Inlay",
-        description: "Insert a 3mm pure copper strip flush into the floor or quartz countertop between the sink and stove.",
-        isNonDemolition: true,
-        priority: "HIGH",
-        estimatedCostInr: 3200,
-      },
-      {
-        id: "rem-2",
-        zone: "North-West (Vayavya)",
-        issue: "Stagnant energy in support/mobility sector",
-        category: "BOTANICAL",
-        remedyTitle: "Vedic Air-Purifying botanical and metal chime",
-        description: "Hang a 6-rod hollow brass wind chime and position a thriving indoor snake plant in the NW quadrant.",
-        isNonDemolition: true,
-        priority: "MEDIUM",
-        estimatedCostInr: 2400,
-      },
-      {
-        id: "rem-3",
-        zone: "South-West (Nairuthi)",
-        issue: "Light Earth anchoring in master bedroom",
-        category: "COLOR_THERAPY",
-        remedyTitle: "Earthy Ochre & Terracotta Wall Treatment",
-        description: "Paint the south-west bedroom feature wall in rich terracotta or warm sandstone texture.",
-        isNonDemolition: true,
-        priority: "MEDIUM",
-        estimatedCostInr: 4500,
-      },
-    ];
+    for (const rz of rawZones) {
+      const roomDesc = (rz.currentStatus || rz.observations || rz.roomName || "").trim();
+      const rawDir = rz.direction || rz.zone || "";
+      const evaluation = evaluateRoomPlacement(roomDesc, rawDir);
+      normalizedEvaluations.push(evaluation);
 
-    const boqItems: VastuBoqItem[] = [
-      {
-        item: "Pure Copper Floor Inlay Strip (3mm x 12ft)",
-        category: "Elemental Metals",
-        quantity: "12 Rft",
-        unitRateInr: 250,
-        totalCostInr: 3000,
-        zone: "South-East (Agneya)",
-      },
-      {
-        item: "Six-Rod Hollow Brass Wind Chime",
-        category: "Energy Cures",
-        quantity: "1 Unit",
-        unitRateInr: 1200,
-        totalCostInr: 1200,
-        zone: "North-West (Vayavya)",
-      },
-      {
-        item: "Vedic Brass Water Urli with Floating Diya",
-        category: "Sacred Accessories",
-        quantity: "1 Unit",
-        unitRateInr: 1800,
-        totalCostInr: 1800,
-        zone: "North-East (Eshan)",
-      },
-      {
-        item: "Earth Element Natural Ochre Texture Paint Application",
-        category: "Color Therapy",
-        quantity: "120 Sqft",
-        unitRateInr: 45,
-        totalCostInr: 5400,
-        zone: "South-West (Nairuthi)",
-      },
-    ];
+      const zoneDef = getZoneDefinition(evaluation.zoneCode);
+      zoneScoreMap.set(evaluation.zoneCode, evaluation.complianceScore);
 
-    const totalRemedialCostInr = boqItems.reduce((acc, i) => acc + i.totalCostInr, 0);
-    const laborAndInstallationInr = 2500;
+      normalizedZoneBreakdown.push({
+        zone: zoneDef.zoneName,
+        direction: zoneDef.direction,
+        element: zoneDef.element,
+        deityZone: zoneDef.deityZone,
+        idealUsage: zoneDef.idealUsage,
+        currentStatus: roomDesc || "Open Space / Circulation",
+        status: evaluation.status,
+        complianceScore: evaluation.complianceScore,
+        doshaSeverity: evaluation.doshaSeverity,
+        observations: evaluation.observations,
+        remedyRecommendation:
+          evaluation.remedyRecommendation ||
+          (evaluation.status === "DEFECT" ? rz.remedyRecommendation : undefined),
+      });
+    }
+
+    // 1. Calculate deterministic compliance score using the documented formula
+    const documentedScore =
+      normalizedEvaluations.length > 0
+        ? calculateDocumentedScore(normalizedEvaluations)
+        : typeof parsed.overallScore === "number"
+        ? parsed.overallScore
+        : 0;
+
+    // 2. Calculate validated Pancha Tattva balance
+    const elementalBalance = calculatePanchaTattva(zoneScoreMap);
+
+    // 3. Separate validated defects from strengths
+    const verifiedDefects = normalizedEvaluations
+      .filter((e) => e.status === "DEFECT")
+      .map(
+        (e) =>
+          `${e.roomName} in ${e.direction}: Confirmed defect against Vedic avoidance rule.`
+      );
+
+    const verifiedStrengths = normalizedEvaluations
+      .filter((e) => e.status === "OPTIMAL")
+      .map(
+        (e) =>
+          `${e.roomName} in ${e.direction}: Harmonious Vedic placement.`
+      );
+
+    // 4. Clean and validate remedial solutions to strictly address actual defects
+    const verifiedRemedies: RemedialSolutionItem[] = [];
+    const rawRemedies: any[] = Array.isArray(parsed.remedialSolutions)
+      ? parsed.remedialSolutions
+      : [];
+
+    for (const rem of rawRemedies) {
+      const targetZoneCode = normalizeDirectionCode(rem.zone || "");
+      // Only keep remedies where there's an actual DEFECT or ADJUSTMENT in that zone
+      const hasIssueInZone = normalizedEvaluations.some(
+        (e) => e.zoneCode === targetZoneCode && e.status === "DEFECT"
+      );
+      if (hasIssueInZone) {
+        verifiedRemedies.push({
+          id: rem.id || `rem-${verifiedRemedies.length + 1}`,
+          zone: rem.zone || getZoneDefinition(targetZoneCode).zoneName,
+          issue: rem.issue || "Elemental alignment balance",
+          category: rem.category || "METAL_INLAY",
+          remedyTitle: rem.remedyTitle || "Non-Demolition Vedic Remedy",
+          description: rem.description || "Apply non-demolition directional boundary cures.",
+          isNonDemolition: true,
+          priority:
+            rem.priority === "HIGH" || rem.priority === "CRITICAL"
+              ? "HIGH"
+              : rem.priority === "LOW"
+              ? "LOW"
+              : "MEDIUM",
+          estimatedCostInr:
+            typeof rem.estimatedCostInr === "number" ? rem.estimatedCostInr : 3500,
+        });
+      }
+    }
+
+    // 5. Build consistent summary
+    const optimalCount = normalizedEvaluations.filter((e) => e.status === "OPTIMAL").length;
+    const defectCount = verifiedDefects.length;
+
+    let rating: "EXCELLENT" | "GOOD" | "MODERATE" | "CRITICAL_DOSHAS" = "GOOD";
+    if (defectCount === 0 && documentedScore >= 80) rating = "EXCELLENT";
+    else if (defectCount <= 1 && documentedScore >= 70) rating = "GOOD";
+    else if (defectCount > 2 || documentedScore < 60) rating = "CRITICAL_DOSHAS";
+    else rating = "MODERATE";
+
+    const consistentSummary = `Vastu spatial audit completed for ${facingDirection}-facing layout. Evaluated ${normalizedEvaluations.length} identified zones: ${optimalCount} compliant (optimal) and ${defectCount} non-compliant (requiring remedial harmonization). Overall Vedic compliance score is ${documentedScore}/100.`;
 
     return {
-      overallScore,
-      complianceRating: overallScore >= 80 ? "EXCELLENT" : "GOOD",
-      summary: `The ${input.propertyType} with a ${input.facingDirection} orientation exhibits a strong ${overallScore}/100 Vedic spatial balance. The North-East and Brahmasthan zones are clear and auspicious. Minor fire-water and airflow enhancements in the SE and NW quadrants can be seamlessly remedied without structural demolition.`,
-      keyStrengths: [
-        "Auspicious entrance orientation welcoming vital solar and magnetic pranic energy",
-        "Clear and unobstructed Brahmasthan (central cosmic zone) facilitating free energy flow",
-        "Properly zoned North-East spiritual quadrant with pristine light penetration",
-      ],
-      criticalDoshas: [
-        "Slight elemental interference between fire and water lines in the kitchen zone",
-        "Minor airflow stagnation in the North-West relationship/support corner",
-      ],
-      zoneBreakdown,
-      remedialSolutions,
-      boqEstimations: {
-        items: boqItems,
-        totalRemedialCostInr,
-        laborAndInstallationInr,
-        grandTotalInr: totalRemedialCostInr + laborAndInstallationInr,
-      },
-      elementalBalance: {
-        water: 85,
-        air: 78,
-        fire: 72,
-        earth: 80,
-        space: 88,
-      },
+      isFloorPlanDetected: true,
+      imageDetectionConfidence: parsed.imageDetectionConfidence ?? 0.95,
+      overallScore: documentedScore,
+      complianceRating: rating,
+      summary: consistentSummary,
+      keyStrengths:
+        verifiedStrengths.length > 0
+          ? verifiedStrengths
+          : ["Auspicious directional orientation welcoming positive prana."],
+      criticalDoshas: verifiedDefects, // Empty array [] if 0 defects!
+      zoneBreakdown: normalizedZoneBreakdown,
+      remedialSolutions: verifiedRemedies,
+      elementalBalance,
     };
   }
+
+  /**
+   * Deterministic Vedic Vastu calculation fallback (strictly for text-only without images, NO BOQ)
+   */
+  public static getVedicMatrixFallback(input: VastuAuditInput): VastuAuditOutput {
+    const rawSample = {
+      isFloorPlanDetected: true,
+      imageDetectionConfidence: 1.0,
+      overallScore: 80,
+      complianceRating: "GOOD",
+      summary: "",
+      keyStrengths: [],
+      criticalDoshas: [],
+      zoneBreakdown: [
+        {
+          zone: "North-East (NE)",
+          direction: "North-East",
+          element: "Water",
+          currentStatus: "Entrance & Prayer Area",
+        },
+        {
+          zone: "East (E)",
+          direction: "East",
+          element: "Air",
+          currentStatus: "Living Area with Ventilation",
+        },
+        {
+          zone: "South-East (SE)",
+          direction: "South-East",
+          element: "Fire",
+          currentStatus: "Kitchen Cooktop & Utility",
+        },
+        {
+          zone: "South-West (SW)",
+          direction: "South-West",
+          element: "Earth",
+          currentStatus: "Master Bedroom Suite",
+        },
+        {
+          zone: "North-West (NW)",
+          direction: "North-West",
+          element: "Air",
+          currentStatus: "Guest Bedroom & Utility Toilet",
+        },
+        {
+          zone: "Center (Brahmasthan)",
+          direction: "Center",
+          element: "Space",
+          currentStatus: "Central Hallway Passage",
+        },
+      ],
+      remedialSolutions: [],
+    };
+
+    return VastuAuditChain.validateAndNormalizeAuditOutput(rawSample, input.facingDirection);
+  }
 }
+

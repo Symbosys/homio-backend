@@ -201,7 +201,6 @@ describe("AI Service Rates & Dynamic Model Key Architecture Test Suite", () => {
           criticalDoshas: [],
           zoneBreakdown: [],
           remedialSolutions: [],
-          boqEstimations: { items: [], totalRemedialCostInr: 0, laborAndInstallationInr: 0, grandTotalInr: 0 },
           elementalBalance: { water: 80, air: 80, fire: 80, earth: 80, space: 80 },
         });
       });
