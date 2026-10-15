@@ -587,17 +587,40 @@ export class LeadFunnelRepo {
 
     // Determine client contact details from submission
     const rawForm = data.formData || {};
-    const clientName = data.clientName || rawForm.client_name || rawForm.name || "Web Inquiry";
-    const phone = data.phone || rawForm.phone || rawForm.contact_phone || "Not Provided";
-    const email = data.email || rawForm.email || null;
-    const pincode = rawForm.pincode || null;
+    const clientName = data.clientName || rawForm.client_name || rawForm.name || rawForm.fullName || "Web Inquiry";
+    const phone = data.phone || rawForm.phone || rawForm.contact_phone || rawForm.mobile || rawForm.whatsapp || "Not Provided";
+    const email = data.email || rawForm.email || rawForm.client_email || null;
+    const pincode = rawForm.pincode || rawForm.property_pincode || null;
     const projectType = rawForm.project_type || "RESIDENTIAL";
     const estimatedBudget = rawForm.budget_lakhs ? Number(rawForm.budget_lakhs) * 100000 : null;
 
-    // Resolve or create Customer entity under this tenant
-    let customer = await db.customer.findFirst({
-      where: { organizationId: funnel.organizationId, phone },
-    });
+    const cleanPhone = phone && phone.trim() !== "" && phone !== "Not Provided" ? phone.trim() : null;
+    const cleanEmail = email && email.trim() !== "" ? email.trim() : null;
+
+    // Search existing Customer by Phone OR Email within this tenant
+    const customerOrConditions: Prisma.CustomerWhereInput[] = [];
+    if (cleanPhone) {
+      customerOrConditions.push({ phone: cleanPhone });
+      const digitsOnly = cleanPhone.replace(/\D/g, "");
+      if (digitsOnly.length >= 10) {
+        const last10 = digitsOnly.slice(-10);
+        customerOrConditions.push({ phone: { contains: last10 } });
+      }
+    }
+    if (cleanEmail) {
+      customerOrConditions.push({ email: { equals: cleanEmail, mode: "insensitive" } });
+    }
+
+    let customer = customerOrConditions.length > 0
+      ? await db.customer.findFirst({
+          where: {
+            organizationId: funnel.organizationId,
+            isDeleted: false,
+            OR: customerOrConditions,
+          },
+          orderBy: { createdAt: "desc" },
+        })
+      : null;
 
     if (!customer) {
       const customerCount = await db.customer.count({ where: { organizationId: funnel.organizationId } });
@@ -609,13 +632,162 @@ export class LeadFunnelRepo {
           displayName: clientName,
           firstName: clientName.split(" ")[0] || clientName,
           lastName: clientName.split(" ").slice(1).join(" ") || "",
-          phone,
-          email,
+          phone: cleanPhone || "Not Provided",
+          email: cleanEmail,
           billingCity: rawForm.city || null,
           billingState: rawForm.state || null,
           billingPincode: pincode,
         },
       });
+    } else {
+      // Update customer with any new contact details & increment inquiry metrics
+      customer = await db.customer.update({
+        where: { id: customer.id },
+        data: {
+          ...(cleanEmail && !customer.email ? { email: cleanEmail } : {}),
+          ...(cleanPhone && customer.phone === "Not Provided" ? { phone: cleanPhone } : {}),
+          ...(clientName && clientName !== "Web Inquiry" && (!customer.displayName || customer.displayName === "Web Inquiry")
+            ? {
+                displayName: clientName,
+                firstName: clientName.split(" ")[0] || clientName,
+                lastName: clientName.split(" ").slice(1).join(" ") || "",
+              }
+            : {}),
+          ...(rawForm.city && !customer.billingCity ? { billingCity: rawForm.city } : {}),
+          ...(rawForm.state && !customer.billingState ? { billingState: rawForm.state } : {}),
+          ...(pincode && !customer.billingPincode ? { billingPincode: pincode } : {}),
+          lastInquiryDate: new Date(),
+          totalInquiriesCount: { increment: 1 },
+        },
+      });
+    }
+
+    // Check if an existing lead exists for this customer in this tenant (prevent duplicate lead creation)
+    // 1. Prefer existing lead under this exact funnel
+    let existingLead = await db.lead.findFirst({
+      where: {
+        organizationId: funnel.organizationId,
+        customerId: customer.id,
+        funnelId: funnel.id,
+        isDeleted: false,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    // 2. If no lead under this exact funnel, check for any active lead for this customer
+    if (!existingLead) {
+      existingLead = await db.lead.findFirst({
+        where: {
+          organizationId: funnel.organizationId,
+          customerId: customer.id,
+          isDeleted: false,
+          status: { notIn: ["WON", "LOST", "JUNK"] },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+    }
+
+    // 3. Fallback: Check for ANY non-deleted lead for this customer
+    if (!existingLead) {
+      existingLead = await db.lead.findFirst({
+        where: {
+          organizationId: funnel.organizationId,
+          customerId: customer.id,
+          isDeleted: false,
+        },
+        orderBy: { createdAt: "desc" },
+      });
+    }
+
+    if (existingLead) {
+      // Merge dynamic form submission data so historical answers are preserved
+      const previousForm =
+        typeof existingLead.formSubmissionData === "object" && existingLead.formSubmissionData !== null
+          ? (existingLead.formSubmissionData as Record<string, any>)
+          : {};
+      const mergedFormData = {
+        ...previousForm,
+        ...rawForm,
+        _lastSubmittedAt: new Date().toISOString(),
+        _lastFunnelId: funnel.id,
+        _lastFunnelName: funnel.name,
+      };
+
+      const updatedWorkDescription = data.notes
+        ? existingLead.workDescription
+          ? `${existingLead.workDescription}\n\n[Submission from ${funnel.name}]: ${data.notes}`
+          : data.notes
+        : existingLead.workDescription;
+
+      const isReviving = ["LOST", "NOT_RESPONDING", "JUNK"].includes(existingLead.status);
+      const isSwitchingFunnel = existingLead.funnelId !== funnel.id;
+
+      // Update the existing lead: attach to target funnel, update stage if switching, merge responses
+      const updatedLead = await db.lead.update({
+        where: { id: existingLead.id },
+        data: {
+          funnelId: funnel.id,
+          funnelStageId: isSwitchingFunnel
+            ? (firstStage?.id ?? null)
+            : (existingLead.funnelStageId ?? firstStage?.id ?? null),
+          formSubmissionData: mergedFormData,
+          workDescription: updatedWorkDescription,
+          propertyPincode: pincode || existingLead.propertyPincode,
+          ...(estimatedBudget ? { estimatedBudget: Number(estimatedBudget) } : {}),
+          ...(rawForm.budget_lakhs ? { budgetInLakh: Number(rawForm.budget_lakhs) } : {}),
+          ...(isReviving
+            ? {
+                status: "NEW",
+                stageEnteredAt: new Date(),
+                lostReason: null,
+                lostRemarks: null,
+                lostAt: null,
+              }
+            : isSwitchingFunnel
+            ? { stageEnteredAt: new Date() }
+            : {}),
+          inquiryNumber: { increment: 1 },
+        },
+        include: {
+          customer: true,
+          funnel: true,
+          funnelStage: true,
+        },
+      });
+
+      // Audit transition log if funnel changed and target stage exists
+      if (isSwitchingFunnel && firstStage) {
+        await db.leadFunnelTransition.create({
+          data: {
+            organizationId: funnel.organizationId,
+            leadId: existingLead.id,
+            funnelId: funnel.id,
+            fromStageId: existingLead.funnelStageId,
+            toStageId: firstStage.id,
+            remarks: `Transferred to ${funnel.name} via public embed form submission`,
+          },
+        });
+      }
+
+      // Log Lead Activity
+      await db.leadActivity.create({
+        data: {
+          organizationId: funnel.organizationId,
+          leadId: existingLead.id,
+          type: "FORM_SUBMISSION",
+          title: `Funnel Response Received (${funnel.name})`,
+          description: data.notes || `Received updated funnel submission from web embed: ${funnel.name}`,
+          performedAt: new Date(),
+          metadata: {
+            funnelId: funnel.id,
+            funnelName: funnel.name,
+            embedSlug: funnel.embedSlug,
+            formData: rawForm,
+          },
+        },
+      });
+
+      return updatedLead;
     }
 
     // Generate unique Lead Code
@@ -643,6 +815,24 @@ export class LeadFunnelRepo {
         customer: true,
         funnel: true,
         funnelStage: true,
+      },
+    });
+
+    // Log Initial Activity
+    await db.leadActivity.create({
+      data: {
+        organizationId: funnel.organizationId,
+        leadId: lead.id,
+        type: "FORM_SUBMISSION",
+        title: `Initial Funnel Response (${funnel.name})`,
+        description: data.notes || `Initial funnel submission from web embed: ${funnel.name}`,
+        performedAt: new Date(),
+        metadata: {
+          funnelId: funnel.id,
+          funnelName: funnel.name,
+          embedSlug: funnel.embedSlug,
+          formData: rawForm,
+        },
       },
     });
 
