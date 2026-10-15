@@ -8,9 +8,24 @@ import {
   updateLabour,
   deleteLabour,
   registerPublicLabour,
+  getMyLabourProfile,
+  updateMyLabourProfile,
 } from "../controllers/labour.controller.js";
 
 const router = Router();
+
+/**
+ * Multi-field file upload middleware for worker profile photo and KYC documents (Rule 4)
+ */
+const myProfileUploadMiddleware = upload.fields(
+  [
+    { name: "photo", maxCount: 1 },
+    { name: "aadhaarDoc", maxCount: 1 },
+    { name: "selfiePhoto", maxCount: 1 },
+    { name: "policeClearanceDoc", maxCount: 1 },
+  ],
+  { category: "all" }
+);
 
 /**
  * @route   POST /api/v1/labour/register
@@ -21,6 +36,20 @@ router.post("/register", upload.single("photo"), registerPublicLabour);
 
 // Protect all following routes with tenant authentication
 router.use(authenticate);
+
+/**
+ * @route   GET /api/v1/labour/profile/me
+ * @desc    Fetch authenticated labourer's own profile and complete KYC dossier
+ * @access  Private (Authenticated Labour Worker)
+ * 
+ * @route   PUT /api/v1/labour/profile/me
+ * @desc    Symmetric update of authenticated worker's profile and KYC documents
+ * @access  Private (Authenticated Labour Worker)
+ */
+router
+  .route("/profile/me")
+  .get(getMyLabourProfile)
+  .put(myProfileUploadMiddleware, updateMyLabourProfile);
 
 /**
  * @route   POST /api/v1/labour

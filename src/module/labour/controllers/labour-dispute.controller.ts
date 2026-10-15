@@ -170,3 +170,14 @@ export const takeLabourDisputeAction = asyncHandler(async (req, res) => {
   const result = await labourDisputeService.takeDisputeAction(parsed.params.id, parsed.body, adminUserId);
   return SuccessResponse(res, `Dispute action ${parsed.body.action} executed successfully`, result, statusCode.OK);
 });
+
+/**
+ * @route   GET /api/v1/labour/disputes/my-disputes
+ * @desc    Fetch worker disputes overview and all dispute cases belonging to worker
+ * @access  Private (Worker / Authenticated User)
+ */
+export const getWorkerDisputesOverview = asyncHandler(async (req, res) => {
+  const parsed = getLabourDisputesQuerySchema.parse({ query: req.query });
+  const result = await labourDisputeService.getWorkerDisputesOverview(req.user!, parsed.query);
+  return SuccessResponse(res, "Worker disputes retrieved successfully", result, statusCode.OK);
+});

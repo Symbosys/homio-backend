@@ -15,6 +15,7 @@ import {
   updateLabourDisputeStatus,
   deleteLabourDispute,
   takeLabourDisputeAction,
+  getWorkerDisputesOverview,
 } from "../controllers/labour-dispute.controller.js";
 
 const router = Router();
@@ -81,6 +82,12 @@ router
   .route("/disputes")
   .post(upload.array("evidenceDocs", 5, { category: "all" }), createLabourDispute)
   .get(getAllLabourDisputes);
+
+/**
+ * @route   GET /api/v1/labour/disputes/my-disputes
+ * @desc    Fetch worker disputes overview and all dispute cases belonging to worker
+ */
+router.get("/disputes/my-disputes", getWorkerDisputesOverview);
 
 /**
  * @route   GET /api/v1/labour/disputes/:id

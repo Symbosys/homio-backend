@@ -8,9 +8,18 @@ import {
   updateLabourPayment,
   updateLabourPaymentStatus,
   deleteLabourPayment,
+  getLabourMonthlyEarnings,
 } from "../controllers/labour-payment.controller.js";
 
 const router = Router();
+
+/**
+ * @route   GET /api/v1/labour/earnings
+ * @route   GET /api/v1/labour/payments/earnings
+ * @desc    Get monthly earnings overview and shift wage ledger for worker
+ */
+router.get("/earnings", authenticate, getLabourMonthlyEarnings);
+router.get("/payments/earnings", authenticate, getLabourMonthlyEarnings);
 
 // Protect all payment endpoints with authentication
 router.use("/payments", authenticate);

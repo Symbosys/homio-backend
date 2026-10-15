@@ -88,3 +88,14 @@ export const deleteLabourRating = asyncHandler(async (req, res) => {
   await labourRatingService.deleteRating(parsed.params.id, organizationId);
   return SuccessResponse(res, "Labour rating deleted successfully", null, statusCode.OK);
 });
+
+/**
+ * @route   GET /api/v1/labour/ratings/my-ratings
+ * @desc    Fetch overall rating metrics, 5-star distribution, and reviews for worker
+ * @access  Private (Worker / Authenticated User)
+ */
+export const getWorkerRatingsOverview = asyncHandler(async (req, res) => {
+  const parsed = getLabourRatingsQuerySchema.parse({ query: req.query });
+  const result = await labourRatingService.getWorkerRatingsOverview(req.user!, parsed.query);
+  return SuccessResponse(res, "Worker ratings retrieved successfully", result, statusCode.OK);
+});

@@ -79,6 +79,19 @@ export const paymentIdParamSchema = z.object({
   }),
 });
 
+/**
+ * 6. GET LABOUR MONTHLY EARNINGS QUERY SCHEMA
+ */
+export const getLabourEarningsQuerySchema = z.object({
+  query: z.object({
+    month: z.coerce.number().int().min(1).max(12).optional(),
+    year: z.coerce.number().int().min(2020).max(2050).optional(),
+    labourId: z.string().uuid("Invalid labour ID format").optional(),
+  }),
+});
+
 export type CreateLabourPaymentInput = z.infer<typeof createLabourPaymentSchema>["body"];
 export type UpdateLabourPaymentInput = z.infer<typeof updateLabourPaymentSchema>["body"];
 export type GetLabourPaymentsQuery = z.infer<typeof getLabourPaymentsQuerySchema>["query"];
+export type GetLabourEarningsQuery = z.infer<typeof getLabourEarningsQuerySchema>["query"];
+

@@ -499,3 +499,52 @@ export const rejectLabourSchema = z.object({
 });
 
 export type RejectLabourInput = z.infer<typeof rejectLabourSchema>["body"];
+
+/**
+ * 10. UPDATE MY LABOUR PROFILE SCHEMA (Worker Self-Service & Unified KYC Edit)
+ */
+export const updateMyLabourProfileSchema = z.object({
+  body: z.object({
+    // Personal Info
+    name: z.string().min(2, "Name must be at least 2 characters").optional(),
+    altPhone: z.string().optional().nullable(),
+    email: z.string().email("Invalid email format").optional().nullable(),
+    emergencyContact: z.string().optional().nullable(),
+    emergencyPhone: z.string().optional().nullable(),
+    address: z.string().optional().nullable(),
+    state: z.string().optional().nullable(),
+    city: z.string().optional().nullable(),
+    locality: z.string().optional().nullable(),
+    pincode: z.string().optional().nullable(),
+
+    // Trade & Rates
+    trade: z.string().min(2).optional(),
+    skillLevel: z.string().optional().nullable(),
+    dailyRate: z.coerce.number().positive("Daily rate must be positive").optional(),
+    hourlyRate: z.coerce.number().positive("Hourly rate must be positive").optional().nullable(),
+    isAvailable: z.preprocess((val) => {
+      if (typeof val === "string") return val === "true";
+      return val;
+    }, z.boolean().optional()),
+
+    // KYC & Bank Details
+    aadhaarNo: z.string().optional().nullable(),
+    policeStationName: z.string().optional().nullable(),
+    bankName: z.string().optional().nullable(),
+    bankAccountNo: z.string().optional().nullable(),
+    ifscCode: z.string().optional().nullable(),
+    accountHolderName: z.string().optional().nullable(),
+    upiId: z.string().optional().nullable(),
+
+    // Structured JSON Image fallbacks
+    photoUrl: imageTypeSchema.optional().nullable(),
+    aadhaarDoc: imageTypeSchema.optional().nullable(),
+    selfiePhoto: imageTypeSchema.optional().nullable(),
+    policeClearanceDoc: imageTypeSchema.optional().nullable(),
+
+    // Universal Additional Information (Rule 18)
+    additionalInformation: additionalInformationSchema,
+  }),
+});
+
+export type UpdateMyLabourProfileInput = z.infer<typeof updateMyLabourProfileSchema>["body"];

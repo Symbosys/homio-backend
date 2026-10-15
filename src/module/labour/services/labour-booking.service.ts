@@ -50,6 +50,7 @@ export class LabourBookingService {
       !labour ||
       labour.isAvailable === false ||
       labour.status === LabourStatus.UNAVAILABLE ||
+      labour.status === LabourStatus.AT_WORK ||
       labour.status === LabourStatus.PENDING ||
       labour.status === LabourStatus.REJECTED ||
       labour.status === LabourStatus.BLACKLISTED
@@ -62,13 +63,56 @@ export class LabourBookingService {
         labourId,
         isDeleted: false,
         ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
-        status: { in: ["WORK_STARTED", "IN_PROGRESS"] },
+        status: { in: ["ACCEPTED_BY_LABOUR", "WORK_STARTED", "IN_PROGRESS"] },
       },
       select: { id: true, bookingNumber: true, status: true },
     });
 
     if (ongoingBooking) {
       throw new ErrorResponse("Labour is already unavailable", statusCode.Bad_Request);
+    }
+  }
+
+  /**
+   * Helper: Synchronize labour availability and status.
+   * If the labour has no other active ongoing bookings (ACCEPTED_BY_LABOUR, WORK_STARTED, IN_PROGRESS),
+   * their status is transitioned to AVAILABLE and isAvailable is set to true.
+   */
+  private async syncLabourAvailability(labourId?: string | null, excludeBookingId?: string): Promise<void> {
+    if (!labourId) return;
+
+    const labour = await prisma.labour.findUnique({
+      where: { id: labourId },
+      select: { id: true, status: true, isBlacklisted: true },
+    });
+
+    if (
+      !labour ||
+      labour.isBlacklisted ||
+      labour.status === LabourStatus.REJECTED ||
+      labour.status === LabourStatus.PENDING ||
+      labour.status === LabourStatus.BLACKLISTED
+    ) {
+      return;
+    }
+
+    const activeBookingsCount = await prisma.labourBooking.count({
+      where: {
+        labourId,
+        isDeleted: false,
+        ...(excludeBookingId ? { id: { not: excludeBookingId } } : {}),
+        status: { in: ["ACCEPTED_BY_LABOUR", "WORK_STARTED", "IN_PROGRESS"] },
+      },
+    });
+
+    if (activeBookingsCount === 0) {
+      await prisma.labour.update({
+        where: { id: labourId },
+        data: {
+          status: LabourStatus.AVAILABLE,
+          isAvailable: true,
+        },
+      });
     }
   }
 
@@ -284,10 +328,21 @@ export class LabourBookingService {
       throw new ErrorResponse(`Cannot accept booking in current status: ${booking.status}`, statusCode.Bad_Request);
     }
 
-    return labourBookingRepo.update(id, {
+    const updated = await labourBookingRepo.update(id, {
       status: "ACCEPTED_BY_LABOUR",
       acceptedAt: new Date(),
     });
+
+    // When labour accepts the work, their status becomes AT_WORK and isAvailable becomes false
+    await prisma.labour.update({
+      where: { id: booking.labourId },
+      data: {
+        status: LabourStatus.AT_WORK,
+        isAvailable: false,
+      },
+    });
+
+    return updated;
   }
 
   /**
@@ -314,10 +369,15 @@ export class LabourBookingService {
       throw new ErrorResponse(`Cannot reject booking in current status: ${booking.status}`, statusCode.Bad_Request);
     }
 
-    return labourBookingRepo.update(id, {
+    const updated = await labourBookingRepo.update(id, {
       status: "REJECTED_BY_LABOUR",
       statusReason: payload.reason || "Rejected by labour",
     });
+
+    // Check if labour has no other active ongoing bookings and sync status to AVAILABLE
+    await this.syncLabourAvailability(booking.labourId, id);
+
+    return updated;
   }
 
   /**
@@ -387,7 +447,7 @@ export class LabourBookingService {
         commissionStatus = "PENDING";
       }
 
-      return labourBookingRepo.update(id, {
+      const updated = await labourBookingRepo.update(id, {
         status: "WORK_STARTED",
         dealValue: quoteAmount,
         dealAcceptedAt: new Date(),
@@ -395,6 +455,17 @@ export class LabourBookingService {
         commissionAmount,
         commissionStatus,
       });
+
+      // Labour is actively at work
+      await prisma.labour.update({
+        where: { id: booking.labourId },
+        data: {
+          status: LabourStatus.AT_WORK,
+          isAvailable: false,
+        },
+      });
+
+      return updated;
     } else {
       return labourBookingRepo.update(id, {
         status: "QUOTE_REJECTED",
@@ -423,17 +494,22 @@ export class LabourBookingService {
       }
     }
 
-    const allowed = ["WORK_STARTED", "IN_PROGRESS"];
+    const allowed = ["ACCEPTED_BY_LABOUR", "WORK_STARTED", "IN_PROGRESS"];
     if (!allowed.includes(booking.status)) {
-      throw new ErrorResponse(`Cannot mark work completed from status: ${booking.status}. Expected WORK_STARTED or IN_PROGRESS.`, statusCode.Bad_Request);
+      throw new ErrorResponse(`Cannot mark work completed from status: ${booking.status}. Expected ACCEPTED_BY_LABOUR, WORK_STARTED or IN_PROGRESS.`, statusCode.Bad_Request);
     }
 
-    return labourBookingRepo.update(id, {
+    const updated = await labourBookingRepo.update(id, {
       status: "WORK_COMPLETED",
       taskChecklist: payload.taskChecklist,
       proofPhotos: payload.proofPhotos,
       completedAt: new Date(),
     });
+
+    // When work is completed, mark labour status as AVAILABLE
+    await this.syncLabourAvailability(booking.labourId, id);
+
+    return updated;
   }
 
   /**
@@ -454,7 +530,7 @@ export class LabourBookingService {
       throw new ErrorResponse("Unauthorized. You are not the client who requested this service booking.", statusCode.Forbidden);
     }
 
-    const allowed = ["WORK_COMPLETED", "IN_PROGRESS", "WORK_STARTED"];
+    const allowed = ["WORK_COMPLETED", "IN_PROGRESS", "WORK_STARTED", "ACCEPTED_BY_LABOUR"];
     if (!allowed.includes(booking.status)) {
       throw new ErrorResponse(`Cannot confirm completion for booking in status: ${booking.status}.`, statusCode.Bad_Request);
     }
@@ -505,6 +581,9 @@ export class LabourBookingService {
         },
       });
     }
+
+    // When work is completed, mark labour status as AVAILABLE
+    await this.syncLabourAvailability(booking.labourId, id);
 
     return updated;
   }
@@ -655,7 +734,10 @@ export class LabourBookingService {
       ? [...currentAddl.reassignmentHistory, reassignmentLog]
       : [reassignmentLog];
 
-    return labourBookingRepo.update(id, {
+    // Free the previous labour if no other active booking
+    await this.syncLabourAvailability(booking.labourId, id);
+
+    const updated = await labourBookingRepo.update(id, {
       labourId: newLabour.id,
       status: payload.resetStatusTo || "REQUESTED",
       statusReason: `Reassigned by platform: ${payload.reason}`,
@@ -670,6 +752,18 @@ export class LabourBookingService {
         reassignmentHistory,
       },
     });
+
+    if (["ACCEPTED_BY_LABOUR", "WORK_STARTED", "IN_PROGRESS"].includes(payload.resetStatusTo || "")) {
+      await prisma.labour.update({
+        where: { id: newLabour.id },
+        data: {
+          status: LabourStatus.AT_WORK,
+          isAvailable: false,
+        },
+      });
+    }
+
+    return updated;
   }
 
   /**
@@ -748,6 +842,25 @@ export class LabourBookingService {
       }
     }
 
+    // Guard: Work cannot be started until quotation has been sent and accepted by the client/user
+    if (payload.status && ["WORK_STARTED", "IN_PROGRESS"].includes(payload.status)) {
+      const isClientBooking = existing.channel === "PLATFORM_MARKETPLACE" || Boolean(existing.clientId);
+      if (isClientBooking) {
+        if (!existing.quoteSubmittedAt && !existing.quoteAmount) {
+          throw new ErrorResponse(
+            "Work cannot be started until quotation has been sent and accepted by the client.",
+            statusCode.Bad_Request
+          );
+        }
+        if (!existing.dealAcceptedAt) {
+          throw new ErrorResponse(
+            "Work cannot be started until quotation has been accepted by the client.",
+            statusCode.Bad_Request
+          );
+        }
+      }
+    }
+
     // If labourId is changing, verify
     if (payload.labourId && payload.labourId !== existing.labourId) {
       const labour = await labourRepo.findById(payload.labourId, orgId);
@@ -817,10 +930,44 @@ export class LabourBookingService {
     isPlatformAdmin?: boolean
   ) {
     const booking = await this.getBookingById(id, { organizationId, isPlatformAdmin });
+
+    // Guard: Work cannot be started until quotation has been sent and accepted by the client/user
+    if (["WORK_STARTED", "IN_PROGRESS"].includes(status)) {
+      const isClientBooking = booking.channel === "PLATFORM_MARKETPLACE" || Boolean(booking.clientId);
+      if (isClientBooking) {
+        if (!booking.quoteSubmittedAt && !booking.quoteAmount) {
+          throw new ErrorResponse(
+            "Work cannot be started until quotation has been sent and accepted by the client.",
+            statusCode.Bad_Request
+          );
+        }
+        if (!booking.dealAcceptedAt) {
+          throw new ErrorResponse(
+            "Work cannot be started until quotation has been accepted by the client.",
+            statusCode.Bad_Request
+          );
+        }
+      }
+    }
+
     const updated = await labourBookingRepo.update(id, {
       status,
       ...(status === "COMPLETED" && !booking.completedAt ? { completedAt: new Date() } : {}),
     });
+
+    if (booking.labourId) {
+      if (["ACCEPTED_BY_LABOUR", "WORK_STARTED", "IN_PROGRESS"].includes(status)) {
+        await prisma.labour.update({
+          where: { id: booking.labourId },
+          data: {
+            status: LabourStatus.AT_WORK,
+            isAvailable: false,
+          },
+        });
+      } else if (["WORK_COMPLETED", "COMPLETED", "CANCELLED", "REJECTED_BY_LABOUR"].includes(status)) {
+        await this.syncLabourAvailability(booking.labourId, id);
+      }
+    }
 
     if (booking.projectServiceId) {
       await projectServiceRepo.recalculateRollup(booking.projectServiceId);
@@ -835,6 +982,11 @@ export class LabourBookingService {
   async deleteBooking(id: string, organizationId?: string) {
     const existing = await this.getBookingById(id, { organizationId });
     const result = await labourBookingRepo.softDelete(id);
+
+    // Sync labour availability when booking is deleted
+    if (existing.labourId) {
+      await this.syncLabourAvailability(existing.labourId, id);
+    }
 
     // Recalculate parent service rollup if exists
     if (existing.projectServiceId) {

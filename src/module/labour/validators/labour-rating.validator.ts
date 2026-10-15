@@ -51,6 +51,7 @@ export const getLabourRatingsQuerySchema = z.object({
     bookingId: z.string().uuid().optional(),
     reviewerRole: z.string().optional(),
     minRating: z.coerce.number().min(1).max(5).optional(),
+    starRating: z.coerce.number().int().min(1).max(5).optional(),
   }),
 });
 

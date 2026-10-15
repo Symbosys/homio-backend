@@ -4,7 +4,7 @@ import { labourBookingRepo } from "../repos/labour-booking.repo.js";
 import { prisma } from "../../../lib/prisma.js";
 import { storageService } from "../../../lib/storage/storage.service.js";
 import { ErrorResponse } from "../../../utils/response.util.js";
-import { statusCode } from "../../../types/types.js";
+import { statusCode, LabourStatus } from "../../../types/types.js";
 import type { ImageType } from "../../../types/types.js";
 import type {
   PunchInInput,
@@ -333,6 +333,15 @@ export class LabourAttendanceService {
       );
     }
 
+    // Direct client / marketplace bookings require quotation to be sent and accepted before work can start
+    const isClientBooking = booking.channel === "PLATFORM_MARKETPLACE" || Boolean(booking.clientId);
+    if (isClientBooking && (!booking.dealAcceptedAt || (!booking.quoteSubmittedAt && !booking.quoteAmount))) {
+      throw new ErrorResponse(
+        "Work cannot be started until quotation has been sent and accepted by the client.",
+        statusCode.Bad_Request
+      );
+    }
+
     // 5. Verify Booking Date Window
     const now = new Date();
     const startOfToday = new Date(now);
@@ -451,6 +460,15 @@ export class LabourAttendanceService {
         },
       });
     }
+
+    // Mark labour status as AT_WORK while on active shift
+    await prisma.labour.update({
+      where: { id: labour.id },
+      data: {
+        status: LabourStatus.AT_WORK,
+        isAvailable: false,
+      },
+    });
 
     return attendance;
   }

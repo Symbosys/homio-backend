@@ -8,6 +8,7 @@ import {
   getLaboursQuerySchema,
   labourIdParamSchema,
   registerLabourSchema,
+  updateMyLabourProfileSchema,
 } from "../validators/labour.validator.js";
 
 /**
@@ -98,4 +99,26 @@ export const registerPublicLabour = asyncHandler(async (req, res) => {
     result,
     statusCode.Created
   );
+});
+
+/**
+ * @route   GET /api/v1/labour/profile/me
+ * @desc    Fetch authenticated labourer's own profile and complete KYC dossier
+ * @access  Private (Authenticated Labour Worker)
+ */
+export const getMyLabourProfile = asyncHandler(async (req, res) => {
+  const result = await labourService.getMyLabourProfile(req.user!.id);
+  return SuccessResponse(res, "Labour profile retrieved successfully", result, statusCode.OK);
+});
+
+/**
+ * @route   PUT /api/v1/labour/profile/me
+ * @desc    Symmetric update of authenticated worker's profile and KYC documents
+ * @access  Private (Authenticated Labour Worker)
+ */
+export const updateMyLabourProfile = asyncHandler(async (req, res) => {
+  const parsed = updateMyLabourProfileSchema.parse({ body: req.body });
+  const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+  const result = await labourService.updateMyLabourProfile(req.user!.id, parsed.body, files);
+  return SuccessResponse(res, "Labour profile updated successfully", result, statusCode.OK);
 });

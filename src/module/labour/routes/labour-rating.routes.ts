@@ -6,12 +6,19 @@ import {
   getLabourRatingById,
   updateLabourRating,
   deleteLabourRating,
+  getWorkerRatingsOverview,
 } from "../controllers/labour-rating.controller.js";
 
 const router = Router();
 
 // Protect all rating endpoints with authentication
 router.use("/ratings", authenticate);
+
+/**
+ * @route   GET /api/v1/labour/ratings/my-ratings
+ * @desc    Get overall ratings, star breakdown, and review list for worker
+ */
+router.get("/ratings/my-ratings", getWorkerRatingsOverview);
 
 /**
  * @route   POST /api/v1/labour/ratings

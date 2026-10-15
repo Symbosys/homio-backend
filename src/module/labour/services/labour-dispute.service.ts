@@ -729,6 +729,139 @@ export class LabourDisputeService {
     }
     return labourDisputeRepo.delete(id);
   }
+
+  /**
+   * Get worker disputes overview (status statistics and all disputes belonging to worker)
+   */
+  async getWorkerDisputesOverview(
+    actor: { id: string; userType?: string; organizationId?: string | null },
+    query: GetLabourDisputesQuery,
+  ) {
+    let targetLabourId = query.labourId;
+    if (!targetLabourId) {
+      const labour = await prisma.labour.findFirst({
+        where: { userId: actor.id, isDeleted: false },
+        select: { id: true, name: true, trade: true },
+      });
+      if (!labour) {
+        throw new ErrorResponse(
+          "No labour profile found linked to your account",
+          statusCode.Not_Found,
+        );
+      }
+      targetLabourId = labour.id;
+    }
+
+    // 1. Fetch summary metrics for worker disputes
+    const allDisputes = await prisma.labourDispute.findMany({
+      where: { labourId: targetLabourId },
+      select: {
+        id: true,
+        status: true,
+        disputeType: true,
+        amountInDispute: true,
+        lawyerAssigned: true,
+        legalNoticeSent: true,
+        labourCourtFiled: true,
+      },
+    });
+
+    const totalDisputes = allDisputes.length;
+    const openCount = allDisputes.filter((d) => d.status === "OPEN").length;
+    const inInvestigationCount = allDisputes.filter(
+      (d) =>
+        d.status === "UNDER_INVESTIGATION" ||
+        d.status === "UNDER_REVIEW" ||
+        d.status === "LAWYER_ASSIGNED" ||
+        d.status === "NOTICE_SENT",
+    ).length;
+    const legalCount = allDisputes.filter(
+      (d) => d.lawyerAssigned || d.legalNoticeSent || d.labourCourtFiled,
+    ).length;
+    const settledCount = allDisputes.filter(
+      (d) =>
+        d.status === "SETTLED" ||
+        d.status === "RESOLVED" ||
+        d.status === "CLOSED",
+    ).length;
+    const totalDisputedAmount = allDisputes.reduce(
+      (sum, d) => sum + Number(d.amountInDispute ?? 0),
+      0,
+    );
+
+    // 2. Fetch paginated disputes with full action details
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const skip = (page - 1) * limit;
+
+    const where: any = { labourId: targetLabourId };
+
+    if (query.status) {
+      where.status = query.status;
+    }
+    if (query.disputeType) {
+      where.disputeType = query.disputeType;
+    }
+    if (query.initiator) {
+      where.initiator = query.initiator;
+    }
+
+    const [total, items] = await Promise.all([
+      prisma.labourDispute.count({ where }),
+      prisma.labourDispute.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: "desc" },
+        include: {
+          labour: {
+            select: {
+              id: true,
+              name: true,
+              trade: true,
+              phone: true,
+            },
+          },
+          booking: {
+            select: {
+              id: true,
+              bookingNumber: true,
+              workTitle: true,
+              channel: true,
+              locality: true,
+              city: true,
+              dealValue: true,
+              totalBudget: true,
+              client: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  phone: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      summary: {
+        totalDisputes,
+        openCount,
+        inInvestigationCount,
+        legalCount,
+        settledCount,
+        totalDisputedAmount: Math.round(totalDisputedAmount * 100) / 100,
+      },
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
 }
 
 export const labourDisputeService = new LabourDisputeService();

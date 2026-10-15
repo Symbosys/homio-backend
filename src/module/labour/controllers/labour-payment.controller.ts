@@ -7,6 +7,7 @@ import {
   updateLabourPaymentSchema,
   updatePaymentStatusSchema,
   getLabourPaymentsQuerySchema,
+  getLabourEarningsQuerySchema,
   paymentIdParamSchema,
 } from "../validators/labour-payment.validator.js";
 
@@ -120,3 +121,21 @@ export const deleteLabourPayment = asyncHandler(async (req, res) => {
   await labourPaymentService.deletePayment(parsed.params.id, organizationId);
   return SuccessResponse(res, "Labour payment deleted successfully", null, statusCode.OK);
 });
+
+/**
+ * @route   GET /api/v1/labour/earnings
+ * @desc    Fetch monthly earnings breakdown, KPI summary, and 12-month overview for worker
+ * @access  Private (Labour Worker / Admin)
+ */
+export const getLabourMonthlyEarnings = asyncHandler(async (req, res) => {
+  const parsed = getLabourEarningsQuerySchema.parse({ query: req.query });
+  const actor = req.user!;
+
+  const result = await labourPaymentService.getWorkerMonthlyEarnings(
+    actor,
+    parsed.query
+  );
+
+  return SuccessResponse(res, "Monthly earnings retrieved successfully", result, statusCode.OK);
+});
+

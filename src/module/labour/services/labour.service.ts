@@ -3,7 +3,7 @@ import { labourRepo } from "../repos/labour.repo.js";
 import { userRepo } from "../../user/repos/user.repo.js";
 import { prisma } from "../../../lib/prisma.js";
 import { ErrorResponse } from "../../../utils/response.util.js";
-import { statusCode, UserType, UserStatus, LabourStatus } from "../../../types/types.js";
+import { statusCode, UserType, UserStatus, LabourStatus, type ImageType } from "../../../types/types.js";
 import { storageService } from "../../../lib/storage/storage.service.js";
 import type {
   CreateLabourInput,
@@ -14,6 +14,7 @@ import type {
   RegisterLabourInput,
   ApproveLabourInput,
   RejectLabourInput,
+  UpdateMyLabourProfileInput,
 } from "../validators/labour.validator.js";
 
 /**
@@ -766,6 +767,231 @@ export class LabourService {
         kycDocument: true,
         user: true,
       },
+    });
+  }
+
+  /**
+   * Helper: Safely prune an old cloud asset by public ID (Rule 4)
+   */
+  private async pruneOldCloudAsset(oldDoc: unknown) {
+    if (oldDoc && typeof oldDoc === "object" && "id" in (oldDoc as any)) {
+      const publicId = (oldDoc as { id?: string }).id;
+      if (publicId && typeof publicId === "string") {
+        try {
+          await storageService.delete(publicId);
+        } catch (error) {
+          console.error(`[LabourService] Failed to prune old cloud asset ${publicId}:`, error);
+        }
+      }
+    }
+  }
+
+  /**
+   * Helper: Upload multer file to storage and construct ImageType (Rule 4)
+   */
+  private async uploadToCloud(file: Express.Multer.File, folder: string): Promise<ImageType> {
+    const uploadResult = await storageService.upload(
+      {
+        buffer: file.buffer,
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+        size: file.size,
+      },
+      { folder }
+    );
+
+    return {
+      id: uploadResult.publicId,
+      url: uploadResult.url,
+      bytes: uploadResult.bytes,
+      format: uploadResult.format,
+      provider: uploadResult.provider,
+    };
+  }
+
+  /**
+   * Fetch authenticated labourer's own profile and complete KYC dossier
+   * @param actorUserId - Authenticated user account UUID
+   */
+  async getMyLabourProfile(actorUserId: string) {
+    const labour = await prisma.labour.findFirst({
+      where: { userId: actorUserId, isDeleted: false },
+      include: {
+        kycDocument: true,
+        organization: {
+          select: { id: true, name: true, slug: true, logoUrl: true },
+        },
+        user: {
+          select: { id: true, email: true, phone: true, status: true, userType: true },
+        },
+      },
+    });
+
+    if (!labour) {
+      throw new ErrorResponse(
+        "No labour profile found linked to your account",
+        statusCode.Not_Found
+      );
+    }
+
+    return labour;
+  }
+
+  /**
+   * Update authenticated labourer's own profile and KYC details
+   * Symmetrically updates both Labour and LabourKycDocument records
+   * Auto-prunes replaced cloud image assets (Rule 4)
+   * @param actorUserId - Authenticated user account UUID
+   * @param payload - Partial validated update input
+   * @param files - Optional multipart uploaded files
+   */
+  async updateMyLabourProfile(
+    actorUserId: string,
+    payload: UpdateMyLabourProfileInput,
+    files?: { [fieldname: string]: Express.Multer.File[] }
+  ) {
+    const existingLabour = await prisma.labour.findFirst({
+      where: { userId: actorUserId, isDeleted: false },
+      include: { kycDocument: true },
+    });
+
+    if (!existingLabour) {
+      throw new ErrorResponse(
+        "No labour profile found linked to your account",
+        statusCode.Not_Found
+      );
+    }
+
+    const labourId = existingLabour.id;
+    let newPhotoUrl: any = payload.photoUrl;
+    let newAadhaarDoc: any = payload.aadhaarDoc;
+    let newSelfiePhoto: any = payload.selfiePhoto;
+    let newPoliceDoc: any = payload.policeClearanceDoc;
+
+    // 1. Process Multipart File Uploads with Rule 4 Cloud Pruning
+    if (files?.photo?.[0]) {
+      await this.pruneOldCloudAsset(existingLabour.photoUrl);
+      newPhotoUrl = await this.uploadToCloud(files.photo[0], `labour/${labourId}/photos`);
+    }
+
+    if (files?.aadhaarDoc?.[0]) {
+      await this.pruneOldCloudAsset(existingLabour.kycDocument?.aadhaarDoc || existingLabour.aadhaarDoc);
+      newAadhaarDoc = await this.uploadToCloud(files.aadhaarDoc[0], `labour/${labourId}/kyc`);
+    }
+
+    if (files?.selfiePhoto?.[0]) {
+      await this.pruneOldCloudAsset(existingLabour.kycDocument?.selfiePhoto);
+      newSelfiePhoto = await this.uploadToCloud(files.selfiePhoto[0], `labour/${labourId}/kyc`);
+    }
+
+    if (files?.policeClearanceDoc?.[0]) {
+      await this.pruneOldCloudAsset(existingLabour.kycDocument?.policeClearanceDoc);
+      newPoliceDoc = await this.uploadToCloud(files.policeClearanceDoc[0], `labour/${labourId}/kyc`);
+    }
+
+    // 2. Prepare Labour Model Data
+    const labourData: any = {};
+    if (payload.name !== undefined) labourData.name = payload.name;
+    if (payload.altPhone !== undefined) labourData.altPhone = payload.altPhone;
+    if (payload.email !== undefined) labourData.email = payload.email;
+    if (payload.emergencyContact !== undefined) labourData.emergencyContact = payload.emergencyContact;
+    if (payload.emergencyPhone !== undefined) labourData.emergencyPhone = payload.emergencyPhone;
+    if (payload.address !== undefined) labourData.address = payload.address;
+    if (payload.state !== undefined) labourData.state = payload.state;
+    if (payload.city !== undefined) labourData.city = payload.city;
+    if (payload.locality !== undefined) labourData.locality = payload.locality;
+    if (payload.pincode !== undefined) labourData.pincode = payload.pincode;
+
+    if (payload.trade !== undefined) labourData.trade = payload.trade;
+    if (payload.skillLevel !== undefined) labourData.skillLevel = payload.skillLevel;
+    if (payload.dailyRate !== undefined) labourData.dailyRate = payload.dailyRate;
+    if (payload.hourlyRate !== undefined) labourData.hourlyRate = payload.hourlyRate;
+    if (payload.isAvailable !== undefined) labourData.isAvailable = payload.isAvailable;
+
+    if (payload.aadhaarNo !== undefined) labourData.aadhaarNo = payload.aadhaarNo;
+    if (payload.bankName !== undefined) labourData.bankName = payload.bankName;
+    if (payload.bankAccountNo !== undefined) labourData.bankAccountNo = payload.bankAccountNo;
+    if (payload.ifscCode !== undefined) labourData.ifscCode = payload.ifscCode;
+    if (payload.upiId !== undefined) labourData.upiId = payload.upiId;
+
+    if (newPhotoUrl !== undefined) labourData.photoUrl = newPhotoUrl;
+    if (newAadhaarDoc !== undefined) labourData.aadhaarDoc = newAadhaarDoc;
+
+    if (payload.additionalInformation !== undefined) {
+      const currentAddl = (existingLabour.additionalInformation as Record<string, any>) || {};
+      labourData.additionalInformation = {
+        ...currentAddl,
+        ...(payload.additionalInformation || {}),
+      };
+    }
+
+    // 3. Prepare LabourKycDocument Data
+    const kycData: any = {};
+    if (payload.aadhaarNo !== undefined) kycData.aadhaarNumber = payload.aadhaarNo;
+    if (newAadhaarDoc !== undefined) kycData.aadhaarDoc = newAadhaarDoc;
+    if (newSelfiePhoto !== undefined) kycData.selfiePhoto = newSelfiePhoto;
+    if (newPoliceDoc !== undefined) kycData.policeClearanceDoc = newPoliceDoc;
+    if (payload.policeStationName !== undefined) kycData.policeStationName = payload.policeStationName;
+
+    if (payload.bankName !== undefined) kycData.bankName = payload.bankName;
+    if (payload.bankAccountNo !== undefined) kycData.bankAccountNo = payload.bankAccountNo;
+    if (payload.ifscCode !== undefined) kycData.ifscCode = payload.ifscCode;
+    if (payload.accountHolderName !== undefined) kycData.accountHolderName = payload.accountHolderName;
+    if (payload.upiId !== undefined) kycData.upiId = payload.upiId;
+
+    // 4. Atomic Transaction: Update Labour, Upsert KycDocument, and optionally sync linked User
+    return prisma.$transaction(async (tx) => {
+      // 4a. Update Labour
+      await tx.labour.update({
+        where: { id: labourId },
+        data: labourData,
+      });
+
+      // 4b. Upsert LabourKycDocument if any KYC fields provided
+      if (Object.keys(kycData).length > 0) {
+        await tx.labourKycDocument.upsert({
+          where: { labourId },
+          create: {
+            labourId,
+            ...kycData,
+            status: "UNDER_REVIEW",
+          },
+          update: {
+            ...kycData,
+          },
+        });
+      }
+
+      // 4c. Sync linked User record if personal attributes changed
+      if (existingLabour.userId && (payload.name || payload.email)) {
+        const userData: any = {};
+        if (payload.name) {
+          const nameParts = payload.name.trim().split(" ");
+          userData.firstName = nameParts[0];
+          userData.lastName = nameParts.slice(1).join(" ") || null;
+        }
+        if (payload.email) {
+          userData.email = payload.email.trim();
+        }
+        await tx.user.update({
+          where: { id: existingLabour.userId },
+          data: userData,
+        });
+      }
+
+      // Return fully hydrated Labour with KYC and relations
+      return tx.labour.findUnique({
+        where: { id: labourId },
+        include: {
+          kycDocument: true,
+          organization: {
+            select: { id: true, name: true, slug: true, logoUrl: true },
+          },
+          user: {
+            select: { id: true, email: true, phone: true, status: true, userType: true },
+          },
+        },
+      });
     });
   }
 }
