@@ -1,5 +1,5 @@
 import { prisma } from "../../../lib/prisma.js";
-import type { Prisma } from "../../../types/types.js";
+import { CustomerType, type Prisma } from "../../../types/types.js";
 import type {
   CreateLeadFunnelInput,
   UpdateLeadFunnelInput,
@@ -629,6 +629,7 @@ export class LeadFunnelRepo {
         data: {
           organizationId: funnel.organizationId,
           customerCode,
+          customerType: CustomerType.LEAD_CUSTOMER,
           displayName: clientName,
           firstName: clientName.split(" ")[0] || clientName,
           lastName: clientName.split(" ").slice(1).join(" ") || "",

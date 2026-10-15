@@ -1,5 +1,5 @@
 import { prisma } from "../../../lib/prisma.js";
-import { Prisma } from "../../../types/types.js";
+import { Prisma, CustomerType } from "../../../types/types.js";
 import type {
   CreateCustomerInput,
   UpdateCustomerInput,
@@ -34,7 +34,7 @@ export class CustomerRepository {
         phone: data.phone,
         alternatePhone: data.alternatePhone || null,
         companyName: data.companyName || null,
-        customerType: data.customerType || "CLIENT",
+        customerType: data.customerType || CustomerType.LEAD_CUSTOMER,
         gstin: data.gstin || null,
         panNumber: data.panNumber || null,
         aadhaarNumber: data.aadhaarNumber || null,

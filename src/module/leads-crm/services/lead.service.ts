@@ -3,7 +3,7 @@ import { leadRepo } from "../repos/lead.repo.js";
 import { customerRepo } from "../repos/customer.repo.js";
 import { userRepo } from "../../user/repos/user.repo.js";
 import { ErrorResponse } from "../../../utils/response.util.js";
-import { statusCode, Prisma } from "../../../types/types.js";
+import { statusCode, Prisma, CustomerType } from "../../../types/types.js";
 import { leadFollowUpService } from "../../auto-followup/services/lead-followup.service.js";
 import type {
   CreateLeadInput,
@@ -88,6 +88,7 @@ export class LeadService {
             {
               customerCode,
               userId: linkedUserId,
+              customerType: CustomerType.LEAD_CUSTOMER,
               salutation: input.customer.salutation || null,
               firstName: input.customer.firstName,
               lastName: input.customer.lastName || null,
@@ -454,6 +455,21 @@ export class LeadService {
       input.durationMinutes,
     );
 
+    // If transitioning to WON and customer is LEAD_CUSTOMER, promote them to CLIENT
+    if (input.status === "WON" && existing.customerId) {
+      if (existing.customer?.customerType === CustomerType.LEAD_CUSTOMER) {
+        await prisma.customer
+          .update({
+            where: { id: existing.customerId },
+            data: {
+              customerType: CustomerType.CLIENT,
+              convertedAt: new Date(),
+            },
+          })
+          .catch(() => {});
+      }
+    }
+
     // Log Activity
     await prisma.leadActivity.create({
       data: {
@@ -566,8 +582,8 @@ export class LeadService {
       await tx.customer.update({
         where: { id: existing.customerId },
         data: {
-          customerType: "CLIENT",
-          convertedAt: new Date(),
+          customerType: CustomerType.CLIENT,
+          convertedAt: existing.customer.convertedAt || new Date(),
           initialLeadId: existing.id,
           portalAccessEnabled:
             input.clientPortalAccess ?? existing.customer.portalAccessEnabled,

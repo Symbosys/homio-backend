@@ -1,6 +1,6 @@
 import { prisma } from "../../../lib/prisma.js";
 import { ErrorResponse } from "../../../utils/response.util.js";
-import { statusCode, Prisma } from "../../../types/types.js";
+import { statusCode, Prisma, CustomerType } from "../../../types/types.js";
 import { projectRepo } from "../repos/project.repo.js";
 import { userProvisioningService } from "../../user/services/user-provisioning.service.js";
 import type {
@@ -34,13 +34,15 @@ export class ProjectService {
     }
 
     // 2. If Lead is provided, verify it belongs to the same Organization
+    let lead: any = null;
     if (data.leadId) {
-      const lead = await prisma.lead.findFirst({
+      lead = await prisma.lead.findFirst({
         where: {
           id: data.leadId,
           organizationId,
           isDeleted: false,
         },
+        include: { customer: true },
       });
       if (!lead) {
         throw new ErrorResponse(
@@ -127,8 +129,8 @@ export class ProjectService {
         : data.clientAadhaar;
 
     const customerUpdateData: Prisma.CustomerUpdateInput = {
-      customerType: "CLIENT",
-      convertedAt: new Date(),
+      customerType: CustomerType.CLIENT,
+      convertedAt: customer.convertedAt || new Date(),
       user: { connect: { id: clientUser.id } },
       portalAccessEnabled: true,
       ...(data.leadId ? { initialLeadId: data.leadId } : {}),
@@ -166,6 +168,22 @@ export class ProjectService {
           err,
         );
       });
+
+    // If promoted from a Lead whose customer is a LEAD_CUSTOMER, convert that customer to CLIENT as well
+    if (lead?.customer && lead.customer.customerType === CustomerType.LEAD_CUSTOMER) {
+      await prisma.customer
+        .update({
+          where: { id: lead.customerId },
+          data: {
+            customerType: CustomerType.CLIENT,
+            convertedAt: lead.customer.convertedAt || new Date(),
+            initialLeadId: data.leadId,
+          },
+        })
+        .catch((err) => {
+          console.error("Failed to promote lead customer to client:", err);
+        });
+    }
 
     // 8. If promoted from a Lead, update Lead status to WON and link project
     if (data.leadId) {

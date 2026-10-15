@@ -1,9 +1,10 @@
 import { z } from "zod";
+import { CustomerType, CustomerStatus, CustomerSalutation } from "../../../types/types.js";
 
 // Enums matching schema
-export const CustomerTypeEnum = z.enum(["LEAD_CUSTOMER", "CLIENT"]);
-export const CustomerStatusEnum = z.enum(["ACTIVE", "INACTIVE", "BLACKLISTED", "ARCHIVED"]);
-export const CustomerSalutationEnum = z.enum(["MR", "MRS", "MS", "DR", "AR", "OTHER"]);
+export const CustomerTypeEnum = z.nativeEnum(CustomerType);
+export const CustomerStatusEnum = z.nativeEnum(CustomerStatus);
+export const CustomerSalutationEnum = z.nativeEnum(CustomerSalutation);
 
 export const customerIdParamSchema = z.object({
   params: z.object({
