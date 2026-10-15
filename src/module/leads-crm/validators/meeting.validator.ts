@@ -205,6 +205,7 @@ export const getMeetingsQuerySchema = z.object({
     search: z.string().optional(),
     type: MeetingTypeEnum.optional(),
     status: MeetingStatusEnum.optional(),
+    tab: z.enum(["ALL", "TODAY", "UPCOMING", "COMPLETED"]).optional(),
     leadId: z.string().uuid().optional(),
     customerId: z.string().uuid().optional(),
     projectId: z.string().uuid().optional(),

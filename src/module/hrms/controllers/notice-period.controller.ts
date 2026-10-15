@@ -17,14 +17,32 @@ import {
  * Controller: Apply for resignation / start notice period
  */
 export const applyNoticePeriod = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  const userId = req.user?.id;
-  if (!organizationId || !userId) {
+  const user = req.user;
+  const organizationId = user?.organizationId;
+  const userId = user?.id;
+  if (!user || !organizationId || !userId) {
     throw new ErrorResponse("Authentication and Organization context required", statusCode.Forbidden);
   }
 
   const parsed = applyNoticePeriodSchema.parse({ body: req.body });
   const files = req.files as Express.Multer.File[] | undefined;
+
+  // RBAC Permission Guard: If creating for another employee, verify user has administrative or HRMS permissions
+  if (parsed.body.employeeId) {
+    const isAuthorized =
+      user.userType === "ADMIN" ||
+      user.userType === "PLATFORM_ADMIN" ||
+      user.permissions?.has("hrms.notice_period") ||
+      user.permissions?.has("hrms.employee");
+
+    if (!isAuthorized) {
+      throw new ErrorResponse(
+        "Forbidden: You lack permission to initiate resignation for other employees",
+        statusCode.Forbidden
+      );
+    }
+  }
+
   const result = await noticePeriodService.applyNoticePeriod(
     organizationId,
     userId,

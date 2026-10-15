@@ -206,6 +206,7 @@ export class MeetingRepository {
       search,
       type,
       status,
+      tab,
       leadId,
       customerId,
       projectId,
@@ -226,11 +227,34 @@ export class MeetingRepository {
     const effectiveTo = endDate || toDate || toStartTime;
     const effectiveEmployeeId = employeeId || organizerId;
 
+    // Resolve primary tab constraints (TODAY, UPCOMING, COMPLETED)
+    let tabDateGte: Date | undefined = undefined;
+    let tabDateLte: Date | undefined = undefined;
+    let tabStatus: Prisma.MeetingWhereInput["status"] = undefined;
+
+    const now = new Date();
+    if (tab === "TODAY") {
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      tabDateGte = startOfToday;
+      tabDateLte = endOfToday;
+    } else if (tab === "UPCOMING") {
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      tabDateGte = startOfToday;
+      tabStatus = { in: ["SCHEDULED", "CONFIRMED"] };
+    } else if (tab === "COMPLETED") {
+      tabStatus = "COMPLETED";
+    }
+
+    const finalGte = effectiveFrom ? new Date(effectiveFrom) : tabDateGte;
+    const finalLte = effectiveTo ? new Date(effectiveTo) : tabDateLte;
+    const finalStatus = status || tabStatus;
+
     const where: Prisma.MeetingWhereInput = {
       organizationId,
       isDeleted: false,
       ...(type ? { type } : {}),
-      ...(status ? { status } : {}),
+      ...(finalStatus ? { status: finalStatus } : {}),
       ...(leadId ? { leadId } : {}),
       ...(customerId ? { customerId } : {}),
       ...(projectId ? { projectId } : {}),
@@ -248,11 +272,11 @@ export class MeetingRepository {
             ],
           }
         : {}),
-      ...(effectiveFrom || effectiveTo
+      ...(finalGte || finalLte
         ? {
             startTime: {
-              ...(effectiveFrom ? { gte: new Date(effectiveFrom) } : {}),
-              ...(effectiveTo ? { lte: new Date(effectiveTo) } : {}),
+              ...(finalGte ? { gte: finalGte } : {}),
+              ...(finalLte ? { lte: finalLte } : {}),
             },
           }
         : {}),

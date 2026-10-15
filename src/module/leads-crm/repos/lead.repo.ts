@@ -965,7 +965,7 @@ export class LeadRepository {
     }
 
     if (!data.channelPartnerId) {
-      throw new Error("channelPartnerId is required to link channel partner");
+      return null;
     }
 
     return db.channelPartnerLead.create({

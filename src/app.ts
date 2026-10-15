@@ -40,6 +40,7 @@ import communicationRouter from "./module/communication/routes/index.js";
 import aiTrainingRouter from "./module/ai-training/routes/ai-training.routes.js";
 import autoFollowUpRoutes from "./module/auto-followup/routes/auto-followup.routes.js";
 import reportsRouter from "./module/reports/routes/index.js";
+import dashboardRouter from "./module/dashboard/routes/index.js";
 
 const app = express();
 
@@ -196,6 +197,11 @@ app.use("/api/v1/auto-followup", autoFollowUpRoutes);
  * Reports & Analytics Module Routes (Lead Performance, Conversions, Top Performers)
  */
 app.use("/api/v1/reports", reportsRouter);
+
+/**
+ * Dashboard & Operations Intelligence Alerts Routes
+ */
+app.use("/api/v1/dashboard", dashboardRouter);
 
 app.use(errorMiddleware);
 

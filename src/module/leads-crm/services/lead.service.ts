@@ -350,25 +350,80 @@ export class LeadService {
       });
     }
 
-    // Link/update Channel Partner if provided
+    // Enforce Channel Partner requirement if source is set to CHANNEL_PARTNER
     if (
-      channelPartnerId ||
-      commissionType ||
-      commissionRate !== undefined ||
-      commissionAmount !== undefined ||
-      cpLeadStatus
+      leadFields.source === "CHANNEL_PARTNER" &&
+      !channelPartnerId &&
+      !existing.channelPartnerLead
+    ) {
+      throw new ErrorResponse(
+        "Channel partner is required when lead source is Channel Partner",
+        statusCode.Bad_Request,
+      );
+    }
+
+    // Link/update/unlink Channel Partner
+    if (channelPartnerId === null) {
+      if (existing.channelPartnerLead) {
+        await prisma.channelPartnerLead.deleteMany({
+          where: { leadId: id, organizationId },
+        });
+      }
+    } else if (channelPartnerId) {
+      const cp = await prisma.channelPartner.findFirst({
+        where: { id: channelPartnerId, organizationId, isDeleted: false },
+      });
+
+      if (!cp) {
+        throw new ErrorResponse(
+          "Channel partner not found in this organization",
+          statusCode.Not_Found,
+        );
+      }
+
+      await leadRepo.upsertChannelPartnerLead(id, organizationId, {
+        channelPartnerId,
+        status: cpLeadStatus,
+        commissionType:
+          commissionType ||
+          existing.channelPartnerLead?.commissionType ||
+          cp.defaultCommissionType ||
+          "PERCENTAGE",
+        commissionRate:
+          commissionRate !== undefined
+            ? commissionRate
+            : existing.channelPartnerLead
+              ? undefined
+              : cp.defaultCommissionValue
+                ? Number(cp.defaultCommissionValue)
+                : undefined,
+        commissionAmount:
+          commissionAmount !== undefined ? commissionAmount : undefined,
+      });
+    } else if (
+      existing.channelPartnerLead &&
+      (commissionType !== undefined ||
+        commissionRate !== undefined ||
+        commissionAmount !== undefined ||
+        cpLeadStatus !== undefined)
     ) {
       await leadRepo.upsertChannelPartnerLead(id, organizationId, {
-        channelPartnerId: channelPartnerId || undefined,
+        channelPartnerId: existing.channelPartnerLead.channelPartnerId,
         status: cpLeadStatus,
         commissionType,
-        commissionRate,
-        commissionAmount,
+        commissionRate:
+          commissionRate !== undefined ? commissionRate : undefined,
+        commissionAmount:
+          commissionAmount !== undefined ? commissionAmount : undefined,
       });
     }
 
-    const updated = await leadRepo.update(id, organizationId, leadFields);
-    return updated;
+    if (Object.keys(leadFields).length > 0) {
+      await leadRepo.update(id, organizationId, leadFields);
+    }
+
+    const updated = await leadRepo.findById(id, organizationId);
+    return updated!;
   }
 
   /**

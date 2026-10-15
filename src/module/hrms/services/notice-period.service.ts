@@ -72,13 +72,28 @@ export class NoticePeriodService {
     input: ApplyNoticePeriodInput,
     files?: Express.Multer.File[]
   ) {
-    const employee = await this.resolveEmployeeForUser(userId, organizationId);
+    let targetEmployeeId: string;
 
-    // Check if there is already an active resignation in progress
-    const active = await noticePeriodRepo.findActiveByEmployeeId(employee.id);
+    if (input.employeeId) {
+      // 1. Verify target employee exists in the caller's organization
+      const targetEmployee = await prisma.employee.findFirst({
+        where: { id: input.employeeId, organizationId, isDeleted: false },
+      });
+      if (!targetEmployee) {
+        throw new ErrorResponse("Selected employee not found in this organization", statusCode.Not_Found);
+      }
+      targetEmployeeId = targetEmployee.id;
+    } else {
+      // 2. Self-application fallback
+      const employee = await this.resolveEmployeeForUser(userId, organizationId);
+      targetEmployeeId = employee.id;
+    }
+
+    // Check if there is already an active resignation in progress for this employee
+    const active = await noticePeriodRepo.findActiveByEmployeeId(targetEmployeeId);
     if (active) {
       throw new ErrorResponse(
-        "You already have an active resignation or notice period under review",
+        "This employee already has an active resignation or notice period under review",
         statusCode.Conflict
       );
     }
@@ -93,7 +108,7 @@ export class NoticePeriodService {
     }
 
     return noticePeriodRepo.create({
-      employeeId: employee.id,
+      employeeId: targetEmployeeId,
       noticeStartDate,
       noticeDays: input.noticeDays,
       expectedLastWorkingDay,

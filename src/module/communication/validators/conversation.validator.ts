@@ -46,7 +46,10 @@ export const GetConversationsQuerySchema = z.object({
   status: ConversationStatusEnum.optional(),
   priority: ConversationPriorityEnum.optional(),
   handlingMode: ConversationHandlingModeEnum.optional(),
-  assignedEmployeeId: z.string().uuid().optional(),
+  assignedEmployeeId: z.preprocess(
+    (val) => (val === "" ? undefined : val),
+    z.string().uuid().optional(),
+  ),
   assignedTeamId: z.string().uuid().optional(),
   leadId: z.string().uuid().optional(),
   projectId: z.string().uuid().optional(),

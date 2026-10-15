@@ -13,6 +13,7 @@ const optionalDateStringSchema = z
 
 export const applyNoticePeriodSchema = z.object({
   body: z.object({
+    employeeId: z.string().uuid("Invalid Employee ID").optional(),
     noticeStartDate: dateStringSchema,
     noticeDays: z.coerce.number().int().min(0).max(180).default(30),
     expectedLastWorkingDay: dateStringSchema,

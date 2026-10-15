@@ -72,10 +72,16 @@ export const createLeadSchema = z.object({
     qualificationScore: z.coerce.number().int().min(0).max(100).default(0).optional(),
 
     // Assignment
-    assignedToId: z.string().uuid("Invalid employee ID").optional().nullable(),
+    assignedToId: z.preprocess(
+      (val) => (val === "" ? null : val),
+      z.string().uuid("Invalid employee ID").nullable().optional(),
+    ),
 
     // Channel Partner Attribution
-    channelPartnerId: z.string().uuid("Invalid channel partner ID").optional().nullable(),
+    channelPartnerId: z.preprocess(
+      (val) => (val === "" ? null : val),
+      z.string().uuid("Invalid channel partner ID").nullable().optional(),
+    ),
     commissionType: z.enum(["PERCENTAGE", "FIXED_AMOUNT"]).optional(),
     commissionRate: z.coerce.number().optional().nullable(),
     commissionAmount: z.coerce.number().optional().nullable(),
@@ -127,13 +133,19 @@ export const updateLeadSchema = z.object({
     qualificationScore: z.coerce.number().int().min(0).max(100).optional(),
 
     // Channel Partner Link
-    channelPartnerId: z.string().uuid("Invalid channel partner ID").optional().nullable(),
+    channelPartnerId: z.preprocess(
+      (val) => (val === "" ? null : val),
+      z.string().uuid("Invalid channel partner ID").nullable().optional(),
+    ),
     commissionType: z.enum(["PERCENTAGE", "FIXED_AMOUNT"]).optional(),
     commissionRate: z.coerce.number().optional().nullable(),
     commissionAmount: z.coerce.number().optional().nullable(),
     cpLeadStatus: z.enum(["IN_PROGRESS", "MEETING_DONE", "BOOKED", "NOT_INTERESTED", "LOST"]).optional(),
 
-    assignedToId: z.string().uuid("Invalid employee ID").optional().nullable(),
+    assignedToId: z.preprocess(
+      (val) => (val === "" ? null : val),
+      z.string().uuid("Invalid employee ID").nullable().optional(),
+    ),
 
     tags: z.array(z.string()).optional(),
     notes: z.string().max(3000).optional().nullable(),

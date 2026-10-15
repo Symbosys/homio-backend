@@ -63,9 +63,25 @@ export class ConversationRepository {
           break;
         case "assigned_to_me":
           if (options.assignedEmployeeId) {
-            where.assignedEmployeeId = options.assignedEmployeeId;
+            const empCondition = {
+              OR: [
+                { assignedEmployeeId: options.assignedEmployeeId },
+                { lead: { assignedToId: options.assignedEmployeeId } },
+              ],
+            };
+            where.AND = where.AND
+              ? [...(where.AND as any[]), empCondition]
+              : [empCondition];
           } else if (options.currentUserId) {
-            where.assignedEmployee = { userId: options.currentUserId };
+            const userCondition = {
+              OR: [
+                { assignedEmployee: { userId: options.currentUserId } },
+                { lead: { assignedTo: { userId: options.currentUserId } } },
+              ],
+            };
+            where.AND = where.AND
+              ? [...(where.AND as any[]), userCondition]
+              : [userCondition];
           }
           break;
         case "open":
@@ -92,7 +108,15 @@ export class ConversationRepository {
     if (options.priority) where.priority = options.priority;
     if (options.handlingMode) where.handlingMode = options.handlingMode;
     if (options.assignedEmployeeId && options.tab !== "assigned_to_me") {
-      where.assignedEmployeeId = options.assignedEmployeeId;
+      const empCondition = {
+        OR: [
+          { assignedEmployeeId: options.assignedEmployeeId },
+          { lead: { assignedToId: options.assignedEmployeeId } },
+        ],
+      };
+      where.AND = where.AND
+        ? [...(where.AND as any[]), empCondition]
+        : [empCondition];
     }
     if (options.assignedTeamId) where.assignedTeamId = options.assignedTeamId;
     if (options.leadId) where.leadId = options.leadId;
@@ -104,31 +128,36 @@ export class ConversationRepository {
     // Full-text / substring search across recipient identity, message preview, tags, and lead
     if (options.search && options.search.trim()) {
       const q = options.search.trim();
-      where.OR = [
-        { recipientName: { contains: q, mode: "insensitive" } },
-        { recipientPhone: { contains: q, mode: "insensitive" } },
-        { recipientEmail: { contains: q, mode: "insensitive" } },
-        { lastMessageText: { contains: q, mode: "insensitive" } },
-        { tags: { has: q } },
-        {
-          lead: {
-            OR: [
-              { leadCode: { contains: q, mode: "insensitive" } },
-              { title: { contains: q, mode: "insensitive" } },
-              {
-                customer: {
-                  OR: [
-                    { firstName: { contains: q, mode: "insensitive" } },
-                    { lastName: { contains: q, mode: "insensitive" } },
-                    { displayName: { contains: q, mode: "insensitive" } },
-                    { phone: { contains: q, mode: "insensitive" } },
-                  ],
+      const searchCondition = {
+        OR: [
+          { recipientName: { contains: q, mode: "insensitive" } },
+          { recipientPhone: { contains: q, mode: "insensitive" } },
+          { recipientEmail: { contains: q, mode: "insensitive" } },
+          { lastMessageText: { contains: q, mode: "insensitive" } },
+          { tags: { has: q } },
+          {
+            lead: {
+              OR: [
+                { leadCode: { contains: q, mode: "insensitive" } },
+                { title: { contains: q, mode: "insensitive" } },
+                {
+                  customer: {
+                    OR: [
+                      { firstName: { contains: q, mode: "insensitive" } },
+                      { lastName: { contains: q, mode: "insensitive" } },
+                      { displayName: { contains: q, mode: "insensitive" } },
+                      { phone: { contains: q, mode: "insensitive" } },
+                    ],
+                  },
                 },
-              },
-            ],
+              ],
+            },
           },
-        },
-      ];
+        ],
+      };
+      where.AND = where.AND
+        ? [...(where.AND as any[]), searchCondition]
+        : [searchCondition];
     }
 
     const [items, total] = await Promise.all([
@@ -147,6 +176,16 @@ export class ConversationRepository {
               projectType: true,
               priority: true,
               estimatedBudget: true,
+              assignedToId: true,
+              assignedTo: {
+                select: {
+                  id: true,
+                  employeeCode: true,
+                  firstName: true,
+                  lastName: true,
+                  designation: true,
+                },
+              },
               customer: {
                 select: {
                   id: true,
