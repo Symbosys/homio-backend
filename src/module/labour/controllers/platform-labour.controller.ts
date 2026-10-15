@@ -8,6 +8,8 @@ import {
   updateLabourSchema,
   platformGetLaboursQuerySchema,
   labourIdParamSchema,
+  approveLabourSchema,
+  rejectLabourSchema,
 } from "../validators/labour.validator.js";
 import { getLabourBookingsQuerySchema } from "../validators/labour-booking.validator.js";
 
@@ -98,6 +100,52 @@ export const getPlatformLabourBookings = asyncHandler(async (req, res) => {
   return SuccessResponse(
     res,
     "Platform service bookings retrieved successfully",
+    result,
+    statusCode.OK
+  );
+});
+
+/**
+ * @route   PATCH /api/v1/platform/labours/:id/approve
+ * @desc    Platform Admin: Verify and approve a labour profile
+ * @access  Private (PLATFORM_ADMIN)
+ */
+export const approveLabour = asyncHandler(async (req, res) => {
+  const parsed = approveLabourSchema.parse({
+    params: req.params,
+    body: req.body,
+  });
+  const result = await labourService.approveLabour(
+    parsed.params.id,
+    req.user!,
+    parsed.body
+  );
+  return SuccessResponse(
+    res,
+    "Labour profile approved successfully and activated for work",
+    result,
+    statusCode.OK
+  );
+});
+
+/**
+ * @route   PATCH /api/v1/platform/labours/:id/reject
+ * @desc    Platform Admin: Reject a labour application with audit reason
+ * @access  Private (PLATFORM_ADMIN)
+ */
+export const rejectLabour = asyncHandler(async (req, res) => {
+  const parsed = rejectLabourSchema.parse({
+    params: req.params,
+    body: req.body,
+  });
+  const result = await labourService.rejectLabour(
+    parsed.params.id,
+    req.user!,
+    parsed.body
+  );
+  return SuccessResponse(
+    res,
+    "Labour application rejected",
     result,
     statusCode.OK
   );

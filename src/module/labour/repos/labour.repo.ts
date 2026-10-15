@@ -170,7 +170,7 @@ export class LabourRepo {
         locality: { contains: locality, mode: "insensitive" },
       });
     if (status)
-      andConditions.push({ status: { equals: status, mode: "insensitive" } });
+      andConditions.push({ status: { equals: status as any } });
     if (isAvailable !== undefined) andConditions.push({ isAvailable });
     if (isKycVerified !== undefined) {
       if (isKycVerified) {

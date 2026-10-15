@@ -3,7 +3,7 @@ import { labourRepo } from "../repos/labour.repo.js";
 import { projectServiceRepo } from "../repos/project-service.repo.js";
 import { prisma } from "../../../lib/prisma.js";
 import { ErrorResponse } from "../../../utils/response.util.js";
-import { statusCode } from "../../../types/types.js";
+import { statusCode, LabourStatus } from "../../../types/types.js";
 import { MARKETPLACE_CONFIG } from "../../../constants/marketplace.constants.js";
 import type {
   CreateLabourBookingInput,
@@ -46,7 +46,14 @@ export class LabourBookingService {
       select: { id: true, isAvailable: true, status: true },
     });
 
-    if (!labour || labour.isAvailable === false || labour.status === "ON_LEAVE" || labour.status === "INACTIVE") {
+    if (
+      !labour ||
+      labour.isAvailable === false ||
+      labour.status === LabourStatus.UNAVAILABLE ||
+      labour.status === LabourStatus.PENDING ||
+      labour.status === LabourStatus.REJECTED ||
+      labour.status === LabourStatus.BLACKLISTED
+    ) {
       throw new ErrorResponse("Labour is already unavailable", statusCode.Bad_Request);
     }
 

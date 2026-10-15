@@ -11,7 +11,7 @@ import {
 const router = Router();
 
 // Protect all rating endpoints with authentication
-router.use(authenticate);
+router.use("/ratings", authenticate);
 
 /**
  * @route   POST /api/v1/labour/ratings

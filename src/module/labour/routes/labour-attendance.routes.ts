@@ -16,7 +16,7 @@ import {
 const router = Router();
 
 // Protect all attendance endpoints with authentication
-router.use(authenticate);
+router.use("/attendances", authenticate);
 
 /**
  * @route   GET /api/v1/labour/attendances/today-status

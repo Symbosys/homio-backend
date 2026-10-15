@@ -22,7 +22,7 @@ import {
 const router = Router();
 
 // Protect all booking endpoints with authentication
-router.use(authenticate);
+router.use("/bookings", authenticate);
 
 /**
  * @route   POST /api/v1/labour/bookings/marketplace

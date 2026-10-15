@@ -1,5 +1,7 @@
 import { z } from "zod";
-import { UserType, UserStatus } from "../../../types/types.js";
+import { UserType, UserStatus, LabourStatus } from "../../../types/types.js";
+
+export const LabourStatusEnum = z.nativeEnum(LabourStatus);
 
 /**
  * ImageType Schema adhering to Homio CRM Structured Image Storage (Rule 4)
@@ -119,6 +121,7 @@ export const createLabourSchema = z.object({
     state: z.string().optional().nullable(),
     city: z.string().optional().nullable(),
     locality: z.string().optional().nullable(),
+    pincode: z.string().max(20).optional().nullable(),
     isAvailable: z.boolean().default(true).optional(),
     isKycVerified: z.boolean().default(false).optional(),
     aadhaarNo: z.string().optional().nullable(),
@@ -187,7 +190,7 @@ export const createLabourSchema = z.object({
     emergencyPhone: z.string().optional().nullable(),
 
     // Status & Extensibility
-    status: z.string().default("ACTIVE").optional(),
+    status: LabourStatusEnum.default(LabourStatus.PENDING).optional(),
     kyc: labourKycEmbedSchema.optional().nullable(),
     additionalInformation: additionalInformationSchema,
   }),
@@ -220,6 +223,7 @@ export const updateLabourSchema = z.object({
     state: z.string().optional().nullable(),
     city: z.string().optional().nullable(),
     locality: z.string().optional().nullable(),
+    pincode: z.string().max(20).optional().nullable(),
     isAvailable: z.boolean().optional(),
     isKycVerified: z.boolean().optional(),
     aadhaarNo: z.string().optional().nullable(),
@@ -285,7 +289,7 @@ export const updateLabourSchema = z.object({
     emergencyContact: z.string().optional().nullable(),
     emergencyPhone: z.string().optional().nullable(),
 
-    status: z.string().optional(),
+    status: LabourStatusEnum.optional(),
     kyc: labourKycEmbedSchema.optional().nullable(),
     additionalInformation: additionalInformationSchema,
   }),
@@ -301,7 +305,7 @@ export const getLaboursQuerySchema = z.object({
     state: z.string().optional(),
     city: z.string().optional(),
     locality: z.string().optional(),
-    status: z.string().optional(),
+    status: LabourStatusEnum.optional(),
     isKycVerified: z
       .union([
         z.boolean(),
@@ -355,7 +359,7 @@ export const platformGetLaboursQuerySchema = z.object({
     state: z.string().optional(),
     city: z.string().optional(),
     locality: z.string().optional(),
-    status: z.string().optional(),
+    status: LabourStatusEnum.optional(),
     isKycVerified: z
       .union([
         z.boolean(),
@@ -396,3 +400,102 @@ export type PlatformGetLaboursQuery = z.infer<
 export type PlatformCreateLabourInput = z.infer<
   typeof platformCreateLabourSchema
 >["body"];
+
+/**
+ * 7. PUBLIC LABOUR SELF-REGISTRATION SCHEMA
+ */
+export const registerLabourSchema = z.object({
+  body: z.object({
+    name: z.string().min(2, "Name must be at least 2 characters").max(100),
+    phone: z
+      .string()
+      .min(10, "Phone number must be at least 10 digits")
+      .max(20),
+    altPhone: z.string().max(20).optional().nullable().or(z.literal("")),
+    email: z
+      .string()
+      .email("Invalid email format")
+      .optional()
+      .nullable()
+      .or(z.literal("")),
+    password: z.string().min(6, "Password must be at least 6 characters"),
+    photoUrl: imageTypeSchema.optional().nullable(),
+
+    // Trade & Rates
+    trade: z
+      .string()
+      .min(2, "Trade is required (e.g. Carpentry, Masonry, Plumbing, Painting)"),
+    skillLevel: z.string().default("Skilled").optional().nullable(),
+    dailyRate: z.coerce
+      .number()
+      .positive("Daily wage rate must be greater than 0"),
+    hourlyRate: z.preprocess((val) => {
+      if (val === "" || val === null || val === undefined) return null;
+      const num = Number(val);
+      return isNaN(num) ? val : num;
+    }, z.number().positive("Hourly rate must be positive").optional().nullable()),
+
+    // Address & Location
+    address: z.string().optional().nullable(),
+    state: z.string().min(2, "State is required"),
+    city: z.string().min(2, "City is required"),
+    locality: z.string().optional().nullable(),
+    pincode: z.string().optional().nullable(),
+
+    // Identity & KYC Details
+    aadhaarNo: z.string().optional().nullable(),
+    aadhaarDoc: imageTypeSchema.optional().nullable(),
+    selfiePhoto: imageTypeSchema.optional().nullable(),
+    policeClearanceDoc: imageTypeSchema.optional().nullable(),
+    policeStationName: z.string().optional().nullable(),
+
+    // Bank & Settlement Info
+    bankName: z.string().optional().nullable(),
+    bankAccountNo: z.string().optional().nullable(),
+    ifscCode: z.string().optional().nullable(),
+    accountHolderName: z.string().optional().nullable(),
+    upiId: z.string().optional().nullable(),
+
+    // Emergency Contact
+    emergencyContact: z.string().optional().nullable(),
+    emergencyPhone: z.string().optional().nullable(),
+
+    additionalInformation: additionalInformationSchema,
+  }),
+});
+
+export type RegisterLabourInput = z.infer<typeof registerLabourSchema>["body"];
+
+/**
+ * 8. PLATFORM APPROVE LABOUR SCHEMA
+ */
+export const approveLabourSchema = z.object({
+  params: z.object({
+    id: z.string().uuid("Invalid labour ID format"),
+  }),
+  body: z.object({
+    status: LabourStatusEnum.default(LabourStatus.AVAILABLE).optional(),
+    tradeTestScore: z.number().min(0).max(100).optional().nullable(),
+    verificationNotes: z.string().max(2000).optional().nullable(),
+  }),
+});
+
+export type ApproveLabourInput = z.infer<typeof approveLabourSchema>["body"];
+
+/**
+ * 9. PLATFORM REJECT LABOUR SCHEMA
+ */
+export const rejectLabourSchema = z.object({
+  params: z.object({
+    id: z.string().uuid("Invalid labour ID format"),
+  }),
+  body: z.object({
+    rejectionReason: z
+      .string()
+      .min(3, "Rejection reason must be at least 3 characters")
+      .max(1000),
+    verificationNotes: z.string().max(2000).optional().nullable(),
+  }),
+});
+
+export type RejectLabourInput = z.infer<typeof rejectLabourSchema>["body"];

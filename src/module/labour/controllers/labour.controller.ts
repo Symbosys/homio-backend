@@ -7,6 +7,7 @@ import {
   updateLabourSchema,
   getLaboursQuerySchema,
   labourIdParamSchema,
+  registerLabourSchema,
 } from "../validators/labour.validator.js";
 
 /**
@@ -81,4 +82,20 @@ export const deleteLabour = asyncHandler(async (req, res) => {
   const parsed = labourIdParamSchema.parse({ params: req.params });
   await labourService.deleteLabour(parsed.params.id, organizationId);
   return SuccessResponse(res, "Labour deleted successfully", null, statusCode.OK);
+});
+
+/**
+ * @route   POST /api/v1/labour/register
+ * @desc    Public self-registration for independent labours (Platform Pool)
+ * @access  Public (No Auth Required)
+ */
+export const registerPublicLabour = asyncHandler(async (req, res) => {
+  const parsed = registerLabourSchema.parse({ body: req.body });
+  const result = await labourService.registerPublicLabour(parsed.body, req.file);
+  return SuccessResponse(
+    res,
+    "Registration submitted successfully. Your profile is currently under review by Platform Admin.",
+    result,
+    statusCode.Created
+  );
 });

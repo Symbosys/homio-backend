@@ -20,7 +20,7 @@ import {
 const router = Router();
 
 // Protect all dispute endpoints with authentication
-router.use(authenticate);
+router.use("/disputes", authenticate);
 
 /**
  * @route   POST /api/v1/labour/disputes/bypass-report

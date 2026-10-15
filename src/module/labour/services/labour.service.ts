@@ -3,7 +3,7 @@ import { labourRepo } from "../repos/labour.repo.js";
 import { userRepo } from "../../user/repos/user.repo.js";
 import { prisma } from "../../../lib/prisma.js";
 import { ErrorResponse } from "../../../utils/response.util.js";
-import { statusCode, UserType } from "../../../types/types.js";
+import { statusCode, UserType, UserStatus, LabourStatus } from "../../../types/types.js";
 import { storageService } from "../../../lib/storage/storage.service.js";
 import type {
   CreateLabourInput,
@@ -11,6 +11,9 @@ import type {
   GetLaboursQuery,
   PlatformCreateLabourInput,
   PlatformGetLaboursQuery,
+  RegisterLabourInput,
+  ApproveLabourInput,
+  RejectLabourInput,
 } from "../validators/labour.validator.js";
 
 /**
@@ -469,6 +472,301 @@ export class LabourService {
     // Verify existence & ownership
     await this.getLabourById(id, organizationId);
     return labourRepo.softDelete(id, organizationId);
+  }
+
+  /**
+   * Public Self-Registration for independent labours (Platform Pool)
+   * Captures personal, trade, wage, KYC, bank & login details.
+   * Atomically creates SaaS User (status: PENDING_VERIFICATION) and Labour (status: PENDING).
+   */
+  async registerPublicLabour(
+    payload: RegisterLabourInput,
+    photoFile?: Express.Multer.File
+  ) {
+    if (photoFile) {
+      const uploadResult = await storageService.upload(photoFile, {
+        folder: "platform/labour/photos",
+      });
+      payload.photoUrl = uploadResult;
+    }
+
+    const cleanPhone = payload.phone.trim();
+    const cleanEmail =
+      payload.email && payload.email.trim()
+        ? payload.email.trim().toLowerCase()
+        : `${cleanPhone}@labour.homio.internal`;
+    const cleanAltPhone = payload.altPhone?.trim() || null;
+
+    // 1. Verify phone uniqueness in Labour directory
+    const existingLabourPhone = await prisma.labour.findFirst({
+      where: { phone: cleanPhone, isDeleted: false },
+    });
+    if (existingLabourPhone) {
+      throw new ErrorResponse(
+        `A labour profile with phone number "${cleanPhone}" is already registered.`,
+        statusCode.Conflict
+      );
+    }
+
+    if (payload.email && payload.email.trim()) {
+      const existingLabourEmail = await prisma.labour.findFirst({
+        where: { email: cleanEmail, isDeleted: false },
+      });
+      if (existingLabourEmail) {
+        throw new ErrorResponse(
+          `A labour profile with email "${cleanEmail}" is already registered.`,
+          statusCode.Conflict
+        );
+      }
+    }
+
+    // 2. Check SaaS User credentials uniqueness
+    const existingUser = await userRepo.findByEmail(cleanEmail);
+    if (existingUser) {
+      throw new ErrorResponse(
+        `A user account with email "${cleanEmail}" already exists. Please log in or use another email.`,
+        statusCode.Conflict
+      );
+    }
+
+    const existingPhoneUser = await prisma.user.findFirst({
+      where: { phone: cleanPhone, isDeleted: false },
+    });
+    if (existingPhoneUser) {
+      throw new ErrorResponse(
+        `A user account with phone "${cleanPhone}" already exists.`,
+        statusCode.Conflict
+      );
+    }
+
+    // 3. Hash password for SaaS login account
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(payload.password.trim(), salt);
+
+    const nameParts = payload.name.trim().split(" ");
+    const firstName = nameParts[0] || payload.name.trim();
+    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : null;
+
+    return prisma.$transaction(async (tx) => {
+      // Create User account with PENDING_VERIFICATION & LABOUR type
+      const createdUser = await userRepo.create(
+        {
+          organizationId: null,
+          email: cleanEmail,
+          passwordHash,
+          firstName,
+          lastName,
+          phone: cleanPhone,
+          status: UserStatus.PENDING_VERIFICATION,
+          userType: UserType.LABOUR,
+        },
+        tx
+      );
+
+      // Prepare payload for labourRepo.create
+      const labourCreatePayload: CreateLabourInput = {
+        name: payload.name.trim(),
+        phone: cleanPhone,
+        altPhone: cleanAltPhone,
+        email: payload.email?.trim().toLowerCase() || null,
+        photoUrl: payload.photoUrl || null,
+        trade: payload.trade.trim(),
+        skillLevel: payload.skillLevel || "Skilled",
+        dailyRate: payload.dailyRate,
+        hourlyRate: payload.hourlyRate || null,
+        address: payload.address?.trim() || null,
+        state: payload.state.trim(),
+        city: payload.city.trim(),
+        locality: payload.locality?.trim() || null,
+        pincode: payload.pincode?.trim() || null,
+        isAvailable: false,
+        isKycVerified: false,
+        status: LabourStatus.PENDING,
+        aadhaarNo: payload.aadhaarNo?.trim() || null,
+        aadhaarDoc: payload.aadhaarDoc || null,
+        bankName: payload.bankName?.trim() || null,
+        bankAccountNo: payload.bankAccountNo?.trim() || null,
+        ifscCode: payload.ifscCode?.trim().toUpperCase() || null,
+        upiId: payload.upiId?.trim() || null,
+        emergencyContact: payload.emergencyContact?.trim() || null,
+        emergencyPhone: payload.emergencyPhone?.trim() || null,
+        userId: createdUser.id,
+        additionalInformation: payload.additionalInformation || null,
+        kyc: {
+          aadhaarNumber: payload.aadhaarNo?.trim() || null,
+          aadhaarDoc: payload.aadhaarDoc || null,
+          selfiePhoto: payload.selfiePhoto || null,
+          policeClearanceDoc: payload.policeClearanceDoc || null,
+          policeStationName: payload.policeStationName?.trim() || null,
+          bankAccountNo: payload.bankAccountNo?.trim() || null,
+          ifscCode: payload.ifscCode?.trim().toUpperCase() || null,
+          bankName: payload.bankName?.trim() || null,
+          accountHolderName: payload.accountHolderName?.trim() || payload.name.trim(),
+          upiId: payload.upiId?.trim() || null,
+          status: "PENDING",
+        },
+      };
+
+      return labourRepo.create(null, labourCreatePayload, tx);
+    });
+  }
+
+  /**
+   * Platform Admin: Verify & Approve a Labour profile
+   * Transitions status to AVAILABLE, activates isAvailable & isKycVerified,
+   * updates LabourKycDocument to APPROVED, and activates linked User account.
+   */
+  async approveLabour(
+    id: string,
+    adminUser: { id: string; firstName?: string | null; lastName?: string | null },
+    payload?: ApproveLabourInput
+  ) {
+    const labour = await labourRepo.findById(id);
+    if (!labour) {
+      throw new ErrorResponse("Labour profile not found", statusCode.Not_Found);
+    }
+
+    const verifiedByName = `${adminUser.firstName || "Platform"} ${adminUser.lastName || "Admin"}`.trim();
+    const targetStatus = payload?.status || LabourStatus.AVAILABLE;
+
+    return prisma.$transaction(async (tx) => {
+      // 1. Update Labour profile
+      const updatedLabour = await tx.labour.update({
+        where: { id },
+        data: {
+          status: targetStatus,
+          isAvailable: true,
+          isKycVerified: true,
+        },
+        include: {
+          organization: true,
+          kycDocument: true,
+          user: true,
+        },
+      });
+
+      // 2. Update or Upsert Labour KYC document
+      await tx.labourKycDocument.upsert({
+        where: { labourId: id },
+        create: {
+          labourId: id,
+          status: "APPROVED",
+          tradeTestScore: payload?.tradeTestScore ?? null,
+          verificationNotes: payload?.verificationNotes || "Approved by Platform Admin",
+          verifiedAt: new Date(),
+          verifiedBy: verifiedByName,
+        },
+        update: {
+          status: "APPROVED",
+          tradeTestScore: payload?.tradeTestScore !== undefined ? payload.tradeTestScore : undefined,
+          verificationNotes: payload?.verificationNotes || "Approved by Platform Admin",
+          verifiedAt: new Date(),
+          verifiedBy: verifiedByName,
+        },
+      });
+
+      // 3. If linked to SaaS User, activate the user account
+      if (labour.userId) {
+        await tx.user.update({
+          where: { id: labour.userId },
+          data: {
+            status: UserStatus.ACTIVE,
+          },
+        });
+      }
+
+      return updatedLabour;
+    });
+  }
+
+  /**
+   * Platform Admin: Reject a Labour application with mandatory audit reason
+   */
+  async rejectLabour(
+    id: string,
+    adminUser: { id: string; firstName?: string | null; lastName?: string | null },
+    payload: RejectLabourInput
+  ) {
+    const labour = await labourRepo.findById(id);
+    if (!labour) {
+      throw new ErrorResponse("Labour profile not found", statusCode.Not_Found);
+    }
+
+    const verifiedByName = `${adminUser.firstName || "Platform"} ${adminUser.lastName || "Admin"}`.trim();
+
+    return prisma.$transaction(async (tx) => {
+      // 1. Update Labour profile
+      const updatedLabour = await tx.labour.update({
+        where: { id },
+        data: {
+          status: LabourStatus.REJECTED,
+          isAvailable: false,
+          isKycVerified: false,
+        },
+        include: {
+          organization: true,
+          kycDocument: true,
+          user: true,
+        },
+      });
+
+      // 2. Update KYC Document
+      await tx.labourKycDocument.upsert({
+        where: { labourId: id },
+        create: {
+          labourId: id,
+          status: "REJECTED",
+          rejectionReason: payload.rejectionReason,
+          verificationNotes: payload.verificationNotes || null,
+          verifiedAt: new Date(),
+          verifiedBy: verifiedByName,
+        },
+        update: {
+          status: "REJECTED",
+          rejectionReason: payload.rejectionReason,
+          verificationNotes: payload.verificationNotes || null,
+          verifiedAt: new Date(),
+          verifiedBy: verifiedByName,
+        },
+      });
+
+      // 3. If linked to SaaS User, suspend user account
+      if (labour.userId) {
+        await tx.user.update({
+          where: { id: labour.userId },
+          data: {
+            status: UserStatus.SUSPENDED,
+          },
+        });
+      }
+
+      return updatedLabour;
+    });
+  }
+
+  /**
+   * Platform Admin or Manager: Transition Labour Status (e.g. AVAILABLE, AT_WORK, UNAVAILABLE)
+   */
+  async updateLabourStatus(
+    id: string,
+    status: LabourStatus,
+    organizationId?: string | null
+  ) {
+    await this.getLabourById(id, organizationId);
+    const isAvailable = status === LabourStatus.AVAILABLE;
+
+    return prisma.labour.update({
+      where: { id },
+      data: {
+        status,
+        isAvailable,
+      },
+      include: {
+        organization: true,
+        kycDocument: true,
+        user: true,
+      },
+    });
   }
 }
 

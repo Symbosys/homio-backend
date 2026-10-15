@@ -11,6 +11,19 @@
 // ============================================================================
 
 // ==========================================
+// LABOUR LIFECYCLE ENUMS
+// ==========================================
+
+enum LabourStatus {
+  PENDING       // Initial self-registered or onboarded state awaiting platform admin verification
+  AVAILABLE     // Approved by platform admin, verified, and ready for work allocations
+  AT_WORK       // Currently deployed / actively on an in-progress service booking or project site
+  UNAVAILABLE   // Temporarily off-duty, on leave, or inactive
+  REJECTED      // Application rejected during platform verification
+  BLACKLISTED   // Permanently blacklisted due to disciplinary or legal violation
+}
+
+// ==========================================
 // 1. LABOUR PROFILE (WORKER DIRECTORY)
 // ==========================================
 
@@ -44,7 +57,7 @@ model Labour {
   pincode  String? @map("pincode")
 
   // Real-Time Availability & KYC Verification
-  isAvailable   Boolean @default(true)  @map("is_available")
+  isAvailable   Boolean @default(false) @map("is_available")
   isKycVerified Boolean @default(false) @map("is_kyc_verified")
 
   // Aggregated Ratings & Performance Metrics
@@ -72,7 +85,7 @@ model Labour {
   emergencyPhone   String? @map("emergency_phone")
 
   // Status & Governance
-  status    String    @default("ACTIVE") @map("status") // ACTIVE, ON_LEAVE, INACTIVE, BLACKLISTED
+  status    LabourStatus @default(PENDING) @map("status") // PENDING, AVAILABLE, AT_WORK, UNAVAILABLE, REJECTED, BLACKLISTED
   isDeleted Boolean   @default(false)    @map("is_deleted")
   deletedAt DateTime? @map("deleted_at")
 

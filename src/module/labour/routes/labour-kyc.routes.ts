@@ -11,7 +11,7 @@ import {
 const router = Router({ mergeParams: true });
 
 // Protect all KYC endpoints with authentication
-router.use(authenticate);
+router.use("/:id/kyc", authenticate);
 
 /**
  * Multi-field file upload middleware for KYC documents (images & pdf documents)

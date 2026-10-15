@@ -12,7 +12,7 @@ import {
 const router = Router();
 
 // Protect all project service endpoints with authentication
-router.use(authenticate);
+router.use("/services", authenticate);
 
 /**
  * @route   POST /api/v1/labour/services

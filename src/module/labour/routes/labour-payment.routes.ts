@@ -13,7 +13,7 @@ import {
 const router = Router();
 
 // Protect all payment endpoints with authentication
-router.use(authenticate);
+router.use("/payments", authenticate);
 
 /**
  * @route   POST /api/v1/labour/payments

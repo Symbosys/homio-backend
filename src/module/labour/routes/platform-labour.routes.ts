@@ -45,6 +45,20 @@ router.get("/:id", platformLabourController.getLabourById);
 router.patch("/:id", upload.single("photo"), platformLabourController.updateLabour);
 
 /**
+ * @route   PATCH /api/v1/platform/labours/:id/approve
+ * @desc    Platform Admin: Verify and approve a labour profile
+ * @access  Private (PLATFORM_ADMIN)
+ */
+router.patch("/:id/approve", authorize("PLATFORM_ADMIN"), platformLabourController.approveLabour);
+
+/**
+ * @route   PATCH /api/v1/platform/labours/:id/reject
+ * @desc    Platform Admin: Reject a labour application with audit reason
+ * @access  Private (PLATFORM_ADMIN)
+ */
+router.patch("/:id/reject", authorize("PLATFORM_ADMIN"), platformLabourController.rejectLabour);
+
+/**
  * @route   DELETE /api/v1/platform/labours/:id
  * @desc    Platform Admin: Soft delete labour profile
  */

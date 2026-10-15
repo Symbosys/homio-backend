@@ -7,11 +7,19 @@ import {
   getLabourById,
   updateLabour,
   deleteLabour,
+  registerPublicLabour,
 } from "../controllers/labour.controller.js";
 
 const router = Router();
 
-// Protect all routes with tenant authentication
+/**
+ * @route   POST /api/v1/labour/register
+ * @desc    Public self-registration for independent labours (Platform Pool)
+ * @access  Public (No Auth Required)
+ */
+router.post("/register", upload.single("photo"), registerPublicLabour);
+
+// Protect all following routes with tenant authentication
 router.use(authenticate);
 
 /**
