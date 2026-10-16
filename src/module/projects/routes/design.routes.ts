@@ -103,9 +103,13 @@ designRoutes.post("/:designId/versions/:versionId/submit", submitDesignVersion);
 
 /**
  * @route   POST /api/v1/projects/:projectId/designs/:designId/versions/:versionId/attachments
- * @desc    Add attachment to a design version (PDF, render image, DWG, GLB, YouTube/Vimeo, 3D preview URL)
+ * @desc    Add attachment to a design version (raw image, 3D render, PDF, DWG, GLB, YouTube/Vimeo, 3D preview URL)
  */
-designRoutes.post("/:designId/versions/:versionId/attachments", createDesignAttachment);
+designRoutes.post(
+  "/:designId/versions/:versionId/attachments",
+  upload.single("file", { category: "all", maxFileSize: 50 * 1024 * 1024 }),
+  createDesignAttachment
+);
 
 /**
  * @route   GET /api/v1/projects/:projectId/designs/:designId/versions/:versionId/attachments

@@ -300,13 +300,33 @@ export const createDesignAttachment = asyncHandler(async (req, res) => {
     throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
   }
 
-  const parsed = createDesignAttachmentSchema.parse({ params: req.params, body: req.body });
+  // Pre-process multipart form-data fields if sent as FormData
+  const bodyData: any = { ...req.body };
+  if (typeof bodyData.isPrimary === "string") {
+    bodyData.isPrimary = bodyData.isPrimary === "true";
+  }
+  if (typeof bodyData.isClientVisible === "string") {
+    bodyData.isClientVisible = bodyData.isClientVisible === "true";
+  }
+  if (typeof bodyData.orderIndex === "string") {
+    bodyData.orderIndex = parseInt(bodyData.orderIndex, 10) || 0;
+  }
+  if (typeof bodyData.file === "string") {
+    try {
+      bodyData.file = JSON.parse(bodyData.file);
+    } catch {
+      delete bodyData.file;
+    }
+  }
+
+  const parsed = createDesignAttachmentSchema.parse({ params: req.params, body: bodyData });
   const result = await designService.createAttachment(
     parsed.params.projectId,
     organizationId,
     parsed.params.designId,
     parsed.params.versionId,
-    parsed.body
+    parsed.body,
+    req.file
   );
   return SuccessResponse(res, "Design attachment added successfully", result, statusCode.Created);
 });

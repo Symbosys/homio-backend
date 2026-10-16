@@ -48,6 +48,7 @@ enum DesignVersionStatus {
 }
 
 enum DesignAttachmentType {
+  RAW_IMAGE
   RENDER_IMAGE
   TECHNICAL_DRAWING_PDF
   SPECIFICATION_SHEET

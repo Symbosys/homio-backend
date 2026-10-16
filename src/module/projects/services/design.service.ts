@@ -481,7 +481,8 @@ export class DesignService {
     organizationId: string,
     designId: string,
     versionId: string,
-    data: CreateAttachmentInput
+    data: CreateAttachmentInput,
+    file?: Express.Multer.File
   ) {
     await this.verifyProject(projectId, organizationId);
     const version = await designRepo.findVersionById(designId, versionId);
@@ -499,6 +500,40 @@ export class DesignService {
       });
       if (!creator) {
         throw new ErrorResponse("Creator employee not found in this organization", statusCode.Bad_Request);
+      }
+    }
+
+    // If a physical file was uploaded from gallery or local device, upload to cloud storage
+    if (file) {
+      const isImg = file.mimetype.startsWith("image/");
+      const isVid = file.mimetype.startsWith("video/");
+      const resourceType = isImg ? "image" : isVid ? "video" : "raw";
+
+      const uploadResult = await storageService.upload(
+        {
+          buffer: file.buffer,
+          originalname: file.originalname,
+          mimetype: file.mimetype,
+          size: file.size,
+        },
+        {
+          folder: `homio/organizations/${organizationId}/projects/${projectId}/designs/${designId}/versions/${versionId}/attachments`,
+          resourceType,
+        }
+      );
+
+      data.file = {
+        id: uploadResult.publicId,
+        url: uploadResult.secureUrl || uploadResult.url,
+        bytes: uploadResult.bytes,
+        format: uploadResult.format,
+        provider: uploadResult.provider,
+      };
+      data.mimeType = file.mimetype;
+      data.fileSizeBytes = file.size;
+
+      if (!data.attachmentType) {
+        data.attachmentType = isImg ? "RAW_IMAGE" : "OTHER";
       }
     }
 

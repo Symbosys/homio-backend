@@ -51,6 +51,7 @@ export const DesignVersionStatusEnum = z.enum([
 ]);
 
 export const DesignAttachmentTypeEnum = z.enum([
+  "RAW_IMAGE",
   "RENDER_IMAGE",
   "TECHNICAL_DRAWING_PDF",
   "SPECIFICATION_SHEET",
