@@ -343,6 +343,47 @@ export class DesignService {
       throw new ErrorResponse("Design asset not found", statusCode.Not_Found);
     }
 
+    // Business Rule: If a version is approved in this workspace design, that version is final and no new versions can be created.
+    if (design.status === "APPROVED") {
+      throw new ErrorResponse(
+        "Cannot create a new version: An approved version already exists for this workspace design and is final.",
+        statusCode.Bad_Request
+      );
+    }
+
+    const hasApprovedVersion =
+      design.versions?.some(
+        (v) =>
+          v.status === "APPROVED" ||
+          v.isLocked ||
+          v.approvals?.some(
+            (a) => a.decision === "APPROVED" || a.decision === "APPROVED_WITH_CONDITIONS"
+          )
+      ) ||
+      (await prisma.designVersion.findFirst({
+        where: {
+          designId,
+          OR: [
+            { status: "APPROVED" },
+            { isLocked: true },
+            {
+              approvals: {
+                some: {
+                  decision: { in: ["APPROVED", "APPROVED_WITH_CONDITIONS"] },
+                },
+              },
+            },
+          ],
+        },
+      }));
+
+    if (hasApprovedVersion) {
+      throw new ErrorResponse(
+        "Cannot create a new version: An approved version already exists for this workspace design and is final.",
+        statusCode.Bad_Request
+      );
+    }
+
     if (data.submittedById) {
       const submitter = await prisma.employee.findFirst({
         where: { id: data.submittedById, organizationId, isDeleted: false },
