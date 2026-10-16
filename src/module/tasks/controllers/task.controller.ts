@@ -21,12 +21,48 @@ export class TaskController {
   constructor(private readonly service: TaskService = taskService) {}
 
   /**
+   * Helper to resolve the effective organization ID from request user context
+   * or fall back to looking up by projectId or taskId if the user does not have organizationId
+   */
+  private async resolveOrganizationId(
+    req: Request,
+    target?: { projectId?: string | null; taskId?: string | null }
+  ): Promise<string> {
+    let organizationId = (req as any).user?.organizationId;
+    if (organizationId) return organizationId;
+
+    if (target?.projectId) {
+      const project = await prisma.project.findUnique({
+        where: { id: target.projectId },
+        select: { organizationId: true },
+      });
+      if (project?.organizationId) {
+        return project.organizationId;
+      }
+    }
+
+    if (target?.taskId) {
+      const task = await prisma.task.findUnique({
+        where: { id: target.taskId },
+        select: { organizationId: true },
+      });
+      if (task?.organizationId) {
+        return task.organizationId;
+      }
+    }
+
+    return organizationId || "";
+  }
+
+  /**
    * @route   POST /api/v1/tasks
    * @desc    Create a new task (optionally linked to a project and stage)
    */
   createTask = async (req: Request, res: Response) => {
     const validated = createTaskSchema.parse({ body: req.body });
-    const organizationId = (req as any).user.organizationId;
+    const organizationId = await this.resolveOrganizationId(req, {
+      projectId: validated.body.projectId,
+    });
     const createdById = (req as any).user.id;
 
     const task = await this.service.createTask(organizationId, validated.body, createdById);
@@ -40,7 +76,9 @@ export class TaskController {
    */
   getTasks = async (req: Request, res: Response) => {
     const validated = getTasksQuerySchema.parse({ query: req.query });
-    const organizationId = (req as any).user.organizationId;
+    const organizationId = await this.resolveOrganizationId(req, {
+      projectId: validated.query.projectId,
+    });
 
     const result = await this.service.getTasks(organizationId, validated.query);
 
@@ -53,7 +91,9 @@ export class TaskController {
    */
   getTaskById = async (req: Request, res: Response) => {
     const validated = taskIdParamSchema.parse({ params: req.params });
-    const organizationId = (req as any).user.organizationId;
+    const organizationId = await this.resolveOrganizationId(req, {
+      taskId: validated.params.id,
+    });
 
     const task = await this.service.getTaskById(organizationId, validated.params.id);
 
@@ -66,7 +106,10 @@ export class TaskController {
    */
   updateTask = async (req: Request, res: Response) => {
     const validated = updateTaskSchema.parse({ params: req.params, body: req.body });
-    const organizationId = (req as any).user.organizationId;
+    const organizationId = await this.resolveOrganizationId(req, {
+      taskId: validated.params.id,
+      projectId: validated.body.projectId,
+    });
 
     const task = await this.service.updateTask(
       organizationId,
@@ -83,7 +126,9 @@ export class TaskController {
    */
   updateTaskStatus = async (req: Request, res: Response) => {
     const validated = updateTaskStatusSchema.parse({ params: req.params, body: req.body });
-    const organizationId = (req as any).user.organizationId;
+    const organizationId = await this.resolveOrganizationId(req, {
+      taskId: validated.params.id,
+    });
 
     const task = await this.service.updateTaskStatus(
       organizationId,
@@ -101,7 +146,9 @@ export class TaskController {
    */
   submitForReview = async (req: Request, res: Response) => {
     const validated = submitTaskReviewSchema.parse({ params: req.params, body: req.body });
-    const organizationId = (req as any).user.organizationId;
+    const organizationId = await this.resolveOrganizationId(req, {
+      taskId: validated.params.id,
+    });
 
     const task = await this.service.submitForReview(
       organizationId,
@@ -118,7 +165,9 @@ export class TaskController {
    */
   reviewTaskDecision = async (req: Request, res: Response) => {
     const validated = reviewTaskDecisionSchema.parse({ params: req.params, body: req.body });
-    const organizationId = (req as any).user.organizationId;
+    const organizationId = await this.resolveOrganizationId(req, {
+      taskId: validated.params.id,
+    });
     const userId = (req as any).user.id;
 
     const task = await this.service.reviewTaskDecision(
@@ -138,7 +187,9 @@ export class TaskController {
    */
   deleteTask = async (req: Request, res: Response) => {
     const validated = taskIdParamSchema.parse({ params: req.params });
-    const organizationId = (req as any).user.organizationId;
+    const organizationId = await this.resolveOrganizationId(req, {
+      taskId: validated.params.id,
+    });
 
     const result = await this.service.deleteTask(organizationId, validated.params.id);
 
@@ -151,7 +202,9 @@ export class TaskController {
    */
   getProjectStageSummary = async (req: Request, res: Response) => {
     const validated = taskProjectIdParamSchema.parse({ params: req.params });
-    const organizationId = (req as any).user.organizationId;
+    const organizationId = await this.resolveOrganizationId(req, {
+      projectId: validated.params.projectId,
+    });
 
     const summary = await this.service.getProjectStageSummary(
       organizationId,

@@ -21,6 +21,71 @@ export const ProjectStageEnum = z.nativeEnum(ProjectStage);
 export const ProjectPaymentMethodEnum = z.nativeEnum(ProjectPaymentMethod);
 
 // ==========================================
+// 1.1 HELPER PREPROCESSORS (FOR MULTIPART / JSON FORMS)
+// ==========================================
+
+const nullableUuid = (msg: string) =>
+  z.preprocess((val) => {
+    if (val === undefined) return undefined;
+    if (val === "" || val === "null" || val === "undefined" || val === null) return null;
+    return val;
+  }, z.string().uuid(msg).nullable().optional());
+
+const nullableDate = (msg: string = "Invalid date format (must be YYYY-MM-DD)") =>
+  z.preprocess((val) => {
+    if (val === undefined) return undefined;
+    if (val === "" || val === "null" || val === "undefined" || val === null) return null;
+    return val;
+  }, z.string().regex(/^\d{4}-\d{2}-\d{2}/, msg).nullable().optional());
+
+const nullableString = (maxLen: number) =>
+  z.preprocess((val) => {
+    if (val === undefined) return undefined;
+    if (val === "" || val === "null" || val === "undefined" || val === null) return null;
+    return val;
+  }, z.string().max(maxLen).nullable().optional());
+
+const jsonImagePreprocessor = z.preprocess((val) => {
+  if (val === undefined) return undefined;
+  if (val === "" || val === "null" || val === "undefined" || val === null) return null;
+  if (typeof val === "string") {
+    try {
+      return JSON.parse(val);
+    } catch {
+      return val;
+    }
+  }
+  return val;
+}, imageTypeSchema.nullable().optional());
+
+const jsonImageArrayPreprocessor = z.preprocess((val) => {
+  if (val === undefined) return undefined;
+  if (val === "" || val === "null" || val === "undefined" || val === null) return null;
+  if (typeof val === "string") {
+    try {
+      const parsed = JSON.parse(val);
+      return Array.isArray(parsed) ? parsed : [parsed];
+    } catch {
+      return val;
+    }
+  }
+  return val;
+}, z.array(imageTypeSchema).nullable().optional());
+
+const jsonObjectPreprocessor = z.preprocess((val) => {
+  if (val === undefined) return undefined;
+  if (val === "" || val === "null" || val === "undefined" || val === null) return null;
+  if (typeof val === "string") {
+    try {
+      return JSON.parse(val);
+    } catch {
+      return val;
+    }
+  }
+  return val;
+}, z.record(z.string(), z.any()).nullable().optional());
+
+// ==========================================
 // 2. PARAM VALIDATION SCHEMAS
 // ==========================================
 
@@ -70,12 +135,12 @@ export const createProjectBillSchema = z.object({
       stage: ProjectStageEnum.default(ProjectStage.EXECUTION),
 
       // Material Bill Specific Linkages
-      vendorId: z.string().uuid("Invalid vendor ID format").optional().nullable(),
-      materialCategory: z.string().max(100).optional().nullable(),
+      vendorId: nullableUuid("Invalid vendor ID format"),
+      materialCategory: nullableString(100),
 
       // Labour Bill Specific Linkages
-      labourId: z.string().uuid("Invalid labour ID format").optional().nullable(),
-      labourTrade: z.string().max(100).optional().nullable(),
+      labourId: nullableUuid("Invalid labour ID format"),
+      labourTrade: nullableString(100),
 
       // Financial Amounts
       totalAmount: z.coerce.number().min(0, "Total amount cannot be negative").default(0),
@@ -87,49 +152,25 @@ export const createProjectBillSchema = z.object({
       commissionStatus: BillCommissionStatusEnum.default(BillCommissionStatus.DUE),
       commissionRate: z.coerce.number().min(0).max(100).default(0),
       commissionAmount: z.coerce.number().min(0).default(0),
-      commissionPaidDate: z.string().regex(/^\d{4}-\d{2}-\d{2}/, "Date format must be YYYY-MM-DD").optional().nullable(),
+      commissionPaidDate: nullableDate("Commission paid date must be YYYY-MM-DD"),
 
       // Lifecycles & Dates
       billDate: z.string().regex(/^\d{4}-\d{2}-\d{2}/, "Bill date must be in YYYY-MM-DD format"),
-      dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}/, "Due date must be in YYYY-MM-DD format").optional().nullable(),
+      dueDate: nullableDate("Due date must be in YYYY-MM-DD format"),
       status: ProjectBillStatusEnum.default(ProjectBillStatus.DRAFT),
 
       // Cloud Attachments (ImageType JSON)
-      billDocumentUrl: imageTypeSchema.optional().nullable(),
-      attachments: z.array(imageTypeSchema).optional().nullable(),
+      billDocumentUrl: jsonImagePreprocessor,
+      attachments: jsonImageArrayPreprocessor,
 
       // Personnel Attribution (Employee)
-      createdById: z.string().uuid("Invalid createdById employee ID format").optional().nullable(),
-      approvedById: z.string().uuid("Invalid approvedById employee ID format").optional().nullable(),
+      createdById: nullableUuid("Invalid createdById employee ID format"),
+      approvedById: nullableUuid("Invalid approvedById employee ID format"),
 
       // Notes & Universal Additional Information (Rule 18)
-      notes: z.string().max(5000).optional().nullable(),
-      additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
-    })
-    .refine(
-      (data) => {
-        if (data.billType === ProjectBillType.MATERIAL && !data.vendorId) {
-          return false;
-        }
-        return true;
-      },
-      {
-        message: "Vendor is required for MATERIAL bills",
-        path: ["vendorId"],
-      }
-    )
-    .refine(
-      (data) => {
-        if (data.billType === ProjectBillType.LABOUR && !data.labourId) {
-          return false;
-        }
-        return true;
-      },
-      {
-        message: "Labour is required for LABOUR bills",
-        path: ["labourId"],
-      }
-    ),
+      notes: nullableString(5000),
+      additionalInformation: jsonObjectPreprocessor,
+    }),
 });
 
 /**
@@ -140,17 +181,17 @@ export const updateProjectBillSchema = z.object({
     id: z.string().uuid("Invalid bill ID format"),
   }),
   body: z.object({
-    projectId: z.string().uuid("Invalid project ID format").optional(),
+    projectId: nullableUuid("Invalid project ID format"),
     billNumber: z.string().max(100).optional(),
     title: z.string().min(2, "Title must be at least 2 characters").max(255).optional(),
     billType: ProjectBillTypeEnum.optional(),
     stage: ProjectStageEnum.optional(),
 
-    vendorId: z.string().uuid("Invalid vendor ID format").optional().nullable(),
-    materialCategory: z.string().max(100).optional().nullable(),
+    vendorId: nullableUuid("Invalid vendor ID format"),
+    materialCategory: nullableString(100),
 
-    labourId: z.string().uuid("Invalid labour ID format").optional().nullable(),
-    labourTrade: z.string().max(100).optional().nullable(),
+    labourId: nullableUuid("Invalid labour ID format"),
+    labourTrade: nullableString(100),
 
     totalAmount: z.coerce.number().min(0).optional(),
     taxPercent: z.coerce.number().min(0).max(100).optional(),
@@ -160,20 +201,20 @@ export const updateProjectBillSchema = z.object({
     commissionStatus: BillCommissionStatusEnum.optional(),
     commissionRate: z.coerce.number().min(0).max(100).optional(),
     commissionAmount: z.coerce.number().min(0).optional(),
-    commissionPaidDate: z.string().regex(/^\d{4}-\d{2}-\d{2}/).optional().nullable(),
+    commissionPaidDate: nullableDate("Commission paid date must be YYYY-MM-DD"),
 
     billDate: z.string().regex(/^\d{4}-\d{2}-\d{2}/).optional(),
-    dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}/).optional().nullable(),
+    dueDate: nullableDate("Due date must be in YYYY-MM-DD format"),
     status: ProjectBillStatusEnum.optional(),
 
-    billDocumentUrl: imageTypeSchema.optional().nullable(),
-    attachments: z.array(imageTypeSchema).optional().nullable(),
+    billDocumentUrl: jsonImagePreprocessor,
+    attachments: jsonImageArrayPreprocessor,
 
-    createdById: z.string().uuid("Invalid createdById employee ID format").optional().nullable(),
-    approvedById: z.string().uuid("Invalid approvedById employee ID format").optional().nullable(),
+    createdById: nullableUuid("Invalid createdById employee ID format"),
+    approvedById: nullableUuid("Invalid approvedById employee ID format"),
 
-    notes: z.string().max(5000).optional().nullable(),
-    additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
+    notes: nullableString(5000),
+    additionalInformation: jsonObjectPreprocessor,
   }),
 });
 
@@ -228,7 +269,7 @@ export const createProjectPaymentRecordSchema = z.object({
     .optional(),
   body: z.object({
     projectId: z.string().uuid("Invalid project ID format"),
-    billId: z.string().uuid("Invalid bill ID format").optional().nullable(),
+    billId: nullableUuid("Invalid bill ID format"),
 
     paymentNumber: z.string().max(100).optional(),
     title: z.string().min(2, "Title must be at least 2 characters").max(255),
@@ -240,16 +281,16 @@ export const createProjectPaymentRecordSchema = z.object({
 
     paymentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}/, "Payment date must be in YYYY-MM-DD format"),
     paymentMethod: ProjectPaymentMethodEnum.default(ProjectPaymentMethod.BANK_TRANSFER),
-    transactionReference: z.string().max(150).optional().nullable(),
-    bankName: z.string().max(150).optional().nullable(),
+    transactionReference: nullableString(150),
+    bankName: nullableString(150),
 
-    recordedById: z.string().uuid("Invalid recordedById employee ID format").optional().nullable(),
+    recordedById: nullableUuid("Invalid recordedById employee ID format"),
 
-    receiptUrl: imageTypeSchema.optional().nullable(),
-    attachments: z.array(imageTypeSchema).optional().nullable(),
+    receiptUrl: jsonImagePreprocessor,
+    attachments: jsonImageArrayPreprocessor,
 
-    notes: z.string().max(5000).optional().nullable(),
-    additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
+    notes: nullableString(5000),
+    additionalInformation: jsonObjectPreprocessor,
   }),
 });
 
@@ -261,8 +302,8 @@ export const updateProjectPaymentRecordSchema = z.object({
     id: z.string().uuid("Invalid payment record ID format"),
   }),
   body: z.object({
-    projectId: z.string().uuid("Invalid project ID format").optional(),
-    billId: z.string().uuid("Invalid bill ID format").optional().nullable(),
+    projectId: nullableUuid("Invalid project ID format"),
+    billId: nullableUuid("Invalid bill ID format"),
 
     paymentNumber: z.string().max(100).optional(),
     title: z.string().min(2, "Title must be at least 2 characters").max(255).optional(),
@@ -274,16 +315,16 @@ export const updateProjectPaymentRecordSchema = z.object({
 
     paymentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}/).optional(),
     paymentMethod: ProjectPaymentMethodEnum.optional(),
-    transactionReference: z.string().max(150).optional().nullable(),
-    bankName: z.string().max(150).optional().nullable(),
+    transactionReference: nullableString(150),
+    bankName: nullableString(150),
 
-    recordedById: z.string().uuid("Invalid recordedById employee ID format").optional().nullable(),
+    recordedById: nullableUuid("Invalid recordedById employee ID format"),
 
-    receiptUrl: imageTypeSchema.optional().nullable(),
-    attachments: z.array(imageTypeSchema).optional().nullable(),
+    receiptUrl: jsonImagePreprocessor,
+    attachments: jsonImageArrayPreprocessor,
 
-    notes: z.string().max(5000).optional().nullable(),
-    additionalInformation: z.record(z.string(), z.any()).optional().nullable(),
+    notes: nullableString(5000),
+    additionalInformation: jsonObjectPreprocessor,
   }),
 });
 

@@ -1,6 +1,7 @@
 import { asyncHandler } from "../../../middlewares/error.middleware.js";
 import { SuccessResponse, ErrorResponse } from "../../../utils/response.util.js";
 import { statusCode } from "../../../types/types.js";
+import { prisma } from "../../../lib/prisma.js";
 import { projectBillingService } from "../services/project-billing.service.js";
 import {
   createProjectBillSchema,
@@ -15,6 +16,44 @@ import {
   getProjectCommercialSummaryQuerySchema,
 } from "../validators/project-billing.validator.js";
 
+/**
+ * Helper: Resolve organization ID from authenticated user or active project record (supports client users in user-panel)
+ */
+async function resolveBillingOrgId(req: any, explicitProjectId?: string): Promise<string> {
+  if (req.user?.organizationId) {
+    return req.user.organizationId;
+  }
+  const projectId =
+    explicitProjectId ||
+    (typeof req.params?.projectId === "string" ? req.params.projectId : undefined) ||
+    (typeof req.query?.projectId === "string" ? req.query.projectId : undefined);
+
+  if (projectId) {
+    const project = await prisma.project.findFirst({
+      where: {
+        id: projectId,
+        isDeleted: false,
+      },
+      select: { organizationId: true },
+    });
+    if (project) {
+      return project.organizationId;
+    }
+  }
+
+  if (req.user?.id) {
+    const userRecord = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { organizationId: true },
+    });
+    if (userRecord?.organizationId) {
+      return userRecord.organizationId;
+    }
+  }
+
+  throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+}
+
 // =============================================================================
 // 1. PROJECT BILL CONTROLLER ENDPOINTS
 // =============================================================================
@@ -25,11 +64,6 @@ import {
  * @access  Private (Authenticated Tenant User)
  */
 export const createProjectBill = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const parsed = createProjectBillSchema.parse({ params: req.params, body: req.body });
   const paramProjectId = typeof req.params?.projectId === "string" ? req.params.projectId : undefined;
   const payload = {
@@ -37,6 +71,7 @@ export const createProjectBill = asyncHandler(async (req, res) => {
     ...(paramProjectId && { projectId: paramProjectId }),
   };
 
+  const organizationId = await resolveBillingOrgId(req, payload.projectId);
   const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
   const result = await projectBillingService.createBill(organizationId, payload, files);
   return SuccessResponse(res, "Project bill created successfully", result, statusCode.Created);
@@ -48,17 +83,14 @@ export const createProjectBill = asyncHandler(async (req, res) => {
  * @access  Private (Authenticated Tenant User)
  */
 export const getProjectBills = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const parsedQuery = getProjectBillsQuerySchema.parse({ query: req.query });
   const paramProjectId = typeof req.params?.projectId === "string" ? req.params.projectId : undefined;
   const query = {
     ...parsedQuery.query,
     ...(paramProjectId && { projectId: paramProjectId }),
   };
+
+  const organizationId = await resolveBillingOrgId(req, query.projectId);
 
   const result = await projectBillingService.getBills(organizationId, query);
   return SuccessResponse(res, "Project bills retrieved successfully", result, statusCode.OK);
@@ -70,12 +102,22 @@ export const getProjectBills = asyncHandler(async (req, res) => {
  * @access  Private (Authenticated Tenant User)
  */
 export const getProjectBillById = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
+  const { params } = billIdParamSchema.parse({ params: req.params });
+  let organizationId = req.user?.organizationId;
   if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+    const bill = await prisma.projectBill.findFirst({
+      where: {
+        id: params.id,
+        isDeleted: false,
+      },
+      select: { organizationId: true },
+    });
+    if (!bill) {
+      throw new ErrorResponse("Project bill not found", statusCode.Not_Found);
+    }
+    organizationId = bill.organizationId;
   }
 
-  const { params } = billIdParamSchema.parse({ params: req.params });
   const result = await projectBillingService.getBillById(params.id, organizationId);
   return SuccessResponse(res, "Project bill retrieved successfully", result, statusCode.OK);
 });
@@ -86,12 +128,22 @@ export const getProjectBillById = asyncHandler(async (req, res) => {
  * @access  Private (Authenticated Tenant User)
  */
 export const updateProjectBill = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
+  const parsed = updateProjectBillSchema.parse({ params: req.params, body: req.body });
+  let organizationId = req.user?.organizationId;
   if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+    const bill = await prisma.projectBill.findFirst({
+      where: {
+        id: parsed.params.id,
+        isDeleted: false,
+      },
+      select: { organizationId: true },
+    });
+    if (!bill) {
+      throw new ErrorResponse("Project bill not found", statusCode.Not_Found);
+    }
+    organizationId = bill.organizationId;
   }
 
-  const parsed = updateProjectBillSchema.parse({ params: req.params, body: req.body });
   const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
   const result = await projectBillingService.updateBill(
     parsed.params.id,
@@ -108,12 +160,22 @@ export const updateProjectBill = asyncHandler(async (req, res) => {
  * @access  Private (Authenticated Tenant User)
  */
 export const updateProjectBillStatus = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
+  const parsed = updateProjectBillStatusSchema.parse({ params: req.params, body: req.body });
+  let organizationId = req.user?.organizationId;
   if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+    const bill = await prisma.projectBill.findFirst({
+      where: {
+        id: parsed.params.id,
+        isDeleted: false,
+      },
+      select: { organizationId: true },
+    });
+    if (!bill) {
+      throw new ErrorResponse("Project bill not found", statusCode.Not_Found);
+    }
+    organizationId = bill.organizationId;
   }
 
-  const parsed = updateProjectBillStatusSchema.parse({ params: req.params, body: req.body });
   const result = await projectBillingService.updateBillStatus(
     parsed.params.id,
     organizationId,
@@ -129,12 +191,22 @@ export const updateProjectBillStatus = asyncHandler(async (req, res) => {
  * @access  Private (Authenticated Tenant User)
  */
 export const deleteProjectBill = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
+  const { params } = billIdParamSchema.parse({ params: req.params });
+  let organizationId = req.user?.organizationId;
   if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+    const bill = await prisma.projectBill.findFirst({
+      where: {
+        id: params.id,
+        isDeleted: false,
+      },
+      select: { organizationId: true },
+    });
+    if (!bill) {
+      throw new ErrorResponse("Project bill not found", statusCode.Not_Found);
+    }
+    organizationId = bill.organizationId;
   }
 
-  const { params } = billIdParamSchema.parse({ params: req.params });
   const result = await projectBillingService.deleteBill(params.id, organizationId);
   return SuccessResponse(res, "Project bill deleted successfully", result, statusCode.OK);
 });
@@ -149,11 +221,6 @@ export const deleteProjectBill = asyncHandler(async (req, res) => {
  * @access  Private (Authenticated Tenant User)
  */
 export const createProjectPaymentRecord = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const parsed = createProjectPaymentRecordSchema.parse({ params: req.params, body: req.body });
   const paramProjectId = typeof req.params?.projectId === "string" ? req.params.projectId : undefined;
   const payload = {
@@ -161,6 +228,7 @@ export const createProjectPaymentRecord = asyncHandler(async (req, res) => {
     ...(paramProjectId && { projectId: paramProjectId }),
   };
 
+  const organizationId = await resolveBillingOrgId(req, payload.projectId);
   const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
   const result = await projectBillingService.createPaymentRecord(organizationId, payload, files);
   return SuccessResponse(
@@ -177,17 +245,14 @@ export const createProjectPaymentRecord = asyncHandler(async (req, res) => {
  * @access  Private (Authenticated Tenant User)
  */
 export const getProjectPaymentRecords = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const parsedQuery = getProjectPaymentRecordsQuerySchema.parse({ query: req.query });
   const paramProjectId = typeof req.params?.projectId === "string" ? req.params.projectId : undefined;
   const query = {
     ...parsedQuery.query,
     ...(paramProjectId && { projectId: paramProjectId }),
   };
+
+  const organizationId = await resolveBillingOrgId(req, query.projectId);
 
   const result = await projectBillingService.getPaymentRecords(organizationId, query);
   return SuccessResponse(
@@ -204,12 +269,22 @@ export const getProjectPaymentRecords = asyncHandler(async (req, res) => {
  * @access  Private (Authenticated Tenant User)
  */
 export const getProjectPaymentRecordById = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
+  const { params } = paymentRecordIdParamSchema.parse({ params: req.params });
+  let organizationId = req.user?.organizationId;
   if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+    const payment = await prisma.projectPaymentRecord.findFirst({
+      where: {
+        id: params.id,
+        isDeleted: false,
+      },
+      select: { organizationId: true },
+    });
+    if (!payment) {
+      throw new ErrorResponse("Project payment record not found", statusCode.Not_Found);
+    }
+    organizationId = payment.organizationId;
   }
 
-  const { params } = paymentRecordIdParamSchema.parse({ params: req.params });
   const result = await projectBillingService.getPaymentRecordById(params.id, organizationId);
   return SuccessResponse(
     res,
@@ -225,12 +300,22 @@ export const getProjectPaymentRecordById = asyncHandler(async (req, res) => {
  * @access  Private (Authenticated Tenant User)
  */
 export const updateProjectPaymentRecord = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
+  const parsed = updateProjectPaymentRecordSchema.parse({ params: req.params, body: req.body });
+  let organizationId = req.user?.organizationId;
   if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+    const payment = await prisma.projectPaymentRecord.findFirst({
+      where: {
+        id: parsed.params.id,
+        isDeleted: false,
+      },
+      select: { organizationId: true },
+    });
+    if (!payment) {
+      throw new ErrorResponse("Project payment record not found", statusCode.Not_Found);
+    }
+    organizationId = payment.organizationId;
   }
 
-  const parsed = updateProjectPaymentRecordSchema.parse({ params: req.params, body: req.body });
   const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
   const result = await projectBillingService.updatePaymentRecord(
     parsed.params.id,
@@ -252,12 +337,22 @@ export const updateProjectPaymentRecord = asyncHandler(async (req, res) => {
  * @access  Private (Authenticated Tenant User)
  */
 export const deleteProjectPaymentRecord = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
+  const { params } = paymentRecordIdParamSchema.parse({ params: req.params });
+  let organizationId = req.user?.organizationId;
   if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
+    const payment = await prisma.projectPaymentRecord.findFirst({
+      where: {
+        id: params.id,
+        isDeleted: false,
+      },
+      select: { organizationId: true },
+    });
+    if (!payment) {
+      throw new ErrorResponse("Project payment record not found", statusCode.Not_Found);
+    }
+    organizationId = payment.organizationId;
   }
 
-  const { params } = paymentRecordIdParamSchema.parse({ params: req.params });
   const result = await projectBillingService.deletePaymentRecord(params.id, organizationId);
   return SuccessResponse(
     res,
@@ -277,11 +372,6 @@ export const deleteProjectPaymentRecord = asyncHandler(async (req, res) => {
  * @access  Private (Authenticated Tenant User)
  */
 export const getProjectCommercialSummary = asyncHandler(async (req, res) => {
-  const organizationId = req.user?.organizationId;
-  if (!organizationId) {
-    throw new ErrorResponse("Organization context required", statusCode.Bad_Request);
-  }
-
   const parsedQuery = getProjectCommercialSummaryQuerySchema.parse({
     params: req.params,
     query: req.query,
@@ -291,6 +381,8 @@ export const getProjectCommercialSummary = asyncHandler(async (req, res) => {
   if (!projectId) {
     throw new ErrorResponse("Project ID parameter is required", statusCode.Bad_Request);
   }
+
+  const organizationId = await resolveBillingOrgId(req, projectId);
 
   const result = await projectBillingService.getCommercialSummary(
     projectId,

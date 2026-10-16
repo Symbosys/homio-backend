@@ -22,21 +22,21 @@ export const createQuotation = asyncHandler(async (req, res) => {
   if (!organizationId) {
     throw new ErrorResponse(
       "Organization context required",
-      statusCode.Bad_Request
+      statusCode.Bad_Request,
     );
   }
 
   const validatedInput = CreateQuotationSchema.parse(req.body);
   const result = await quotationService.createQuotation(
     organizationId,
-    validatedInput
+    validatedInput,
   );
 
   return SuccessResponse(
     res,
     "Quotation created successfully",
     result,
-    statusCode.Created
+    statusCode.Created,
   );
 });
 
@@ -50,21 +50,21 @@ export const getQuotations = asyncHandler(async (req, res) => {
   if (!organizationId) {
     throw new ErrorResponse(
       "Organization context required",
-      statusCode.Bad_Request
+      statusCode.Bad_Request,
     );
   }
 
   const validatedQuery = GetQuotationsQuerySchema.parse(req.query);
   const result = await quotationService.getQuotations(
     organizationId,
-    validatedQuery
+    validatedQuery,
   );
 
   return SuccessResponse(
     res,
     "Quotations fetched successfully",
     result,
-    statusCode.OK
+    statusCode.OK,
   );
 });
 
@@ -78,7 +78,7 @@ export const getQuotationById = asyncHandler(async (req, res) => {
   if (!organizationId) {
     throw new ErrorResponse(
       "Organization context required",
-      statusCode.Bad_Request
+      statusCode.Bad_Request,
     );
   }
 
@@ -86,20 +86,20 @@ export const getQuotationById = asyncHandler(async (req, res) => {
   if (!quotationId || typeof quotationId !== "string") {
     throw new ErrorResponse(
       "Quotation ID parameter is required",
-      statusCode.Bad_Request
+      statusCode.Bad_Request,
     );
   }
 
   const result = await quotationService.getQuotationById(
     organizationId,
-    quotationId
+    quotationId,
   );
 
   return SuccessResponse(
     res,
     "Quotation retrieved successfully",
     result,
-    statusCode.OK
+    statusCode.OK,
   );
 });
 
@@ -113,7 +113,7 @@ export const updateQuotation = asyncHandler(async (req, res) => {
   if (!organizationId) {
     throw new ErrorResponse(
       "Organization context required",
-      statusCode.Bad_Request
+      statusCode.Bad_Request,
     );
   }
 
@@ -121,7 +121,7 @@ export const updateQuotation = asyncHandler(async (req, res) => {
   if (!quotationId || typeof quotationId !== "string") {
     throw new ErrorResponse(
       "Quotation ID parameter is required",
-      statusCode.Bad_Request
+      statusCode.Bad_Request,
     );
   }
 
@@ -129,14 +129,14 @@ export const updateQuotation = asyncHandler(async (req, res) => {
   const result = await quotationService.updateQuotation(
     organizationId,
     quotationId,
-    validatedInput
+    validatedInput,
   );
 
   return SuccessResponse(
     res,
     "Quotation updated successfully",
     result,
-    statusCode.OK
+    statusCode.OK,
   );
 });
 
@@ -150,7 +150,7 @@ export const adjustQuotationExpiry = asyncHandler(async (req, res) => {
   if (!organizationId) {
     throw new ErrorResponse(
       "Organization context required",
-      statusCode.Bad_Request
+      statusCode.Bad_Request,
     );
   }
 
@@ -158,7 +158,7 @@ export const adjustQuotationExpiry = asyncHandler(async (req, res) => {
   if (!quotationId || typeof quotationId !== "string") {
     throw new ErrorResponse(
       "Quotation ID parameter is required",
-      statusCode.Bad_Request
+      statusCode.Bad_Request,
     );
   }
 
@@ -166,15 +166,13 @@ export const adjustQuotationExpiry = asyncHandler(async (req, res) => {
   const result = await quotationService.adjustDiscountExpiry(
     organizationId,
     quotationId,
-    validatedInput
+    validatedInput,
   );
 
   return SuccessResponse(
     res,
     "Quotation discount expiry updated successfully",
     result,
-    statusCode.OK
+    statusCode.OK,
   );
 });
-
-

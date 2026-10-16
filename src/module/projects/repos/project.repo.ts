@@ -360,6 +360,7 @@ export class ProjectRepository {
             status: true,
             source: true,
             priority: true,
+            quotations: true,
           },
         },
         serviceCategory: {
@@ -465,6 +466,11 @@ export class ProjectRepository {
             progressPercent: true,
             designProgress: true,
             executionProgress: true,
+          },
+        },
+        lead: {
+          include: {
+            quotations: true,
           },
         },
         members: {

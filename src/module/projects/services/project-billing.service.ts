@@ -120,11 +120,8 @@ export class ProjectBillingService {
       throw new ErrorResponse("Project not found in this organization", statusCode.Not_Found);
     }
 
-    // 2. Validate Vendor for MATERIAL bills
-    if (billType === ProjectBillType.MATERIAL) {
-      if (!vendorId) {
-        throw new ErrorResponse("Vendor selection is required for Material bills", statusCode.Bad_Request);
-      }
+    // 2. Validate Vendor if provided (Optional for MATERIAL bills)
+    if (vendorId) {
       const vendor = await prisma.vendor.findFirst({
         where: { id: vendorId, organizationId, isDeleted: false },
       });
@@ -133,11 +130,8 @@ export class ProjectBillingService {
       }
     }
 
-    // 3. Validate Labour for LABOUR bills
-    if (billType === ProjectBillType.LABOUR) {
-      if (!labourId) {
-        throw new ErrorResponse("Labour selection is required for Labour bills", statusCode.Bad_Request);
-      }
+    // 3. Validate Labour if provided (Optional for LABOUR bills)
+    if (labourId) {
       const labour = await prisma.labour.findFirst({
         where: { id: labourId, organizationId, isDeleted: false },
       });
