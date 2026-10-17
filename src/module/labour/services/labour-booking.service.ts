@@ -197,14 +197,18 @@ export class LabourBookingService {
     const newLog = { bookingId, labourId, rejectedAt: now.toISOString(), reason: reason || "Rejected by client" };
     const updatedLogs = [...currentLogs, newLog];
 
+    const setting = await labourBookingRepo.getPlatformSetting();
+    const threshold = setting?.consecutiveRejectionsThreshold ?? 3;
+    const cooldownDays = setting?.cooldownPeriodDays ?? 3;
+
     const currentCount = existing && (!existing.lockedUntil || existing.lockedUntil < now)
       ? existing.rejectionCount
       : 0;
 
     const newCount = currentCount + 1;
-    const isThresholdReached = newCount >= 3;
+    const isThresholdReached = newCount >= threshold;
     const lockedUntil = isThresholdReached
-      ? new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000) // 3 days (72 hours)
+      ? new Date(now.getTime() + cooldownDays * 24 * 60 * 60 * 1000)
       : null;
 
     await labourBookingRepo.upsertUserCategoryCooldown(clientId, category, {
@@ -370,7 +374,8 @@ export class LabourBookingService {
     const estimatedDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
     const dailyRate = Number(labour.dailyRate || 0);
     const totalBudget = dailyRate * estimatedDays;
-    const commissionRate = MARKETPLACE_CONFIG.DEFAULT_COMMISSION_PERCENTAGE;
+    const setting = await labourBookingRepo.getPlatformSetting();
+    const commissionRate = Number(setting?.platformCommissionRate ?? MARKETPLACE_CONFIG.DEFAULT_COMMISSION_PERCENTAGE);
     const commissionAmount = Number(((totalBudget * commissionRate) / 100).toFixed(2));
 
     // 4. Create marketplace booking record
@@ -465,7 +470,8 @@ export class LabourBookingService {
         const bookingNumber = bookingNumbers[i]!;
         const dailyRate = Number(selectedLabour.dailyRate || 0);
         const totalBudget = dailyRate * estimatedDays;
-        const commissionRate = MARKETPLACE_CONFIG.DEFAULT_COMMISSION_PERCENTAGE;
+        const setting = await labourBookingRepo.getPlatformSetting();
+        const commissionRate = Number(setting?.platformCommissionRate ?? MARKETPLACE_CONFIG.DEFAULT_COMMISSION_PERCENTAGE);
         const commissionAmount = Number(((totalBudget * commissionRate) / 100).toFixed(2));
 
         const booking = await labourBookingRepo.create({
@@ -738,8 +744,9 @@ export class LabourBookingService {
 
       // Calculate commission only for Platform Marketplace bookings
       if (booking.channel === "PLATFORM_MARKETPLACE") {
-        const rate = Number(booking.commissionRate || MARKETPLACE_CONFIG.DEFAULT_COMMISSION_PERCENTAGE);
-        commissionAmount = (quoteAmount * rate) / 100;
+        const setting = await labourBookingRepo.getPlatformSetting();
+        const rate = Number(booking.commissionRate ?? setting?.platformCommissionRate ?? MARKETPLACE_CONFIG.DEFAULT_COMMISSION_PERCENTAGE);
+        commissionAmount = Number(((quoteAmount * rate) / 100).toFixed(2));
         commissionStatus = "PENDING";
       }
 
@@ -969,14 +976,16 @@ export class LabourBookingService {
       );
     }
 
-    // 24-hour verification: Check hours elapsed since booking acceptance/request
+    // Delay verification: Check hours elapsed since booking acceptance/request against platform setting
+    const platformSetting = await labourBookingRepo.getPlatformSetting();
+    const minHours = platformSetting?.delayReportMinHours ?? MARKETPLACE_CONFIG.DELAY_REPORT_MIN_HOURS;
     const referenceDate = booking.acceptedAt || booking.startDate || booking.createdAt;
     const hoursElapsed = (Date.now() - new Date(referenceDate).getTime()) / (1000 * 60 * 60);
 
-    if (hoursElapsed < MARKETPLACE_CONFIG.DELAY_REPORT_MIN_HOURS && !isPlatformAdmin) {
-      const remainingHours = Math.ceil(MARKETPLACE_CONFIG.DELAY_REPORT_MIN_HOURS - hoursElapsed);
+    if (hoursElapsed < minHours && !isPlatformAdmin) {
+      const remainingHours = Math.ceil(minHours - hoursElapsed);
       throw new ErrorResponse(
-        `Arrival delay can only be reported after 24 hours if the worker has not reached the site. Please wait ${remainingHours} more hour(s).`,
+        `Arrival delay can only be reported after ${minHours} hours if the worker has not reached the site. Please wait ${remainingHours} more hour(s).`,
         statusCode.Bad_Request
       );
     }
@@ -1020,7 +1029,6 @@ export class LabourBookingService {
     }
 
     // Check Platform Setting: Auto vs Manual Assignment on Delay
-    const platformSetting = await labourBookingRepo.getPlatformSetting();
     if (platformSetting.autoAssignLabour && booking.state && booking.city) {
       const candidateLabours = await labourBookingRepo.findAvailableLaboursInRegion(
         booking.state,

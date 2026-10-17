@@ -401,9 +401,29 @@ export type ManualAssignLabourInput = z.infer<typeof manualAssignLabourSchema>["
 export const platformLabourSettingSchema = z.object({
   body: z.object({
     autoAssignLabour: z.boolean().optional(),
-    cooldownPeriodDays: z.coerce.number().int().positive().optional(),
-    consecutiveRejectionsThreshold: z.coerce.number().int().positive().optional(),
-    delayReportMinHours: z.coerce.number().int().positive().optional(),
+    platformCommissionRate: z.coerce
+      .number()
+      .min(0, "Commission rate cannot be negative")
+      .max(100, "Commission rate cannot exceed 100%")
+      .optional(),
+    cooldownPeriodDays: z.coerce
+      .number()
+      .int("Cooldown period must be an integer")
+      .min(1, "Cooldown period must be at least 1 day")
+      .max(90, "Cooldown period cannot exceed 90 days")
+      .optional(),
+    consecutiveRejectionsThreshold: z.coerce
+      .number()
+      .int("Rejections threshold must be an integer")
+      .min(1, "Rejections threshold must be at least 1")
+      .max(20, "Rejections threshold cannot exceed 20")
+      .optional(),
+    delayReportMinHours: z.coerce
+      .number()
+      .int("Delay report window must be an integer")
+      .min(1, "Delay report window must be at least 1 hour")
+      .max(168, "Delay report window cannot exceed 168 hours (7 days)")
+      .optional(),
   }),
 });
 export type PlatformLabourSettingInput = z.infer<typeof platformLabourSettingSchema>["body"];

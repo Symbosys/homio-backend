@@ -515,6 +515,7 @@ model LabourDispute {
 model PlatformLabourSetting {
   id                             String   @id @default(uuid()) @db.Uuid
   autoAssignLabour               Boolean  @default(true) @map("auto_assign_labour")
+  platformCommissionRate         Decimal  @default(10.00) @map("platform_commission_rate") @db.Decimal(5, 2)
   cooldownPeriodDays             Int      @default(3) @map("cooldown_period_days")
   consecutiveRejectionsThreshold Int      @default(3) @map("consecutive_rejections_threshold")
   delayReportMinHours            Int      @default(24) @map("delay_report_min_hours")

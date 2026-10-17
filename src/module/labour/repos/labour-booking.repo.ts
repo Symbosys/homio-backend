@@ -593,6 +593,7 @@ export class LabourBookingRepo {
       setting = await prisma.platformLabourSetting.create({
         data: {
           autoAssignLabour: true,
+          platformCommissionRate: 10.00,
           cooldownPeriodDays: 3,
           consecutiveRejectionsThreshold: 3,
           delayReportMinHours: 24,
@@ -607,6 +608,7 @@ export class LabourBookingRepo {
    */
   async updatePlatformSetting(data: {
     autoAssignLabour?: boolean;
+    platformCommissionRate?: number | any;
     cooldownPeriodDays?: number;
     consecutiveRejectionsThreshold?: number;
     delayReportMinHours?: number;
