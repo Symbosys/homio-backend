@@ -41,6 +41,7 @@ import aiTrainingRouter from "./module/ai-training/routes/ai-training.routes.js"
 import autoFollowUpRoutes from "./module/auto-followup/routes/auto-followup.routes.js";
 import reportsRouter from "./module/reports/routes/index.js";
 import dashboardRouter from "./module/dashboard/routes/index.js";
+import { designExpertRouter } from "./module/design-expert/routes/index.js";
 
 const app = express();
 
@@ -99,6 +100,7 @@ app.use("/api/v1/platform/organizations", platformOrganizationRoutes);
 app.use("/api/v1/platform/ai-studio", platformAiStudioRoutes);
 app.use("/api/v1/platform/llm", llmPlatformRoutes);
 app.use("/api/v1/platform/labours", platformLabourRoutes);
+app.use("/api/v1/design-experts", designExpertRouter);
 
 /**
  * Marketplace Multi-Vertical Module Routes

@@ -1,0 +1,177 @@
+// ============================================================================
+// HOMIO CRM - DESIGN EXPERT VIDEO CONSULTATION SCHEMA (CONSOLIDATED)
+// ============================================================================
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum DesignExpertStatus {
+  ACTIVE             // Available for client bookings
+  INACTIVE           // Hidden from client directory
+  ON_LEAVE           // Temporarily unavailable for new sessions
+  SUSPENDED          // Suspended due to disciplinary or KYC violation
+}
+
+enum ExpertBookingStatus {
+  SCHEDULED          // Confirmed and slot reserved
+  COMPLETED          // Video call concluded
+  CANCELLED          // Cancelled (frees up the slot)
+}
+
+enum ExpertPaymentStatus {
+  FREE               // Promotional / complimentary consultation
+  PENDING            // Awaiting Razorpay payment
+  PAID               // Payment verified via Razorpay
+  REFUNDED           // Refunded in case of cancellation
+}
+
+// ==========================================
+// 1. DESIGN EXPERT PROFILE (Platform Managed)
+// ==========================================
+model DesignExpert {
+  id                     String             @id @default(uuid()) @db.Uuid
+  
+  // Basic Identity
+  name                   String             @map("name")
+  title                  String             @map("title") // e.g. "Principal Architect & Modular Specialist"
+  qualification          String?            @map("qualification") // e.g. "B.Arch - CEPT, COA Registered"
+  experienceYears        Int                @default(0) @map("experience_years")
+  specialties            String[]           @default([]) @map("specialties") // ["Modular Kitchen", "Living Room", "Luxury Villas", "Vastu Compliant"]
+  languages              String[]           @default(["English", "Hindi"]) @map("languages")
+  bio                    String?            @map("bio") @db.Text
+  avatarUrl              Json?              @map("avatar_url") // ImageType JSON { id, url, bytes, format, provider }
+
+  // Contact & Meeting Links
+  phone                  String?            @map("phone")
+  email                  String?            @map("email")
+  defaultMeetingUrl      String?            @map("default_meeting_url") // e.g. "https://meet.google.com/abc-defg-hij"
+
+  // Pricing & Session Configuration (INR)
+  consultationFee        Decimal            @default(0.00) @map("consultation_fee") @db.Decimal(10, 2)
+  slotDurationMinutes    Int                @default(30) @map("slot_duration_minutes") // Default 30 min session
+
+  // Status & Governance for Platform Management
+  status                 DesignExpertStatus @default(ACTIVE) @map("status") // ACTIVE, INACTIVE, ON_LEAVE, SUSPENDED
+
+  // Aggregated Ratings & Metrics
+  averageRating          Float              @default(5.0) @map("average_rating")
+  totalReviewsCount      Int                @default(0)   @map("total_reviews_count")
+  completedBookingsCount Int                @default(0)   @map("completed_bookings_count")
+
+  // Universal Additional Information (Homio Standard Rule 18)
+  additionalInformation  Json?              @map("additional_information")
+
+  // Soft Delete & Timestamps
+  isDeleted              Boolean            @default(false) @map("is_deleted")
+  deletedAt              DateTime?          @map("deleted_at")
+  createdAt              DateTime           @default(now()) @map("created_at")
+  updatedAt              DateTime           @updatedAt      @map("updated_at")
+
+  // Relations
+  availabilities         DesignExpertAvailability[]
+  bookings               DesignExpertBooking[]
+
+  @@index([status])
+  @@index([averageRating])
+  @@map("design_experts")
+}
+
+// ==========================================
+// 2. CONSOLIDATED AVAILABILITY TABLE
+// (Handles weekly recurring hours AND date-specific leaves/overrides)
+// ==========================================
+model DesignExpertAvailability {
+  id            String        @id @default(uuid()) @db.Uuid
+  expertId      String        @map("expert_id") @db.Uuid
+  expert        DesignExpert  @relation(fields: [expertId], references: [id], onDelete: Cascade)
+
+  // Mode 1: Weekly Recurring Rule (e.g. dayOfWeek = MONDAY, specificDate = null)
+  dayOfWeek     DayOfWeek?    @map("day_of_week")
+
+  // Mode 2: Date-Specific Override / Leave (e.g. dayOfWeek = null, specificDate = 2026-11-15)
+  specificDate  DateTime?     @map("specific_date") @db.Date
+
+  // Time Window
+  startTime     String?       @map("start_time") // "10:00" (nullable if whole day is marked unavailable)
+  endTime       String?       @map("end_time")   // "18:00"
+
+  // Availability Flag
+  isAvailable   Boolean       @default(true) @map("is_available") // false = on leave / holiday / blocked
+  reason        String?       @map("reason") // e.g. "Weekly Regular Shift", "Medical Leave", "Public Holiday"
+
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt      @map("updated_at")
+
+  @@index([expertId, dayOfWeek])
+  @@index([expertId, specificDate])
+  @@map("design_expert_availabilities")
+}
+
+// ==========================================
+// 3. DESIGN EXPERT VIDEO CALL BOOKING
+// ==========================================
+model DesignExpertBooking {
+  id                    String              @id @default(uuid()) @db.Uuid
+  bookingNumber         String              @unique @map("booking_number") // e.g. "DEB-2026-0001"
+
+  // Parties Involved
+  expertId              String              @map("expert_id") @db.Uuid
+  expert                DesignExpert        @relation(fields: [expertId], references: [id], onDelete: Restrict)
+
+  userId                String              @map("user_id") @db.Uuid
+  user                  User                @relation("UserExpertBookings", fields: [userId], references: [id], onDelete: Restrict)
+
+  // Scheduled Date & Time
+  bookingDate           DateTime            @map("booking_date") @db.Date // e.g. 2026-10-25
+  startTime             String              @map("start_time")   // e.g. "10:30"
+  endTime               String              @map("end_time")     // e.g. "11:00"
+
+  // Video Call Connection
+  meetingUrl            String?             @map("meeting_url")  // Google Meet / Zoom link
+
+  // Consultation Scope & User Project Requirements
+  topic                 String?             @map("topic")        // e.g. "Living Room Layout & Modular Kitchen Concept"
+  propertyType          String?             @map("property_type") // e.g. "3BHK Apartment", "Independent Villa"
+  requirements          String?             @map("requirements") @db.Text
+  floorPlanFiles        Json?               @map("floor_plan_files") // Uploaded floor plan files { id, url, name }
+
+  // Lifecycle Status
+  status                ExpertBookingStatus @default(SCHEDULED) @map("status") // SCHEDULED, COMPLETED, CANCELLED
+
+  // Razorpay Payment Integration (Future-Ready)
+  amount                Decimal             @default(0.00) @map("amount") @db.Decimal(10, 2)
+  paymentStatus         ExpertPaymentStatus @default(FREE) @map("payment_status") // FREE, PENDING, PAID, REFUNDED
+  razorpayOrderId       String?             @map("razorpay_order_id")
+  razorpayPaymentId     String?             @map("razorpay_payment_id")
+  razorpaySignature     String?             @map("razorpay_signature")
+  paidAt                DateTime?           @map("paid_at")
+
+  // Client Rating & Review (Submitted Post-Session)
+  rating                Int?                @map("rating") // 1 to 5 Stars
+  reviewComment         String?             @map("review_comment") @db.Text
+  reviewedAt            DateTime?           @map("reviewed_at")
+
+  // Universal Additional Information (Homio Standard Rule 18)
+  additionalInformation Json?               @map("additional_information")
+
+  // Soft Delete & Timestamps
+  isDeleted             Boolean             @default(false) @map("is_deleted")
+  deletedAt             DateTime?           @map("deleted_at")
+  createdAt             DateTime            @default(now()) @map("created_at")
+  updatedAt             DateTime            @updatedAt      @map("updated_at")
+
+  // Prevents double-booking: guarantees at DB level that the exact same slot cannot be booked twice for an expert
+  @@unique([expertId, bookingDate, startTime], name: "unique_expert_slot_booking")
+  @@index([expertId, bookingDate])
+  @@index([userId])
+  @@index([status])
+  @@index([paymentStatus])
+  @@map("design_expert_bookings")
+}

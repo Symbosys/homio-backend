@@ -102,6 +102,7 @@ model User {
   clientMarketplaceBookings LabourBooking[]              @relation("ClientMarketplaceBookings")
   labourCategoryCooldowns   UserLabourCategoryCooldown[] @relation("UserLabourCategoryCooldowns")
   platformLabourSettingsUpdated PlatformLabourSetting[]  @relation("PlatformLabourSettingUpdatedBy")
+  expertBookings            DesignExpertBooking[]        @relation("UserExpertBookings")
 
   // AI Studio Relations (User-Centric Architecture)
   aiWallet                  AiWallet?               @relation("UserAiWallet")
