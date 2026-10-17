@@ -17,12 +17,33 @@ import {
   settleLabourBookingCommission,
   reportLabourBookingDelay,
   reassignLabourBooking,
+  createServiceBooking,
+  checkLabourAvailability,
+  manualAssignLabourBooking,
 } from "../controllers/labour-booking.controller.js";
 
 const router = Router();
 
 // Protect all booking endpoints with authentication
 router.use("/bookings", authenticate);
+
+/**
+ * @route   POST /api/v1/labour/bookings/service-request
+ * @desc    Client requests on-demand service booking (only workTitle, startDate, endDate, description, specialInstructions, taskChecklist, state, city, category)
+ */
+router.post("/bookings/service-request", createServiceBooking);
+
+/**
+ * @route   GET /api/v1/labour/bookings/check-availability
+ * @desc    Pre-check availability & cooldown for client before requesting service booking
+ */
+router.get("/bookings/check-availability", checkLabourAvailability);
+
+/**
+ * @route   POST /api/v1/labour/bookings/:id/manual-assign
+ * @desc    Platform Admin manually assigns labour worker to pending/delayed service booking
+ */
+router.post("/bookings/:id/manual-assign", manualAssignLabourBooking);
 
 /**
  * @route   POST /api/v1/labour/bookings/marketplace

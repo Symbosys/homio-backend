@@ -8,6 +8,10 @@ import { MARKETPLACE_CONFIG } from "../../../constants/marketplace.constants.js"
 import type {
   CreateLabourBookingInput,
   CreateMarketplaceBookingInput,
+  CreateServiceBookingInput,
+  CheckAvailabilityQuery,
+  ManualAssignLabourInput,
+  PlatformLabourSettingInput,
   UpdateLabourBookingInput,
   GetLabourBookingsQuery,
   SubmitQuoteInput,
@@ -114,6 +118,104 @@ export class LabourBookingService {
         },
       });
     }
+  }
+
+  /**
+   * Helper: Check if client is under 3-day cooldown for the requested category
+   */
+  private async assertUserNotUnderCooldown(userId: string, category: string): Promise<void> {
+    const record = await labourBookingRepo.getUserCategoryCooldown(userId, category);
+    if (!record || !record.isLocked) return;
+
+    const now = new Date();
+    if (record.lockedUntil && record.lockedUntil > now) {
+      const diffMs = record.lockedUntil.getTime() - now.getTime();
+      const hoursRemaining = Math.ceil(diffMs / (1000 * 60 * 60));
+      throw new ErrorResponse(
+        `You have consecutively rejected quotations for 3 labours under category '${category}'. ` +
+        `Service requests for this category are temporarily locked for 3 days (${hoursRemaining} hour(s) remaining until ${record.lockedUntil.toISOString()}).`,
+        statusCode.Forbidden
+      );
+    }
+
+    // Cooldown expired: Reset status automatically
+    await labourBookingRepo.upsertUserCategoryCooldown(userId, category, {
+      isLocked: false,
+      lockedUntil: null,
+      rejectionCount: 0,
+    });
+  }
+
+  /**
+   * Helper: Validate available verified labours in state, city, and category
+   */
+  private async validateAvailableLaboursInRegion(
+    state: string,
+    city: string,
+    category: string,
+    requiredCount: number = 1
+  ) {
+    const labours = await labourBookingRepo.findAvailableLaboursInRegion(state, city, category);
+    if (labours.length === 0) {
+      throw new ErrorResponse(
+        `No verified labours are available in your city (${city}, ${state}) for ${category}.`,
+        statusCode.Bad_Request
+      );
+    }
+    if (labours.length < requiredCount) {
+      throw new ErrorResponse(
+        `Only ${labours.length} labour(s) are available in your city (${city}, ${state}) for ${category}. You requested ${requiredCount}.`,
+        statusCode.Bad_Request
+      );
+    }
+    return labours;
+  }
+
+  /**
+   * Helper: Handle quotation response cooldown logic
+   */
+  private async handleQuotationResponseCooldown(
+    clientId: string,
+    category: string,
+    accepted: boolean,
+    bookingId: string,
+    labourId: string,
+    reason?: string
+  ) {
+    if (accepted) {
+      await labourBookingRepo.upsertUserCategoryCooldown(clientId, category, {
+        rejectionCount: 0,
+        isLocked: false,
+        lockedUntil: null,
+      });
+      return { cooldownApplied: false, lockedUntil: null };
+    }
+
+    const existing = await labourBookingRepo.getUserCategoryCooldown(clientId, category);
+    const now = new Date();
+    const currentLogs = Array.isArray(existing?.rejectionLogs) ? (existing!.rejectionLogs as any[]) : [];
+    const newLog = { bookingId, labourId, rejectedAt: now.toISOString(), reason: reason || "Rejected by client" };
+    const updatedLogs = [...currentLogs, newLog];
+
+    const currentCount = existing && (!existing.lockedUntil || existing.lockedUntil < now)
+      ? existing.rejectionCount
+      : 0;
+
+    const newCount = currentCount + 1;
+    const isThresholdReached = newCount >= 3;
+    const lockedUntil = isThresholdReached
+      ? new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000) // 3 days (72 hours)
+      : null;
+
+    await labourBookingRepo.upsertUserCategoryCooldown(clientId, category, {
+      rejectionCount: newCount,
+      isLocked: isThresholdReached,
+      lockedUntil,
+      lastRejectedAt: now,
+      rejectionLogs: updatedLogs,
+    });
+
+    return { cooldownApplied: isThresholdReached, lockedUntil, rejectionCount: newCount };
   }
 
   /**
@@ -308,12 +410,196 @@ export class LabourBookingService {
   }
 
   /**
+   * Create a service booking request by Client (Homeowner Service Request)
+   * User fills only: workTitle, startDate, endDate, description, specialInstructions, taskChecklist, state, city, category
+   */
+  async createServiceBooking(payload: CreateServiceBookingInput, clientId: string) {
+    // 1. Verify client exists and is not blacklisted
+    const client = await prisma.user.findUnique({
+      where: { id: clientId },
+    });
+    if (!client) {
+      throw new ErrorResponse("Client profile not found", statusCode.Not_Found);
+    }
+    if (client.isBlacklisted) {
+      throw new ErrorResponse(
+        `Client account is currently suspended/blacklisted. Reason: ${client.blacklistReason || "Policy violations / unpaid worker dues"}`,
+        statusCode.Forbidden
+      );
+    }
+
+    // 2. Check 3-day quotation rejection cooldown rule for requested category
+    await this.assertUserNotUnderCooldown(clientId, payload.category);
+
+    const labourCount = payload.labourCount ? Number(payload.labourCount) : 1;
+
+    // 3. Strict regional availability guard: Check available verified labours in (state, city, category) for requested count
+    const availableLabours = await this.validateAvailableLaboursInRegion(
+      payload.state,
+      payload.city,
+      payload.category,
+      labourCount
+    );
+
+    // 4. Check Platform Setting: Auto vs Manual Assignment toggle
+    const platformSetting = await labourBookingRepo.getPlatformSetting();
+    const isAutoAssignOn = platformSetting.autoAssignLabour;
+
+    // 5. Generate Service Booking sequence numbers (SB-YYYY-0001, SB-YYYY-0002...)
+    const bookingNumbers = await labourBookingRepo.generateBookingNumbers("SB", labourCount);
+
+    const startDate = new Date(payload.startDate);
+    const endDate = new Date(payload.endDate);
+    const diffTime = endDate.getTime() - startDate.getTime();
+    const estimatedDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
+
+    const createdBookings: any[] = [];
+
+    if (isAutoAssignOn) {
+      // Pick distinct available labours from the candidate pool
+      const shuffled = [...availableLabours].sort(() => 0.5 - Math.random());
+      const selectedLabours = shuffled.slice(0, labourCount);
+
+      for (let i = 0; i < labourCount; i++) {
+        const selectedLabour = selectedLabours[i]!;
+        const bookingNumber = bookingNumbers[i]!;
+        const dailyRate = Number(selectedLabour.dailyRate || 0);
+        const totalBudget = dailyRate * estimatedDays;
+        const commissionRate = MARKETPLACE_CONFIG.DEFAULT_COMMISSION_PERCENTAGE;
+        const commissionAmount = Number(((totalBudget * commissionRate) / 100).toFixed(2));
+
+        const booking = await labourBookingRepo.create({
+          channel: "PLATFORM_MARKETPLACE",
+          bookingNumber,
+          labourId: selectedLabour.id,
+          clientId,
+          assignmentType: "AUTO",
+          workTitle: payload.workTitle,
+          category: payload.category,
+          workDescription: payload.description || null,
+          specialInstructions: payload.specialInstructions || null,
+          taskChecklist: payload.taskChecklist || null,
+          state: payload.state,
+          city: payload.city,
+          startDate,
+          endDate,
+          termsAccepted: true,
+          termsAcceptedAt: new Date(),
+          agreedDailyRate: selectedLabour.dailyRate,
+          estimatedDays,
+          totalBudget,
+          commissionRate,
+          commissionAmount,
+          commissionStatus: "PENDING",
+          status: "REQUESTED",
+        });
+
+        createdBookings.push(booking);
+      }
+
+      return {
+        count: createdBookings.length,
+        bookings: createdBookings,
+        booking: createdBookings[0] || null,
+        assignedMode: "AUTO",
+        assignedLabours: selectedLabours,
+      };
+    } else {
+      // Manual assign: all bookings saved without labour, status PENDING_ASSIGNMENT
+      for (let i = 0; i < labourCount; i++) {
+        const bookingNumber = bookingNumbers[i]!;
+        const booking = await labourBookingRepo.create({
+          channel: "PLATFORM_MARKETPLACE",
+          bookingNumber,
+          labourId: null,
+          clientId,
+          assignmentType: "MANUAL",
+          workTitle: payload.workTitle,
+          category: payload.category,
+          workDescription: payload.description || null,
+          specialInstructions: payload.specialInstructions || null,
+          taskChecklist: payload.taskChecklist || null,
+          state: payload.state,
+          city: payload.city,
+          startDate,
+          endDate,
+          termsAccepted: true,
+          termsAcceptedAt: new Date(),
+          status: "PENDING_ASSIGNMENT",
+        });
+
+        createdBookings.push(booking);
+      }
+
+      return {
+        count: createdBookings.length,
+        bookings: createdBookings,
+        booking: createdBookings[0] || null,
+        assignedMode: "MANUAL",
+        assignedLabour: null,
+        assignedLabours: [],
+      };
+    }
+  }
+
+  /**
+   * Pre-check availability & cooldown for client before requesting service booking
+   */
+  async checkAvailability(query: CheckAvailabilityQuery, clientId?: string) {
+    let isUnderCooldown = false;
+    let cooldownRemainingHours = 0;
+    let lockedUntil: Date | null = null;
+
+    if (clientId) {
+      const cooldownRecord = await labourBookingRepo.getUserCategoryCooldown(clientId, query.category);
+      if (cooldownRecord && cooldownRecord.isLocked && cooldownRecord.lockedUntil) {
+        const now = new Date();
+        if (cooldownRecord.lockedUntil > now) {
+          isUnderCooldown = true;
+          lockedUntil = cooldownRecord.lockedUntil;
+          cooldownRemainingHours = Math.ceil((cooldownRecord.lockedUntil.getTime() - now.getTime()) / (1000 * 60 * 60));
+        }
+      }
+    }
+
+    const requestedCount = query.labourCount ? Number(query.labourCount) : 1;
+    const availableLabours = await labourBookingRepo.findAvailableLaboursInRegion(query.state, query.city, query.category);
+    const platformSetting = await labourBookingRepo.getPlatformSetting();
+
+    const isSufficient = availableLabours.length >= requestedCount;
+    let message = "";
+    if (availableLabours.length === 0) {
+      message = `No verified labours are available in your city (${query.city}, ${query.state}) for ${query.category}.`;
+    } else if (availableLabours.length < requestedCount) {
+      message = `Only ${availableLabours.length} labour(s) are available in your city (${query.city}, ${query.state}) for ${query.category}. You requested ${requestedCount}.`;
+    } else {
+      message = `${availableLabours.length} verified labour(s) available in your city.`;
+    }
+
+    return {
+      available: isSufficient && !isUnderCooldown,
+      availableLaboursCount: availableLabours.length,
+      requestedCount,
+      isSufficient,
+      message,
+      isUnderCooldown,
+      cooldownRemainingHours,
+      lockedUntil,
+      autoAssignEnabled: platformSetting.autoAssignLabour,
+    };
+  }
+
+  /**
    * Labour Worker accepts incoming booking request
    */
   async acceptBooking(id: string, user: { id: string; userType?: string; isPlatformAdmin?: boolean }) {
     const booking = await labourBookingRepo.findById(id);
     if (!booking) {
       throw new ErrorResponse("Booking not found", statusCode.Not_Found);
+    }
+
+    if (!booking.labourId) {
+      throw new ErrorResponse("No labour worker assigned to this booking.", statusCode.Bad_Request);
     }
 
     // Check authorization: worker must be linked or platform admin
@@ -358,6 +644,10 @@ export class LabourBookingService {
       throw new ErrorResponse("Booking not found", statusCode.Not_Found);
     }
 
+    if (!booking.labourId) {
+      throw new ErrorResponse("No labour worker assigned to this booking.", statusCode.Bad_Request);
+    }
+
     if (!user.isPlatformAdmin) {
       const isAssigned = await this.isAssignedWorker(booking.labourId, user.id);
       if (!isAssigned && booking.labourId !== user.id) {
@@ -391,6 +681,10 @@ export class LabourBookingService {
     const booking = await labourBookingRepo.findById(id);
     if (!booking) {
       throw new ErrorResponse("Booking not found", statusCode.Not_Found);
+    }
+
+    if (!booking.labourId) {
+      throw new ErrorResponse("No labour worker assigned to this booking.", statusCode.Bad_Request);
     }
 
     if (!user.isPlatformAdmin) {
@@ -435,7 +729,9 @@ export class LabourBookingService {
       throw new ErrorResponse(`Cannot respond to quotation in status: ${booking.status}. Expected QUOTE_PROVIDED.`, statusCode.Bad_Request);
     }
 
-    if (payload.accept) {
+    const isAccepted = payload.accept === true || (payload as any).accepted === true;
+
+    if (isAccepted) {
       const quoteAmount = Number(booking.quoteAmount || 0);
       let commissionAmount = 0.00;
       let commissionStatus = "NOT_APPLICABLE";
@@ -457,20 +753,53 @@ export class LabourBookingService {
       });
 
       // Labour is actively at work
-      await prisma.labour.update({
-        where: { id: booking.labourId },
-        data: {
-          status: LabourStatus.AT_WORK,
-          isAvailable: false,
-        },
-      });
+      if (booking.labourId) {
+        await prisma.labour.update({
+          where: { id: booking.labourId },
+          data: {
+            status: LabourStatus.AT_WORK,
+            isAvailable: false,
+          },
+        });
+      }
+
+      // Reset consecutive rejection counter for this category upon quote acceptance
+      await this.handleQuotationResponseCooldown(
+        booking.clientId!,
+        booking.category || "General",
+        true,
+        id,
+        booking.labourId || ""
+      );
 
       return updated;
     } else {
-      return labourBookingRepo.update(id, {
+      const updated = await labourBookingRepo.update(id, {
         status: "QUOTE_REJECTED",
         statusReason: payload.rejectionReason || "Quote rejected by client",
       });
+
+      // Track consecutive rejection and trigger 3-day cooldown if threshold reached (3 rejections)
+      const cooldownResult = await this.handleQuotationResponseCooldown(
+        booking.clientId!,
+        booking.category || "General",
+        false,
+        id,
+        booking.labourId || "",
+        payload.rejectionReason || undefined
+      );
+
+      // Check if labour has no other active ongoing bookings and sync status to AVAILABLE
+      if (booking.labourId) {
+        await this.syncLabourAvailability(booking.labourId, id);
+      }
+
+      return {
+        ...updated,
+        cooldownApplied: cooldownResult.cooldownApplied,
+        lockedUntil: cooldownResult.lockedUntil,
+        consecutiveRejectionsCount: cooldownResult.rejectionCount,
+      };
     }
   }
 
@@ -485,6 +814,10 @@ export class LabourBookingService {
     const booking = await labourBookingRepo.findById(id);
     if (!booking) {
       throw new ErrorResponse("Booking not found", statusCode.Not_Found);
+    }
+
+    if (!booking.labourId) {
+      throw new ErrorResponse("No labour worker assigned to this booking.", statusCode.Bad_Request);
     }
 
     if (!user.isPlatformAdmin) {
@@ -541,7 +874,8 @@ export class LabourBookingService {
     });
 
     // If client left a rating review, save it and update labour average rating
-    if (payload.rating !== undefined) {
+    if (payload.rating !== undefined && booking.labourId) {
+      const labourId = booking.labourId;
       const client = await prisma.user.findUnique({
         where: { id: clientId },
         select: { firstName: true, lastName: true },
@@ -553,7 +887,7 @@ export class LabourBookingService {
       await prisma.labourRating.create({
         data: {
           bookingId: id,
-          labourId: booking.labourId,
+          labourId,
           reviewerId: clientId,
           reviewerName,
           reviewerRole: "CLIENT",
@@ -567,23 +901,25 @@ export class LabourBookingService {
 
       // Recalculate labour average rating and increment completed bookings count
       const stats = await prisma.labourRating.aggregate({
-        where: { labourId: booking.labourId },
+        where: { labourId },
         _avg: { rating: true },
-        _count: { rating: true },
+        _count: { _all: true },
       });
 
       await prisma.labour.update({
-        where: { id: booking.labourId },
+        where: { id: labourId },
         data: {
-          averageRating: stats._avg.rating || 5.0,
-          totalReviewsCount: stats._count.rating || 0,
+          averageRating: stats._avg?.rating || 5.0,
+          totalReviewsCount: stats._count?._all || 0,
           completedBookingsCount: { increment: 1 },
         },
       });
     }
 
     // When work is completed, mark labour status as AVAILABLE
-    await this.syncLabourAvailability(booking.labourId, id);
+    if (booking.labourId) {
+      await this.syncLabourAvailability(booking.labourId, id);
+    }
 
     return updated;
   }
@@ -646,44 +982,102 @@ export class LabourBookingService {
     }
 
     // Worker disciplinary action: increment warning count & penalize rating
-    const labour = await prisma.labour.findUnique({ where: { id: booking.labourId } });
-    if (labour) {
-      const warningCount = labour.warningCount + 1;
-      const shouldBlacklist = warningCount >= MARKETPLACE_CONFIG.MAX_LABOUR_WARNINGS_BEFORE_BLACKLIST;
-      const newRating = Math.max(1.0, labour.averageRating - 0.50);
+    if (booking.labourId) {
+      const labour = await prisma.labour.findUnique({ where: { id: booking.labourId } });
+      if (labour) {
+        const warningCount = labour.warningCount + 1;
+        const shouldBlacklist = warningCount >= MARKETPLACE_CONFIG.MAX_LABOUR_WARNINGS_BEFORE_BLACKLIST;
+        const newRating = Math.max(1.0, labour.averageRating - 0.50);
 
-      await prisma.labour.update({
-        where: { id: booking.labourId },
+        await prisma.labour.update({
+          where: { id: booking.labourId },
+          data: {
+            warningCount,
+            averageRating: newRating,
+            ...(shouldBlacklist && {
+              isBlacklisted: true,
+              blacklistedAt: new Date(),
+              blacklistReason: "Accumulated disciplinary threshold: repeated work non-arrival / abandonment after 24 hours",
+            }),
+          },
+        });
+      }
+
+      // Automatically file dispute case for record & lawyer/governance tracking
+      await prisma.labourDispute.create({
         data: {
-          warningCount,
-          averageRating: newRating,
-          ...(shouldBlacklist && {
-            isBlacklisted: true,
-            blacklistedAt: new Date(),
-            blacklistReason: "Accumulated disciplinary threshold: repeated work non-arrival / abandonment after 24 hours",
-          }),
+          bookingId: id,
+          labourId: booking.labourId,
+          disputeType: "WORK_ABANDONMENT",
+          status: "OPEN",
+          initiator: "CLIENT",
+          reason: payload.reason || "Worker failed to arrive at user location after 24 hours.",
         },
       });
+
+      // Free previous labour availability
+      await this.syncLabourAvailability(booking.labourId, id);
     }
 
-    // Automatically file dispute case for record & lawyer/governance tracking
-    await prisma.labourDispute.create({
-      data: {
-        bookingId: id,
-        labourId: booking.labourId,
-        disputeType: "WORK_ABANDONMENT",
-        status: "OPEN",
-        initiator: "CLIENT",
-        reason: payload.reason || "Worker failed to arrive at user location after 24 hours.",
-      },
-    });
+    // Check Platform Setting: Auto vs Manual Assignment on Delay
+    const platformSetting = await labourBookingRepo.getPlatformSetting();
+    if (platformSetting.autoAssignLabour && booking.state && booking.city) {
+      const candidateLabours = await labourBookingRepo.findAvailableLaboursInRegion(
+        booking.state,
+        booking.city,
+        booking.category || "General",
+        booking.labourId || undefined
+      );
 
-    // Update booking status
-    return labourBookingRepo.update(id, {
+      if (candidateLabours.length > 0) {
+        const replacement = candidateLabours[Math.floor(Math.random() * candidateLabours.length)]!;
+        const currentAddl = (booking.additionalInformation as Record<string, any>) || {};
+        const reassignmentLog = {
+          fromLabourId: booking.labourId,
+          toLabourId: replacement.id,
+          reassignedAt: new Date().toISOString(),
+          reassignedBy: "AUTO_ASSIGN_SYSTEM",
+          reason: `Auto-reassigned due to arrival delay: ${payload.reason}`,
+        };
+        const reassignmentHistory = Array.isArray(currentAddl.reassignmentHistory)
+          ? [...currentAddl.reassignmentHistory, reassignmentLog]
+          : [reassignmentLog];
+
+        const updated = await labourBookingRepo.update(id, {
+          labourId: replacement.id,
+          status: "REQUESTED",
+          statusReason: `Auto-reassigned due to arrival delay: ${payload.reason}`,
+          delayReportedAt: new Date(),
+          reassignedFromBookingId: booking.id,
+          quoteAmount: null,
+          quoteDescription: null,
+          dealValue: null,
+          additionalInformation: {
+            ...currentAddl,
+            reassignmentHistory,
+          },
+        });
+
+        return {
+          ...updated,
+          reassignedMode: "AUTO",
+          reassignedLabour: replacement,
+        };
+      }
+    }
+
+    // If auto-assign is OFF or no immediate candidate found:
+    const updated = await labourBookingRepo.update(id, {
       status: "DELAY_REPORTED",
       statusReason: payload.reason,
       delayReportedAt: new Date(),
     });
+
+    return {
+      ...updated,
+      reassignedMode: "MANUAL",
+      reassignedLabour: null,
+    };
   }
 
   /**
@@ -735,7 +1129,9 @@ export class LabourBookingService {
       : [reassignmentLog];
 
     // Free the previous labour if no other active booking
-    await this.syncLabourAvailability(booking.labourId, id);
+    if (booking.labourId) {
+      await this.syncLabourAvailability(booking.labourId, id);
+    }
 
     const updated = await labourBookingRepo.update(id, {
       labourId: newLabour.id,
@@ -764,6 +1160,100 @@ export class LabourBookingService {
     }
 
     return updated;
+  }
+
+  /**
+   * Platform Admin manually assigns a labour to a booking in PENDING_ASSIGNMENT, DELAY_REPORTED, or REQUESTED status
+   */
+  async manualAssignLabour(
+    id: string,
+    payload: ManualAssignLabourInput,
+    adminUserId: string
+  ) {
+    const booking = await labourBookingRepo.findById(id);
+    if (!booking) {
+      throw new ErrorResponse("Booking not found", statusCode.Not_Found);
+    }
+
+    const allowedStatuses = ["PENDING_ASSIGNMENT", "DELAY_REPORTED", "REQUESTED", "REJECTED_BY_LABOUR"];
+    if (!allowedStatuses.includes(booking.status)) {
+      throw new ErrorResponse(
+        `Cannot manually assign labour for booking in status: ${booking.status}. Expected PENDING_ASSIGNMENT, DELAY_REPORTED, or REQUESTED.`,
+        statusCode.Bad_Request
+      );
+    }
+
+    const labour = await prisma.labour.findUnique({
+      where: { id: payload.labourId, isDeleted: false },
+      include: { kycDocument: true },
+    });
+    if (!labour) {
+      throw new ErrorResponse("Labour worker not found", statusCode.Not_Found);
+    }
+    if (labour.isBlacklisted) {
+      throw new ErrorResponse("Labour worker is suspended/blacklisted", statusCode.Forbidden);
+    }
+
+    const isKyc = labour.isKycVerified || labour.kycDocument?.status === "APPROVED";
+    if (!isKyc) {
+      throw new ErrorResponse("Labour must be KYC verified before assignment", statusCode.Bad_Request);
+    }
+
+    // Verify labour availability
+    await this.validateLabourAvailability(payload.labourId, id);
+
+    // Free the previous labour if any
+    if (booking.labourId && booking.labourId !== labour.id) {
+      await this.syncLabourAvailability(booking.labourId, id);
+    }
+
+    const currentAddl = (booking.additionalInformation as Record<string, any>) || {};
+    const manualLog = {
+      fromLabourId: booking.labourId || null,
+      toLabourId: labour.id,
+      assignedAt: new Date().toISOString(),
+      assignedBy: adminUserId,
+      notes: payload.notes || "Manually assigned by platform admin",
+    };
+    const assignmentHistory = Array.isArray(currentAddl.assignmentHistory)
+      ? [...currentAddl.assignmentHistory, manualLog]
+      : [manualLog];
+
+    const estimatedDays = booking.estimatedDays || 1;
+    const dailyRate = Number(labour.dailyRate || 0);
+    const totalBudget = dailyRate * estimatedDays;
+    const commissionAmount = Number(((totalBudget * 10.0) / 100).toFixed(2));
+
+    const updated = await labourBookingRepo.update(id, {
+      labourId: labour.id,
+      assignmentType: "MANUAL",
+      status: "REQUESTED",
+      statusReason: payload.notes || "Manually assigned by platform admin",
+      agreedDailyRate: labour.dailyRate,
+      totalBudget,
+      commissionAmount,
+      commissionStatus: "PENDING",
+      additionalInformation: {
+        ...currentAddl,
+        assignmentHistory,
+      },
+    });
+
+    return updated;
+  }
+
+  /**
+   * Get Platform Labour Settings (Auto-Assign toggle & thresholds)
+   */
+  async getPlatformSettings() {
+    return labourBookingRepo.getPlatformSetting();
+  }
+
+  /**
+   * Update Platform Labour Settings (Toggle auto-assign ON/OFF)
+   */
+  async updatePlatformSettings(data: PlatformLabourSettingInput, updatedById?: string) {
+    return labourBookingRepo.updatePlatformSetting({ ...data, updatedById });
   }
 
   /**

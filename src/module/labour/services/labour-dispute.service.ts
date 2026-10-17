@@ -147,7 +147,7 @@ export class LabourDisputeService {
           data: { clientRating: newRating },
         });
       }
-    } else if (payload.reportedRole === "LABOUR") {
+    } else if (payload.reportedRole === "LABOUR" && booking.labourId) {
       const labour = await prisma.labour.findUnique({ where: { id: booking.labourId } });
       if (labour) {
         const newRating = Math.max(1.0, labour.averageRating - MARKETPLACE_CONFIG.RATING_PENALTY_BYPASS_ATTEMPT);
@@ -259,24 +259,26 @@ export class LabourDisputeService {
     });
 
     // Governance: increment worker warnings and assess blacklisting
-    const labour = await prisma.labour.findUnique({ where: { id: booking.labourId } });
-    if (labour) {
-      const warningCount = labour.warningCount + 1;
-      const shouldBlacklist = warningCount >= MARKETPLACE_CONFIG.MAX_LABOUR_WARNINGS_BEFORE_BLACKLIST;
-      const newRating = Math.max(1.0, labour.averageRating - 0.50);
+    if (booking.labourId) {
+      const labour = await prisma.labour.findUnique({ where: { id: booking.labourId } });
+      if (labour) {
+        const warningCount = labour.warningCount + 1;
+        const shouldBlacklist = warningCount >= MARKETPLACE_CONFIG.MAX_LABOUR_WARNINGS_BEFORE_BLACKLIST;
+        const newRating = Math.max(1.0, labour.averageRating - 0.50);
 
-      await prisma.labour.update({
-        where: { id: booking.labourId },
-        data: {
-          warningCount,
-          averageRating: newRating,
-          ...(shouldBlacklist && {
-            isBlacklisted: true,
-            blacklistedAt: new Date(),
-            blacklistReason: "Exceeded disciplinary threshold: multiple warnings for work abandonment",
-          }),
-        },
-      });
+        await prisma.labour.update({
+          where: { id: booking.labourId },
+          data: {
+            warningCount,
+            averageRating: newRating,
+            ...(shouldBlacklist && {
+              isBlacklisted: true,
+              blacklistedAt: new Date(),
+              blacklistReason: "Exceeded disciplinary threshold: multiple warnings for work abandonment",
+            }),
+          },
+        });
+      }
     }
 
     return dispute;

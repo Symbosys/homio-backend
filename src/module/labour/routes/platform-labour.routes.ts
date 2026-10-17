@@ -2,11 +2,27 @@ import { Router } from "express";
 import { authenticate, authorize } from "../../../middlewares/auth.middleware.js";
 import { upload } from "../../../middlewares/upload.middleware.js";
 import * as platformLabourController from "../controllers/platform-labour.controller.js";
+import {
+  getPlatformLabourSettings,
+  updatePlatformLabourSettings,
+} from "../controllers/labour-booking.controller.js";
 
 const router = Router();
 
 // Protect all platform labour routes with authenticate + authorize("PLATFORM_ADMIN", "USER", "LABOUR")
 router.use(authenticate, authorize("PLATFORM_ADMIN", "USER", "LABOUR"));
+
+/**
+ * @route   GET /api/v1/platform/labours/settings
+ * @desc    Platform Admin: Get platform labour assignment settings (Auto vs Manual switch)
+ */
+router.get("/settings", authorize("PLATFORM_ADMIN"), getPlatformLabourSettings);
+
+/**
+ * @route   PATCH /api/v1/platform/labours/settings
+ * @desc    Platform Admin: Update platform labour assignment settings (Toggle Auto-Assign ON/OFF)
+ */
+router.patch("/settings", authorize("PLATFORM_ADMIN"), updatePlatformLabourSettings);
 
 /**
  * @route   POST /api/v1/platform/labours

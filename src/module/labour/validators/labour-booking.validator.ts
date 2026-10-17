@@ -2,6 +2,7 @@ import { z } from "zod";
 import { additionalInformationSchema, imageTypeSchema } from "./labour.validator.js";
 
 export const BOOKING_STATUS_ENUM = [
+  "PENDING_ASSIGNMENT",
   "REQUESTED",
   "CONFIRMED",
   "REJECTED_BY_LABOUR",
@@ -99,6 +100,43 @@ export const createMarketplaceBookingSchema = z.object({
       .optional()
       .nullable(),
     additionalInformation: additionalInformationSchema,
+  }),
+});
+
+/**
+ * 2B. CREATE SERVICE BOOKING SCHEMA (Client Homeowner Service Request)
+ * Strictly contains only the user-specified fields:
+ * workTitle, startDate, endDate, description, specialInstructions, taskChecklist, state, city, and category
+ */
+export const createServiceBookingSchema = z.object({
+  body: z.object({
+    workTitle: z.string().min(2, "Work title must be at least 2 characters").max(200),
+    category: z.string().min(2, "Service category is required"),
+    startDate: z.coerce.date(),
+    endDate: z.coerce.date(),
+    description: z.string().optional().nullable(),
+    specialInstructions: z.string().optional().nullable(),
+    taskChecklist: z
+      .union([
+        z.array(
+          z.object({
+            task: z.string().min(1, "Task description is required"),
+            done: z.boolean().default(false).optional(),
+          })
+        ),
+        z.array(z.string()),
+        z.any(),
+      ])
+      .optional()
+      .nullable(),
+    state: z.string().min(2, "State is required"),
+    city: z.string().min(2, "City is required"),
+    labourCount: z.coerce
+      .number()
+      .int("Labour count must be an integer")
+      .min(1, "At least 1 labour must be requested")
+      .max(5, "Maximum 5 labours can be requested")
+      .default(1),
   }),
 });
 
@@ -313,6 +351,7 @@ export const reassignLabourSchema = z.object({
 
 export type CreateLabourBookingInput = z.infer<typeof createLabourBookingSchema>["body"];
 export type CreateMarketplaceBookingInput = z.infer<typeof createMarketplaceBookingSchema>["body"];
+export type CreateServiceBookingInput = z.infer<typeof createServiceBookingSchema>["body"];
 export type UpdateLabourBookingInput = z.infer<typeof updateLabourBookingSchema>["body"];
 export type GetLabourBookingsQuery = z.infer<typeof getLabourBookingsQuerySchema>["query"];
 export type SubmitQuoteInput = z.infer<typeof submitQuoteSchema>["body"];
@@ -322,3 +361,50 @@ export type CompleteWorkInput = z.infer<typeof completeWorkSchema>["body"];
 export type ConfirmCompletionInput = z.infer<typeof confirmCompletionSchema>["body"];
 export type ReportDelayInput = z.infer<typeof reportDelaySchema>["body"];
 export type ReassignLabourInput = z.infer<typeof reassignLabourSchema>["body"];
+
+/**
+ * 14. CHECK AVAILABILITY QUERY SCHEMA
+ */
+export const checkAvailabilityQuerySchema = z.object({
+  query: z.object({
+    state: z.string().min(2, "State is required"),
+    city: z.string().min(2, "City is required"),
+    category: z.string().min(2, "Category is required"),
+    labourCount: z.coerce
+      .number()
+      .int("Labour count must be an integer")
+      .min(1, "At least 1 labour must be requested")
+      .max(5, "Maximum 5 labours can be requested")
+      .default(1)
+      .optional(),
+  }),
+});
+export type CheckAvailabilityQuery = z.infer<typeof checkAvailabilityQuerySchema>["query"];
+
+/**
+ * 15. MANUAL ASSIGN LABOUR SCHEMA (Platform Admin manually assigns labour)
+ */
+export const manualAssignLabourSchema = z.object({
+  params: z.object({
+    id: z.string().uuid("Invalid booking ID format"),
+  }),
+  body: z.object({
+    labourId: z.string().uuid("Invalid labour ID format"),
+    notes: z.string().optional().nullable(),
+  }),
+});
+export type ManualAssignLabourInput = z.infer<typeof manualAssignLabourSchema>["body"];
+
+/**
+ * 16. PLATFORM LABOUR SETTING SCHEMA (Toggle switch & thresholds)
+ */
+export const platformLabourSettingSchema = z.object({
+  body: z.object({
+    autoAssignLabour: z.boolean().optional(),
+    cooldownPeriodDays: z.coerce.number().int().positive().optional(),
+    consecutiveRejectionsThreshold: z.coerce.number().int().positive().optional(),
+    delayReportMinHours: z.coerce.number().int().positive().optional(),
+  }),
+});
+export type PlatformLabourSettingInput = z.infer<typeof platformLabourSettingSchema>["body"];
+

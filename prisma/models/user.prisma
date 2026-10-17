@@ -99,7 +99,9 @@ model User {
   isBlacklisted             Boolean                 @default(false) @map("is_blacklisted")
   blacklistedAt             DateTime?               @map("blacklisted_at")
   blacklistReason           String?                 @map("blacklist_reason")
-  clientMarketplaceBookings LabourBooking[]         @relation("ClientMarketplaceBookings")
+  clientMarketplaceBookings LabourBooking[]              @relation("ClientMarketplaceBookings")
+  labourCategoryCooldowns   UserLabourCategoryCooldown[] @relation("UserLabourCategoryCooldowns")
+  platformLabourSettingsUpdated PlatformLabourSetting[]  @relation("PlatformLabourSettingUpdatedBy")
 
   // AI Studio Relations (User-Centric Architecture)
   aiWallet                  AiWallet?               @relation("UserAiWallet")

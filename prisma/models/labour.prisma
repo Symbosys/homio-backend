@@ -241,15 +241,17 @@ model LabourBooking {
   clientId String? @map("client_id") @db.Uuid
   client   User?   @relation("ClientMarketplaceBookings", fields: [clientId], references: [id], onDelete: SetNull)
 
-  // 4. Assigned Worker
-  labourId String @map("labour_id") @db.Uuid
-  labour   Labour @relation("LabourBookings", fields: [labourId], references: [id], onDelete: Restrict)
+  // 4. Assigned Worker (Optional: null when awaiting manual assignment)
+  labourId String? @map("labour_id") @db.Uuid
+  labour   Labour? @relation("LabourBookings", fields: [labourId], references: [id], onDelete: Restrict)
 
-  bookingNumber   String   @map("booking_number") // e.g. "LB-2026-0001"
-  workTitle       String   @map("work_title")
-  workDescription String?  @map("work_description") @db.Text
-  startDate       DateTime @map("start_date") @db.Date
-  endDate         DateTime @map("end_date")   @db.Date
+  bookingNumber       String   @map("booking_number") // e.g. "LB-2026-0001"
+  workTitle           String   @map("work_title")
+  category            String?  @default("General") @map("category") // e.g. "Carpentry", "Plumbing", "Electrical", "Painting", "Civil"
+  workDescription     String?  @map("work_description") @db.Text
+  specialInstructions String?  @map("special_instructions") @db.Text
+  startDate           DateTime @map("start_date") @db.Date
+  endDate             DateTime @map("end_date")   @db.Date
 
   // 5. Service Location (Client Home Address & Explicit Locality)
   serviceAddress   String?  @map("service_address")
@@ -262,8 +264,9 @@ model LabourBooking {
   geofenceRadius   Int      @default(200) @map("geofence_radius")
   isStrictGeofence Boolean  @default(true) @map("is_strict_geofence")
 
-  // 6. Terms & Conditions Acceptance (Flowchart: Terms and Conditions Acceptance)
-  termsAccepted   Boolean   @default(false) @map("terms_accepted")
+  // 6. Assignment Metadata & Terms
+  assignmentType  String    @default("AUTO") @map("assignment_type") // AUTO | MANUAL
+  termsAccepted   Boolean   @default(false)  @map("terms_accepted")
   termsAcceptedAt DateTime? @map("terms_accepted_at")
 
   // 7. Agreed Financials & On-Site Deal Quotation
@@ -324,6 +327,7 @@ model LabourBooking {
   @@index([labourId])
   @@index([status])
   @@index([state, city])
+  @@index([category])
   @@map("labour_bookings")
 }
 
@@ -503,3 +507,49 @@ model LabourDispute {
   @@index([disputeType])
   @@map("labour_disputes")
 }
+
+// ==========================================
+// 9. PLATFORM LABOUR CONFIGURATION & SETTINGS
+// ==========================================
+
+model PlatformLabourSetting {
+  id                             String   @id @default(uuid()) @db.Uuid
+  autoAssignLabour               Boolean  @default(true) @map("auto_assign_labour")
+  cooldownPeriodDays             Int      @default(3) @map("cooldown_period_days")
+  consecutiveRejectionsThreshold Int      @default(3) @map("consecutive_rejections_threshold")
+  delayReportMinHours            Int      @default(24) @map("delay_report_min_hours")
+
+  updatedById String? @map("updated_by_id") @db.Uuid
+  updatedBy   User?   @relation("PlatformLabourSettingUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@map("platform_labour_settings")
+}
+
+// ==========================================
+// 10. USER LABOUR CATEGORY COOLDOWN & ANTI-ABUSE
+// ==========================================
+
+model UserLabourCategoryCooldown {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  user           User      @relation("UserLabourCategoryCooldowns", fields: [userId], references: [id], onDelete: Cascade)
+  category       String    @map("category") // Normalized trade name e.g. "Carpentry", "Plumbing"
+  rejectionCount Int       @default(0) @map("rejection_count")
+  isLocked       Boolean   @default(false) @map("is_locked")
+  lockedUntil    DateTime? @map("locked_until")
+  lastRejectedAt DateTime? @map("last_rejected_at")
+
+  // Audit history log: [{ bookingId, labourId, rejectedAt, reason }]
+  rejectionLogs Json? @map("rejection_logs")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@unique([userId, category])
+  @@index([userId, category, isLocked])
+  @@map("user_labour_category_cooldowns")
+}
+

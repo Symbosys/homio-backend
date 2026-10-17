@@ -16,16 +16,28 @@ export class LabourBookingRepo {
   }
 
   /**
-   * Generates next sequential booking number (e.g. LB-2026-0001 for Org Project, SB-2026-0001 for Marketplace Service Booking)
+   * Generates multiple sequential booking numbers (e.g. SB-2026-0001, SB-2026-0002...)
    */
-  async generateBookingNumber(prefix: string = "LB", projectId?: string | null): Promise<string> {
+  async generateBookingNumbers(prefix: string = "LB", countToGenerate: number = 1): Promise<string[]> {
     const currentYear = new Date().getFullYear();
     const count = await prisma.labourBooking.count({
       where: {
         bookingNumber: { startsWith: `${prefix}-${currentYear}` },
       },
     });
-    return `${prefix}-${currentYear}-${String(count + 1).padStart(4, "0")}`;
+    const results: string[] = [];
+    for (let i = 1; i <= countToGenerate; i++) {
+      results.push(`${prefix}-${currentYear}-${String(count + i).padStart(4, "0")}`);
+    }
+    return results;
+  }
+
+  /**
+   * Generates next sequential booking number (e.g. LB-2026-0001 for Org Project, SB-2026-0001 for Marketplace Service Booking)
+   */
+  async generateBookingNumber(prefix: string = "LB", projectId?: string | null): Promise<string> {
+    const numbers = await this.generateBookingNumbers(prefix, 1);
+    return numbers[0]!;
   }
 
   /**
@@ -540,6 +552,112 @@ export class LabourBookingRepo {
       data: {
         isDeleted: true,
         deletedAt: new Date(),
+      },
+    });
+  }
+
+  /**
+   * Find all verified, available, unallocated labours in a given state, city, and category
+   */
+  async findAvailableLaboursInRegion(state: string, city: string, category: string, excludeLabourId?: string) {
+    return prisma.labour.findMany({
+      where: {
+        isDeleted: false,
+        isBlacklisted: false,
+        ...(excludeLabourId ? { id: { not: excludeLabourId } } : {}),
+        state: { equals: state.trim(), mode: "insensitive" },
+        city: { equals: city.trim(), mode: "insensitive" },
+        trade: { equals: category.trim(), mode: "insensitive" },
+        status: "AVAILABLE",
+        isAvailable: true,
+        OR: [
+          { isKycVerified: true },
+          { kycDocument: { status: "APPROVED" } },
+        ],
+        bookings: {
+          none: {
+            isDeleted: false,
+            status: { in: ["ACCEPTED_BY_LABOUR", "WORK_STARTED", "IN_PROGRESS"] },
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Get or initialize platform labour settings singleton
+   */
+  async getPlatformSetting() {
+    let setting = await prisma.platformLabourSetting.findFirst();
+    if (!setting) {
+      setting = await prisma.platformLabourSetting.create({
+        data: {
+          autoAssignLabour: true,
+          cooldownPeriodDays: 3,
+          consecutiveRejectionsThreshold: 3,
+          delayReportMinHours: 24,
+        },
+      });
+    }
+    return setting;
+  }
+
+  /**
+   * Update platform labour settings
+   */
+  async updatePlatformSetting(data: {
+    autoAssignLabour?: boolean;
+    cooldownPeriodDays?: number;
+    consecutiveRejectionsThreshold?: number;
+    delayReportMinHours?: number;
+    updatedById?: string;
+  }) {
+    const current = await this.getPlatformSetting();
+    return prisma.platformLabourSetting.update({
+      where: { id: current.id },
+      data,
+    });
+  }
+
+  /**
+   * Get user category cooldown status
+   */
+  async getUserCategoryCooldown(userId: string, category: string) {
+    return prisma.userLabourCategoryCooldown.findUnique({
+      where: { userId_category: { userId, category: category.trim() } },
+    });
+  }
+
+  /**
+   * Upsert user category cooldown
+   */
+  async upsertUserCategoryCooldown(
+    userId: string,
+    category: string,
+    data: {
+      rejectionCount?: number;
+      isLocked?: boolean;
+      lockedUntil?: Date | null;
+      lastRejectedAt?: Date;
+      rejectionLogs?: any;
+    }
+  ) {
+    return prisma.userLabourCategoryCooldown.upsert({
+      where: { userId_category: { userId, category: category.trim() } },
+      update: {
+        ...data,
+        ...(data.rejectionLogs !== undefined && {
+          rejectionLogs: this.formatJsonValue(data.rejectionLogs),
+        }),
+      },
+      create: {
+        userId,
+        category: category.trim(),
+        rejectionCount: data.rejectionCount ?? 0,
+        isLocked: data.isLocked ?? false,
+        lockedUntil: data.lockedUntil ?? null,
+        lastRejectedAt: data.lastRejectedAt ?? new Date(),
+        rejectionLogs: this.formatJsonValue(data.rejectionLogs ?? []),
       },
     });
   }

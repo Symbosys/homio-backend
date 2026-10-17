@@ -5,6 +5,10 @@ import { labourBookingService } from "../services/labour-booking.service.js";
 import {
   createLabourBookingSchema,
   createMarketplaceBookingSchema,
+  createServiceBookingSchema,
+  checkAvailabilityQuerySchema,
+  manualAssignLabourSchema,
+  platformLabourSettingSchema,
   updateLabourBookingSchema,
   updateBookingStatusSchema,
   rejectBookingSchema,
@@ -48,6 +52,38 @@ export const createMarketplaceBooking = asyncHandler(async (req, res) => {
   const parsed = createMarketplaceBookingSchema.parse({ body: req.body });
   const result = await labourBookingService.createMarketplaceBooking(parsed.body, clientId);
   return SuccessResponse(res, "Marketplace service booking requested successfully", result, statusCode.Created);
+});
+
+/**
+ * @route   POST /api/v1/labour/bookings/service-request
+ * @desc    Client requests on-demand service booking (fills only workTitle, startDate, endDate, description, specialInstructions, taskChecklist, state, city, category)
+ * @access  Private (Authenticated Client/Homeowner)
+ */
+export const createServiceBooking = asyncHandler(async (req, res) => {
+  const clientId = req.user?.id;
+  if (!clientId) {
+    throw new ErrorResponse("Authentication required to request service booking", statusCode.Unauthorized);
+  }
+
+  const parsed = createServiceBookingSchema.parse({ body: req.body });
+  const result = await labourBookingService.createServiceBooking(parsed.body, clientId);
+  const message =
+    result.assignedMode === "AUTO"
+      ? `${result.count} service booking(s) created and labour worker(s) assigned automatically`
+      : `${result.count} service booking(s) requested successfully. Awaiting platform manual worker assignment.`;
+
+  return SuccessResponse(res, message, result, statusCode.Created);
+});
+
+/**
+ * @route   GET /api/v1/labour/bookings/check-availability
+ * @desc    Pre-check availability & cooldown for client before requesting service booking
+ * @access  Private (Authenticated Client/Homeowner)
+ */
+export const checkLabourAvailability = asyncHandler(async (req, res) => {
+  const parsed = checkAvailabilityQuerySchema.parse({ query: req.query });
+  const result = await labourBookingService.checkAvailability(parsed.query, req.user?.id);
+  return SuccessResponse(res, "Availability checked successfully", result, statusCode.OK);
 });
 
 /**
@@ -343,3 +379,40 @@ export const deleteLabourBooking = asyncHandler(async (req, res) => {
   await labourBookingService.deleteBooking(parsed.params.id, organizationId);
   return SuccessResponse(res, "Labour booking deleted successfully", null, statusCode.OK);
 });
+
+/**
+ * @route   POST /api/v1/labour/bookings/:id/manual-assign
+ * @desc    Platform Admin manually assigns labour worker to pending/delayed service booking
+ * @access  Private (Platform Admin)
+ */
+export const manualAssignLabourBooking = asyncHandler(async (req, res) => {
+  const parsed = manualAssignLabourSchema.parse({ params: req.params, body: req.body });
+  const result = await labourBookingService.manualAssignLabour(
+    parsed.params.id,
+    parsed.body,
+    req.user!.id
+  );
+  return SuccessResponse(res, "Labour worker successfully assigned to service booking", result, statusCode.OK);
+});
+
+/**
+ * @route   GET /api/v1/platform/labours/settings
+ * @desc    Fetch platform labour assignment settings (Auto-Assign toggle & thresholds)
+ * @access  Private (Platform Admin)
+ */
+export const getPlatformLabourSettings = asyncHandler(async (req, res) => {
+  const result = await labourBookingService.getPlatformSettings();
+  return SuccessResponse(res, "Platform labour settings retrieved successfully", result, statusCode.OK);
+});
+
+/**
+ * @route   PATCH /api/v1/platform/labours/settings
+ * @desc    Update platform labour assignment settings (Toggle auto-assign ON/OFF)
+ * @access  Private (Platform Admin)
+ */
+export const updatePlatformLabourSettings = asyncHandler(async (req, res) => {
+  const parsed = platformLabourSettingSchema.parse({ body: req.body });
+  const result = await labourBookingService.updatePlatformSettings(parsed.body, req.user?.id);
+  return SuccessResponse(res, "Platform labour settings updated successfully", result, statusCode.OK);
+});
+
